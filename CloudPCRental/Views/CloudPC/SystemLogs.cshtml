@@ -1,0 +1,130 @@
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "บันทึกระบบ";
+}
+
+<!-- Header (Wireframe Page 29) -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="text-muted small">ตรวจสอบประวัติกิจกรรมการทำงานและการตรวจจับด้านความปลอดภัยของเครื่องและแอดมินทั้งหมด</div>
+        <h3 class="fw-bold text-dark mb-0">บันทึกระบบ</h3>
+    </div>
+    <div class="text-muted small cursor-pointer refresh-badge d-flex align-items-center" onclick="refreshPageData(this)" title="คลิกเพื่อรีเฟรชข้อมูลล่าสุด">
+        <span>อัปเดตข้อมูลล่าสุด: เรียลไทม์</span>
+        <i class="bi bi-arrow-clockwise text-primary ms-1 fs-6"></i>
+    </div>
+</div>
+
+<!-- Advanced Filter Card (Wireframe Page 29) -->
+<div class="card-cloudpc bg-white p-4 mb-4">
+    <h6 class="fw-bold text-dark mb-3">ตัวกรองขั้นสูง</h6>
+    <div class="row g-3">
+        <div class="col-md-3">
+            <label class="form-label small text-secondary">เลือกวันที่</label>
+            <input type="date" class="form-control form-control-sm" value="2024-01-25" />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small text-secondary">ค้นหาผู้ดำเนินการ/ผู้ใช้</label>
+            <input type="text" class="form-control form-control-sm" placeholder="ระบุชื่อบัญชีหรืออีเมล..." />
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small text-secondary">ประเภทเหตุการณ์</label>
+            <select class="form-select form-select-sm">
+                <option selected>ประเภททั้งหมด</option>
+                <option>Security</option>
+                <option>Booking</option>
+                <option>Hardware</option>
+                <option>Login</option>
+                <option>Payment</option>
+                <option>System</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small text-secondary">ระดับความรุนแรง</label>
+            <select class="form-select form-select-sm">
+                <option selected>ระดับความรุนแรงทั้งหมด</option>
+                <option>ข้อมูลทั่วไป</option>
+                <option>สำคัญ</option>
+                <option>วิกฤต</option>
+            </select>
+        </div>
+    </div>
+    <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
+        <button type="button" class="btn btn-light btn-sm px-3 rounded-2">ล้างตัวกรอง</button>
+        <button type="button" class="btn btn-primary btn-sm px-3 rounded-2 fw-semibold">ค้นหาข้อมูลบันทึก</button>
+    </div>
+</div>
+
+<!-- Logs Table Card (Wireframe Page 29) -->
+<div class="card-cloudpc bg-white p-4">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light text-muted">
+                <tr>
+                    <th class="ps-3">เวลาบันทึก</th>
+                    <th>ผู้ดำเนินการ</th>
+                    <th>หมวดหมู่</th>
+                    <th>รายละเอียดบันทึกความปลอดภัย / ระบบ</th>
+                    <th>ระดับ</th>
+                    <th class="text-end pe-3">IP Address</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="ps-3 text-muted">15:45:20</td>
+                    <td class="fw-semibold text-dark">Somchai (Admin)</td>
+                    <td><span class="badge bg-light text-secondary border">Security</span></td>
+                    <td>ปรับปรุงนโยบายรหัสผ่านของพนักงาน</td>
+                    <td><span class="badge bg-warning-subtle text-warning border border-warning-subtle">สำคัญ</span></td>
+                    <td class="text-end pe-3 font-monospace text-muted">192.168.1.50</td>
+                </tr>
+                <tr>
+                    <td class="ps-3 text-muted">15:30:11</td>
+                    <td class="fw-semibold text-dark">somchai.j@cloudpc.com</td>
+                    <td><span class="badge bg-light text-secondary border">Booking</span></td>
+                    <td>สร้างการจองล่วงหน้า 5 ชม. เครื่อง PC-001</td>
+                    <td><span class="badge bg-info-subtle text-info border border-info-subtle">ข้อมูลทั่วไป</span></td>
+                    <td class="text-end pe-3 font-monospace text-muted">171.96.22.104</td>
+                </tr>
+                <tr>
+                    <td class="ps-3 text-muted">15:22:45</td>
+                    <td class="fw-semibold text-dark">System Monitor</td>
+                    <td><span class="badge bg-light text-secondary border">Hardware</span></td>
+                    <td>เครื่อง PC-004 เกิดความร้อนสะสมเกิน 85°C</td>
+                    <td><span class="badge bg-danger-subtle text-danger border border-danger-subtle">วิกฤต</span></td>
+                    <td class="text-end pe-3 font-monospace text-muted">10.0.0.4</td>
+                </tr>
+                <tr>
+                    <td class="ps-3 text-muted">15:15:00</td>
+                    <td class="fw-semibold text-dark">somying.r@cloudpc.com</td>
+                    <td><span class="badge bg-light text-secondary border">Login</span></td>
+                    <td>ผู้ดูแลระบบ Somying เข้าสู่ระบบสำเร็จ</td>
+                    <td><span class="badge bg-info-subtle text-info border border-info-subtle">ข้อมูลทั่วไป</span></td>
+                    <td class="text-end pe-3 font-monospace text-muted">192.168.1.101</td>
+                </tr>
+                <tr>
+                    <td class="ps-3 text-muted">14:55:32</td>
+                    <td class="fw-semibold text-dark">napa.s@cloudpc.com</td>
+                    <td><span class="badge bg-light text-secondary border">Payment</span></td>
+                    <td>ยืนยันสลิปยอดชำระเงินจองเลขที่ #B-99812</td>
+                    <td><span class="badge bg-warning-subtle text-warning border border-warning-subtle">สำคัญ</span></td>
+                    <td class="text-end pe-3 font-monospace text-muted">115.87.210.45</td>
+                </tr>
+                <tr>
+                    <td class="ps-3 text-muted">14:40:18</td>
+                    <td class="fw-semibold text-dark">Database AutoBackup</td>
+                    <td><span class="badge bg-light text-secondary border">System</span></td>
+                    <td>สำรองข้อมูลฐานข้อมูลประจำวันเสร็จสมบูรณ์</td>
+                    <td><span class="badge bg-info-subtle text-info border border-info-subtle">ข้อมูลทั่วไป</span></td>
+                    <td class="text-end pe-3 font-monospace text-muted">127.0.0.1</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top small text-muted">
+        <span>แสดงรายการบันทึกระบบล่าสุดทั้งหมด</span>
+        <span class="text-success"><i class="bi bi-activity me-1"></i> ระบบทำงานปกติ 100%</span>
+    </div>
+</div>
+

@@ -1,0 +1,388 @@
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --primary-blue: #2563eb;
+  --primary-dark-blue: #1d4ed8;
+  --bg-light: #f8fafc;
+  --border-color: #e2e8f0;
+}
+
+html {
+  font-size: 14px;
+  position: relative;
+  min-height: 100%;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 15px;
+  }
+}
+
+body {
+  font-family: 'Prompt', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-light);
+  color: #1e293b;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom Navbar */
+.navbar-brand-logo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a !important;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap !important;
+}
+.nav-link-item {
+  color: #475569 !important;
+  font-weight: 500;
+  padding: 0.45rem 0.75rem !important;
+  font-size: 0.92rem;
+  transition: all 0.2s ease;
+  white-space: nowrap !important;
+  border-radius: 6px;
+}
+.nav-link-item:hover {
+  color: #2563eb !important;
+  background-color: #f1f5f9;
+}
+.nav-link-item.active {
+  color: #2563eb !important;
+  font-weight: 600;
+  background-color: #eff6ff;
+}
+
+.navbar-balance-pill {
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  white-space: nowrap !important;
+}
+.navbar-balance-pill:hover {
+  border-color: #93c5fd !important;
+  background-color: #f0f9ff !important;
+  transform: translateY(-1px);
+}
+.navbar-clock-pill {
+  white-space: nowrap !important;
+  user-select: none;
+}
+
+/* Status Badges */
+.badge-status-available {
+  background-color: #dcfce7;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  font-weight: 500;
+  font-size: 0.75rem;
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+}
+.badge-status-rented {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+  font-weight: 500;
+  font-size: 0.75rem;
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+}
+.badge-status-maintenance {
+  background-color: #fef3c7;
+  color: #d97706;
+  border: 1px solid #fde68a;
+  font-weight: 500;
+  font-size: 0.75rem;
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+}
+.badge-refund-pending {
+  background-color: #fef3c7 !important;
+  color: #92400e !important;
+  border: 1px solid #f59e0b !important;
+  font-weight: 600 !important;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+}
+.badge-refund-approved {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+  border: 1px solid #86efac !important;
+  font-weight: 600 !important;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+}
+.badge-refund-rejected {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+  border: 1px solid #fca5a5 !important;
+  font-weight: 600 !important;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+}
+
+/* Cards & Components */
+.card-cloudpc {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  transition: all 0.2s ease-in-out;
+}
+.card-cloudpc:hover {
+  box-shadow: 0 6px 14px rgba(0,0,0,0.05);
+}
+
+/* Sidebar for Dashboards (Admin / Customer) */
+.layout-with-sidebar {
+  display: flex;
+  min-height: calc(100vh - 58px);
+}
+.sidebar-panel {
+  width: 250px;
+  background-color: #ffffff;
+  border-right: 1px solid var(--border-color);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+.sidebar-panel .heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.sidebar-panel .nav-item-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.85rem;
+  color: #475569;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  margin-bottom: 0.25rem;
+}
+.sidebar-panel .nav-item-link:hover {
+  background-color: #f1f5f9;
+  color: #1e293b;
+}
+.sidebar-panel .nav-item-link.active {
+  background-color: #eff6ff;
+  color: #2563eb;
+  font-weight: 600;
+}
+.sidebar-panel .user-profile-bottom {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.main-content-panel {
+  flex-grow: 1;
+  padding: 1.5rem 2rem;
+  background-color: var(--bg-light);
+  overflow-x: auto;
+}
+
+/* Real-Time Monitor Nodes */
+.monitor-node {
+  border-radius: 8px;
+  padding: 0.5rem;
+  text-align: center;
+  font-size: 0.8rem;
+  border: 1px solid var(--border-color);
+  background-color: #ffffff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.monitor-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+.monitor-node.available {
+  border-color: #86efac;
+  background-color: #f0fdf4;
+  color: #166534;
+}
+.monitor-node.rented {
+  border-color: #fca5a5;
+  background-color: #fef2f2;
+  color: #991b1b;
+}
+.monitor-node.pending {
+  border-color: #fcd34d;
+  background-color: #fffbeb;
+  color: #92400e;
+}
+.monitor-node.maintenance {
+  border-color: #cbd5e1;
+  background-color: #f1f5f9;
+  color: #334155;
+}
+.monitor-node.closed {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+  color: #64748b;
+}
+
+/* Refresh button animation & styles */
+.cursor-pointer {
+  cursor: pointer;
+}
+.spin-refresh {
+  animation: spinClockwise 0.6s linear infinite !important;
+  display: inline-block;
+}
+@keyframes spinClockwise {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.refresh-badge {
+  transition: all 0.2s ease;
+  user-select: none;
+  cursor: pointer;
+}
+.refresh-badge:hover {
+  color: #2563eb !important;
+}
+.refresh-badge:hover .bi-arrow-clockwise {
+  transform: rotate(60deg);
+  transition: transform 0.25s ease;
+}
+
+/* ========================================================
+   Bootstrap 5.3 Utility Support & High-Contrast Badges
+   ======================================================== */
+.bg-primary-subtle { background-color: #e0f2fe !important; }
+.border-primary-subtle { border-color: #bae6fd !important; }
+.text-primary-emphasis { color: #0369a1 !important; }
+
+.bg-success-subtle { background-color: #dcfce7 !important; }
+.border-success-subtle { border-color: #bbf7d0 !important; }
+.text-success-emphasis { color: #15803d !important; }
+
+.bg-warning-subtle { background-color: #fef3c7 !important; }
+.border-warning-subtle { border-color: #fde68a !important; }
+.text-warning-emphasis { color: #92400e !important; }
+
+.bg-danger-subtle { background-color: #fee2e2 !important; }
+.border-danger-subtle { border-color: #fecaca !important; }
+.text-danger-emphasis { color: #b91c1c !important; }
+
+.bg-info-subtle { background-color: #e0f2fe !important; }
+.border-info-subtle { border-color: #bae6fd !important; }
+.text-info-emphasis { color: #0284c7 !important; }
+
+.bg-secondary-subtle { background-color: #f1f5f9 !important; }
+.border-secondary-subtle { border-color: #cbd5e1 !important; }
+.text-secondary-emphasis { color: #475569 !important; }
+
+/* Ensure badges with text classes never become invisible white text */
+.badge.text-dark { color: #1e293b !important; }
+.badge.text-primary { color: #0284c7 !important; }
+.badge.text-warning-emphasis { color: #92400e !important; }
+.badge.text-warning { color: #b45309 !important; }
+.badge.text-success { color: #15803d !important; }
+.badge.text-danger { color: #b91c1c !important; }
+.badge.text-info { color: #0369a1 !important; }
+.badge.text-secondary { color: #475569 !important; }
+
+/* ========================================================
+   Tier Membership Badges (Crisp, High-Contrast & Beautiful)
+   ======================================================== */
+.badge-tier-bronze {
+  background: linear-gradient(135deg, #ffedd5 0%, #fff7ed 100%) !important;
+  color: #9a3412 !important;
+  border: 1px solid #fdba74 !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  padding: 0.3rem 0.7rem !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 1px 3px rgba(194, 65, 12, 0.15) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+.badge-tier-silver {
+  background: linear-gradient(135deg, #f1f5f9 0%, #f8fafc 100%) !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  padding: 0.3rem 0.7rem !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 1px 3px rgba(100, 116, 139, 0.15) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+.badge-tier-platinum {
+  background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%) !important;
+  color: #0369a1 !important;
+  border: 1px solid #7dd3fc !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  padding: 0.3rem 0.7rem !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 1px 3px rgba(14, 165, 233, 0.15) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  transition: all 0.2s ease !important;
+}
+.badge-tier-platinum:hover {
+  background: linear-gradient(135deg, #bae6fd 0%, #e0f2fe 100%) !important;
+  color: #0284c7 !important;
+  box-shadow: 0 2px 5px rgba(14, 165, 233, 0.25) !important;
+  transform: translateY(-1px);
+}
+
+.badge-tier-gold {
+  background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%) !important;
+  color: #92400e !important;
+  border: 1px solid #fde68a !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  padding: 0.3rem 0.7rem !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+.badge-tier-diamond {
+  background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%) !important;
+  color: #6d28d9 !important;
+  border: 1px solid #c4b5fd !important;
+  font-weight: 700 !important;
+  font-size: 0.78rem !important;
+  padding: 0.3rem 0.7rem !important;
+  border-radius: 9999px !important;
+  box-shadow: 0 1px 3px rgba(139, 92, 246, 0.15) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+

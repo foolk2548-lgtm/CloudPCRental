@@ -1,0 +1,402 @@
+@model CloudPCRental.Models.Machine
+@{
+    ViewData["Title"] = "เลือกช่องทางบริการชำระเงิน - CloudPC";
+    decimal totalAmount = ViewBag.TotalAmount ?? 30.00m;
+    int hours = ViewBag.Hours ?? 2;
+}
+
+<!-- Stepper (Wireframe Page 5) -->
+<div class="d-flex justify-content-center align-items-center mb-4 small fw-semibold text-muted gap-2">
+    <span>รายละเอียดจอง</span>
+    <span>&gt;</span>
+    <span class="text-primary fw-bold">เลือกวิธีชำระเงิน</span>
+    <span>&gt;</span>
+    <span>เสร็จสมบูรณ์</span>
+</div>
+
+<div class="row justify-content-center pb-5">
+    <div class="col-lg-8">
+        <!-- Summary Box with Price Breakdown & Promotion -->
+        <div class="card-cloudpc p-3 mb-4 bg-primary-subtle border-primary-subtle">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2 pb-2 border-bottom border-primary-subtle">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="p-2 bg-primary text-white rounded-3">
+                        <i class="bi bi-display fs-4"></i>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold mb-0 text-dark">@Model?.MachineName</h6>
+                        <div class="text-muted small" style="font-size: 0.8rem;">
+                            GPU: @Model?.GPU &bull; วันจอง: @(ViewBag.BookingDate ?? CloudPCRental.Models.MockDataStore.GetTodayThaiDate()) | เวลาเริ่ม: @(ViewBag.TimeRange ?? "09:00 - 11:00") (รวม @hours ชั่วโมง)
+                        </div>
+                    </div>
+                </div>
+                <div class="text-end">
+                    <span class="text-muted small d-block" style="font-size: 0.72rem;">ยอดชำระสุทธิ</span>
+                    <span class="fw-bold text-primary fs-4">@totalAmount.ToString("N2") ฿</span>
+                </div>
+            </div>
+
+            <!-- Price & Promotion Breakdown -->
+            <div class="bg-white rounded-3 p-3 border small">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">ราคาปกติ (@Model?.PricePerHour ฿ x @hours ชม.):</span>
+                    <span class="fw-semibold text-dark">@(((decimal)(ViewBag.OriginalPrice ?? (Model?.PricePerHour * hours ?? 0))).ToString("N2")) ฿</span>
+                </div>
+
+                @if ((ViewBag.Discount ?? 0) > 0)
+                {
+                    <div class="d-flex justify-content-between align-items-center text-success mb-1">
+                        <span class="d-flex align-items-center gap-1">
+                            <i class="bi bi-tag-fill"></i>
+                            <strong>@ViewBag.PromotionName</strong>
+                        </span>
+                        <span class="fw-bold">-@(((decimal)ViewBag.Discount).ToString("N2")) ฿</span>
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex justify-content-between text-muted mb-1">
+                        <span>โปรโมชั่น:</span>
+                        <span>@(ViewBag.PromotionName ?? "ไม่มีส่วนลด")</span>
+                    </div>
+                }
+
+                <div class="d-flex justify-content-between pt-2 border-top fw-bold text-dark fs-6">
+                    <span>ยอดชำระหลังหักส่วนลด:</span>
+                    <span class="text-primary">@totalAmount.ToString("N2") ฿</span>
+                </div>
+            </div>
+
+            <!-- Promo Code Input Form -->
+            <form asp-action="Payment" method="get" class="mt-3">
+                <input type="hidden" name="machineId" value="@Model?.MachineId" />
+                <input type="hidden" name="hours" value="@hours" />
+                <input type="hidden" name="bookingDate" value="@ViewBag.BookingDate" />
+                <input type="hidden" name="timeRange" value="@ViewBag.TimeRange" />
+                <input type="hidden" name="slots" value="@ViewBag.Slots" />
+
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-ticket-perforated text-primary"></i></span>
+                    <input type="text" name="promoCode" class="form-control" placeholder="กรอกโค้ดส่วนลดพิเศษ (เช่น SPU69)" value="@ViewBag.PromoCode" />
+                    <button type="submit" class="btn btn-primary px-3 fw-semibold">ใช้โค้ด</button>
+                </div>
+                <div class="text-muted small mt-1 d-flex gap-2 align-items-center" style="font-size: 0.72rem;">
+                    <span><i class="bi bi-info-circle me-1"></i> ทดสอบโค้ด:</span>
+                    <a href="@Url.Action("Payment", new { machineId = Model?.MachineId, hours, bookingDate = ViewBag.BookingDate, timeRange = ViewBag.TimeRange, promoCode = "SPU69", slots = ViewBag.Slots })" class="badge bg-white text-primary border text-decoration-none">SPU69 (ลด 20%)</a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Payment Method Card -->
+        <div class="card-cloudpc p-4 p-md-5 bg-white">
+            <h5 class="fw-bold text-dark mb-3">เลือกช่องทางบริการชำระเงิน</h5>
+
+            @{
+                decimal userBal = ViewBag.UserBalance ?? 540.00m;
+                bool hasEnoughWallet = userBal >= totalAmount;
+            }
+
+            <form asp-action="ProcessPayment" method="post" id="paymentForm" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="machineId" value="@Model?.MachineId" />
+                <input type="hidden" name="hours" value="@hours" />
+                <input type="hidden" name="bookingDate" value="@ViewBag.BookingDate" />
+                <input type="hidden" name="timeRange" value="@ViewBag.TimeRange" />
+                <input type="hidden" name="slots" value="@ViewBag.Slots" />
+                <input type="hidden" name="totalAmount" value="@totalAmount" />
+
+                <!-- Payment Options Radio Selection -->
+                <div class="mb-4">
+                    <!-- Option 1: CloudPC Wallet (ตัดเครดิตทันที) -->
+                    <div class="border rounded-3 p-3 mb-2 cursor-pointer paymethod-card border-primary bg-primary-subtle bg-opacity-10" 
+                         id="opt-wallet" onclick="selectPaymentMethod('pm-wallet')">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <input class="form-check-input me-3" type="radio" name="payMethod" id="pm-wallet" value="pm-wallet" checked />
+                                <div>
+                                    <label class="form-check-label fw-bold small text-dark d-flex align-items-center gap-2 cursor-pointer" for="pm-wallet">
+                                        <i class="bi bi-wallet2 text-primary fs-5"></i>
+                                        กระเป๋าเงิน CloudPC Wallet
+                                        <span class="badge bg-success text-white small" style="font-size: 0.68rem;">ตัดเครดิตทันที</span>
+                                    </label>
+                                    <div class="text-muted small mt-1" style="font-size: 0.75rem;">
+                                        ยอดเงินคงเหลือปัจจุบัน: <strong class="text-dark">@userBal.ToString("N2") THB</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                @if (hasEnoughWallet)
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                        <i class="bi bi-check-circle-fill me-1"></i> ยอดเงินเพียงพอ
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                        <i class="bi bi-exclamation-circle-fill me-1"></i> เครดิตไม่พอ
+                                    </span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Option 2: บัตรเครดิต/เดบิต -->
+                    <div class="border rounded-3 p-3 mb-2 cursor-pointer paymethod-card" 
+                         id="opt-card" onclick="selectPaymentMethod('pm-card')">
+                        <div class="d-flex align-items-center">
+                            <input class="form-check-input me-3" type="radio" name="payMethod" id="pm-card" value="pm-card" />
+                            <div>
+                                <label class="form-check-label fw-semibold small text-dark d-flex align-items-center gap-2 cursor-pointer" for="pm-card">
+                                    <i class="bi bi-credit-card-2-front text-secondary"></i>
+                                    บัตรเครดิต/เดบิต (Credit / Debit Card)
+                                </label>
+                                <div class="text-muted small" style="font-size: 0.75rem;">
+                                    Visa, Mastercard, JCB (ตัดผ่านเกตเวย์)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Option 3: โอนเงิน / พร้อมเพย์ QR Code & แนบสลิป -->
+                    <div class="border rounded-3 p-3 cursor-pointer paymethod-card" 
+                         id="opt-qr" onclick="selectPaymentMethod('pm-qr')">
+                        <div class="d-flex align-items-center">
+                            <input class="form-check-input me-3" type="radio" name="payMethod" id="pm-qr" value="pm-qr" />
+                            <div>
+                                <label class="form-check-label fw-semibold small text-dark d-flex align-items-center gap-2 cursor-pointer" for="pm-qr">
+                                    <i class="bi bi-qr-code text-primary"></i>
+                                    พร้อมเพย์ QR Code & แนบสลิปโอนเงิน (PromptPay)
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small" style="font-size: 0.68rem;">ฝ่ายบัญชีตรวจสอบ</span>
+                                </label>
+                                <div class="text-muted small" style="font-size: 0.75rem;">
+                                    สแกนจ่ายได้ทุกแอปธนาคาร &bull; แนบสลิปเพื่อเปิดสิทธิ์เครื่อง
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detail Panel 1: Wallet Breakdown -->
+                <div id="panel-wallet" class="p-3 bg-light rounded-3 mb-4 border">
+                    @if (!hasEnoughWallet)
+                    {
+                        <div class="alert alert-danger border-0 shadow-sm rounded-3 p-3 mb-3 d-flex align-items-center gap-2" style="background-color: #fef2f2; border-left: 4px solid #ef4444 !important;">
+                            <i class="bi bi-exclamation-triangle-fill text-danger fs-5"></i>
+                            <div class="small text-secondary flex-grow-1">
+                                ยอดเงินในกระเป๋าของคุณมี <strong>@userBal.ToString("N2") THB</strong> (ขาดอีก @((totalAmount - userBal).ToString("N2")) THB)
+                                <br />หากไม่ต้องการเติมเงิน สามารถเลือก <strong>"พร้อมเพย์ QR Code & แนบสลิป"</strong> ด้านบนได้ครับ
+                            </div>
+                            <a asp-action="Wallet" class="btn btn-danger btn-sm px-3 rounded-pill fw-semibold text-nowrap">
+                                <i class="bi bi-plus-circle me-1"></i> เติมเงิน
+                            </a>
+                        </div>
+                    }
+
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <span class="small text-secondary">ยอดเงินคงเหลือในกระเป๋าเงิน:</span>
+                        <span class="fw-bold text-dark">@userBal.ToString("N2") THB</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                        <span class="small text-secondary">หักชำระค่าบริการเช่าเครื่อง:</span>
+                        <span class="fw-bold text-danger">-@totalAmount.ToString("N2") THB</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="small fw-bold text-dark">ยอดคงเหลือสุทธิหลังหักชำระ:</span>
+                        <span class="fw-bold @(hasEnoughWallet ? "text-success" : "text-danger") fs-6">
+                            @((userBal - totalAmount).ToString("N2")) THB
+                        </span>
+                    </div>
+
+                    @if (hasEnoughWallet)
+                    {
+                        <div class="mt-3 p-2 bg-success-subtle border border-success-subtle text-success rounded-2 small d-flex align-items-center gap-2">
+                            <i class="bi bi-lightning-charge-fill fs-5"></i>
+                            <div>
+                                <strong>ระบบเรียลไทม์:</strong> เมื่อกดชำระเงิน ยอดเงินจะถูกหักทันที และเครื่องจะเปิดให้ใช้งานในเสี้ยววินาที
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Detail Panel 2: Credit Card Inputs -->
+                <div id="panel-card" style="display: none;" class="mb-4">
+                    <h6 class="fw-bold text-secondary small mb-3">กรอกข้อมูลรายละเอียดบัตร</h6>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">ชื่อบนบัตร</label>
+                        <input type="text" name="cardName" id="cardNameInput" class="form-control" placeholder="ชื่อ-นามสกุลภาษาอังกฤษตามหน้าบัตร เช่น SOMCHAI K" value="" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label small text-secondary">หมายเลขบัตรเครดิต</label>
+                        <div class="input-group">
+                            <input type="text" name="cardNumber" id="cardNumberInput" class="form-control font-monospace" placeholder="4112 3456 7890 9876" maxlength="19" value="" oninput="formatPaymentCardNumber(this)" />
+                            <button type="button" class="btn btn-outline-secondary border-start-0 bg-white" onclick="clearPaymentCardNumber()" title="ล้างหมายเลขบัตร">
+                                <i class="bi bi-x-circle text-muted"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label small text-secondary">วันหมดอายุ (MM/YY)</label>
+                            <input type="text" name="cardExpiry" id="cardExpiryInput" class="form-control font-monospace" placeholder="MM/YY" maxlength="5" value="" oninput="formatPaymentCardExpiry(this)" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-secondary">รหัสปลอดภัย CVV</label>
+                            <input type="password" name="cardCvv" id="cardCvvInput" class="form-control font-monospace" placeholder="•••" maxlength="4" value="" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detail Panel 3: QR Code & แนบสลิปหลักฐานโอนเงิน -->
+                <div id="panel-qr" style="display: none;" class="mb-4">
+                    <div class="text-center p-3 bg-light rounded-3 border mb-3">
+                        <div class="p-2 bg-white d-inline-block rounded-3 border mb-2 shadow-xs">
+                            <img src="https://promptpay.io/0612013936/@(totalAmount.ToString("0.00")).png" 
+                                 onerror="this.onerror=null; this.src='https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=PROMPTPAY-0612013936-@(totalAmount.ToString("0.00"))';"
+                                 alt="PromptPay QR Code 0612013936" 
+                                 class="img-fluid rounded" 
+                                 style="width: 170px; height: 170px; object-fit: contain;" />
+                        </div>
+                        <div class="fw-bold text-dark fs-5">สแกนชำระเงิน @totalAmount.ToString("N2") บาท</div>
+                        <div class="text-muted small">พร้อมเพย์ หมายเลข: <strong class="text-dark fs-6 font-monospace text-primary">061-201-3936</strong></div>
+                        <div class="badge bg-primary-subtle text-primary border border-primary-subtle mt-2 p-2">
+                            <i class="bi bi-shield-check me-1"></i> เมื่อโอนเงินแล้ว กรุณาแนบสลิปหลักฐานด้านล่าง เพื่อให้ฝ่ายบัญชีตรวจสอบและเปิดสิทธิ์เครื่อง
+                        </div>
+                    </div>
+
+                    <!-- ส่วนแนบหลักฐานสลิปโอนเงิน (Slip Upload) -->
+                    <div class="p-3 bg-white rounded-3 border shadow-xs">
+                        <label class="form-label small fw-bold text-dark d-flex align-items-center justify-content-between mb-2">
+                            <span><i class="bi bi-receipt-cutoff text-primary me-1"></i> แนบหลักฐานสลิปโอนเงิน <span class="text-danger">*</span></span>
+                            <span class="badge bg-light text-muted border fw-normal" style="font-size: 0.7rem;">รองรับไฟล์ JPG, PNG</span>
+                        </label>
+
+                        <input type="file" name="slipFile" id="slipFileInput" class="form-control" accept="image/*" onchange="previewUploadedSlip(this)" />
+                        <input type="hidden" name="sampleSlipUrl" id="sampleSlipUrlInput" value="" />
+
+                        <!-- พรีวิวเฉพาะเมื่อลูกค้าเลือกไฟล์รูปจริง -->
+                        <div id="slipPreviewContainer" class="mt-2 p-2 border rounded-2 bg-light text-center d-none">
+                            <img id="slipPreviewImg" src="" alt="Slip Preview" class="img-fluid rounded shadow-xs mb-1" style="max-height: 180px;" />
+                            <div class="small text-success fw-semibold" id="slipPreviewText"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="d-grid" id="submitBtnArea">
+                    @if (hasEnoughWallet)
+                    {
+                        <button type="submit" id="btnSubmitPayment" class="btn btn-primary btn-lg py-2 rounded-3 fw-semibold shadow-sm">
+                            <i class="bi bi-wallet2 me-1"></i> ยืนยันชำระด้วยกระเป๋าเงิน @totalAmount.ToString("N2") บาท (หักเครดิตทันที)
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="submit" id="btnSubmitPayment" class="btn btn-secondary btn-lg py-2 rounded-3 fw-semibold shadow-sm" disabled title="ยอดเงินไม่เพียงพอ กรุณาเติมเงินก่อนทำรายการ">
+                            <i class="bi bi-slash-circle me-1"></i> ยอดเงินในกระเป๋าไม่เพียงพอ (เลือกพร้อมเพย์ QR Code แนบสลิปด้านบนได้)
+                        </button>
+                    }
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function previewUploadedSlip(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var previewBox = document.getElementById('slipPreviewContainer');
+                var previewImg = document.getElementById('slipPreviewImg');
+                var previewText = document.getElementById('slipPreviewText');
+                previewImg.src = e.target.result;
+                previewText.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> แนบสลิปเรียบร้อย: ' + input.files[0].name;
+                previewBox.classList.remove('d-none');
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function clearPaymentCardNumber() {
+        var el = document.getElementById('cardNumberInput');
+        if (el) {
+            el.value = '';
+            el.focus();
+        }
+    }
+
+    function formatPaymentCardNumber(input) {
+        var v = input.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+        var matches = v.match(/\d{4,16}/g);
+        var match = matches && matches[0] || '';
+        var parts = [];
+        for (var i = 0, len = match.length; i < len; i += 4) {
+            parts.push(match.substring(i, i + 4));
+        }
+        if (parts.length) {
+            input.value = parts.join(' ');
+        } else {
+            input.value = v;
+        }
+    }
+
+    function formatPaymentCardExpiry(input) {
+        var v = input.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+        if (v.length >= 2) {
+            input.value = v.substring(0, 2) + '/' + v.substring(2, 4);
+        } else {
+            input.value = v;
+        }
+    }
+
+    function selectPaymentMethod(method) {
+        document.querySelectorAll('.paymethod-card').forEach(function(el) {
+            el.classList.remove('border-primary', 'bg-primary-subtle', 'bg-opacity-10');
+        });
+
+        var selectedRadio = document.getElementById(method);
+        if (selectedRadio) selectedRadio.checked = true;
+
+        var optCard = document.getElementById(method === 'pm-wallet' ? 'opt-wallet' : (method === 'pm-card' ? 'opt-card' : 'opt-qr'));
+        if (optCard) {
+            optCard.classList.add('border-primary', 'bg-primary-subtle', 'bg-opacity-10');
+        }
+
+        var panelWallet = document.getElementById('panel-wallet');
+        var panelCard = document.getElementById('panel-card');
+        var panelQr = document.getElementById('panel-qr');
+        var btnSubmit = document.getElementById('btnSubmitPayment');
+
+        panelWallet.style.display = (method === 'pm-wallet') ? 'block' : 'none';
+        panelCard.style.display = (method === 'pm-card') ? 'block' : 'none';
+        panelQr.style.display = (method === 'pm-qr') ? 'block' : 'none';
+
+        var hasEnough = @(hasEnoughWallet ? "true" : "false");
+        var total = '@totalAmount.ToString("N2")';
+
+        if (method === 'pm-wallet') {
+            if (hasEnough) {
+                btnSubmit.disabled = false;
+                btnSubmit.className = "btn btn-primary btn-lg py-2 rounded-3 fw-semibold shadow-sm";
+                btnSubmit.innerHTML = '<i class="bi bi-wallet2 me-1"></i> ยืนยันชำระด้วยกระเป๋าเงิน ' + total + ' บาท (หักเครดิตทันที)';
+            } else {
+                btnSubmit.disabled = true;
+                btnSubmit.className = "btn btn-secondary btn-lg py-2 rounded-3 fw-semibold shadow-sm";
+                btnSubmit.innerHTML = '<i class="bi bi-slash-circle me-1"></i> ยอดเงินในกระเป๋าไม่เพียงพอกับค่าใช้จ่าย';
+            }
+        } else if (method === 'pm-card') {
+            btnSubmit.disabled = false;
+            btnSubmit.className = "btn btn-primary btn-lg py-2 rounded-3 fw-semibold shadow-sm";
+            btnSubmit.innerHTML = '<i class="bi bi-credit-card-2-front me-1"></i> ยืนยันชำระผ่านบัตร ' + total + ' บาท';
+        } else if (method === 'pm-qr') {
+            btnSubmit.disabled = false;
+            btnSubmit.className = "btn btn-success btn-lg py-2 rounded-3 fw-semibold shadow-sm";
+            btnSubmit.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-1"></i> แจ้งโอนเงินและส่งสลิปให้ฝ่ายบัญชีตรวจสอบ ' + total + ' บาท';
+        }
+    }
+</script>
+

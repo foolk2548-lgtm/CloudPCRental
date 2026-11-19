@@ -1,0 +1,398 @@
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
+@{
+    var username = HttpContextAccessor.HttpContext?.Session.GetString("Username");
+    var userId = HttpContextAccessor.HttpContext?.Session.GetInt32("UserId");
+    var role = HttpContextAccessor.HttpContext?.Session.GetString("Role");
+    var isLoggedIn = userId.HasValue && !string.IsNullOrEmpty(username);
+    var isStaffOrAdmin = role == "Admin" || role == "Manager" || role == "Staff" || role == "Accountant";
+
+    // หน้าที่เกี่ยวกับเข้าสู่ระบบหรือสมัครสมาชิก ไม่ต้องแสดงปุ่มแชทลอย
+    var currentCtrl = ViewContext.RouteData.Values["controller"]?.ToString();
+    var currentAct = ViewContext.RouteData.Values["action"]?.ToString();
+    var isAuthPage = currentCtrl == "Account" && (currentAct == "Login" || currentAct == "Register" || currentAct == "ForgotPassword");
+}
+
+@if (!isStaffOrAdmin && !isAuthPage)
+{
+    <!-- Floating Live Chat Trigger Button -->
+    <div id="liveChatTriggerContainer" class="position-fixed" style="bottom: 25px; right: 25px; z-index: 1050;">
+        <button type="button" 
+                id="btnOpenLiveChat" 
+                class="btn btn-primary rounded-pill shadow-lg d-flex align-items-center gap-2 px-3 py-2 border-2 border-white"
+                style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);"
+                onclick="toggleLiveChatWidget()"
+                title="คลิกเพื่อเปิดกล่องแชทคุยกับแอดมิน">
+            <span class="position-relative">
+                <i class="bi bi-chat-dots-fill fs-5"></i>
+                <span class="position-absolute top-0 start-100 translate-middle p-1 bg-success border border-white rounded-circle" style="width: 10px; height: 10px;"></span>
+            </span>
+            <span class="fw-semibold small d-none d-sm-inline">แชทกับแอดมิน</span>
+            @if (isLoggedIn)
+            {
+                <span class="badge bg-danger rounded-pill d-none" id="liveChatUnreadBadge" style="font-size: 0.65rem;"></span>
+            }
+        </button>
+    </div>
+
+    <!-- Floating Live Chat Window Modal / Drawer -->
+    <div id="liveChatWidgetBox" 
+         class="position-fixed shadow-lg rounded-4 overflow-hidden d-none border bg-white" 
+         style="bottom: 85px; right: 25px; width: 380px; max-width: calc(100vw - 40px); height: 530px; z-index: 1055; transition: all 0.3s ease; border-color: #cbd5e1 !important; display: flex; flex-direction: column;">
+        
+        <!-- Header -->
+        <div class="p-3 text-white d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);">
+            <div class="d-flex align-items-center gap-2">
+                <div class="position-relative">
+                    <div class="rounded-circle bg-white text-primary d-flex align-items-center justify-content-center shadow-xs" style="width: 36px; height: 36px;">
+                        <i class="bi bi-headset fs-5"></i>
+                    </div>
+                    <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" style="width: 10px; height: 10px;"></span>
+                </div>
+                <div>
+                    <div class="fw-bold small mb-0" id="chatWidgetTitle">ฝ่ายบริการลูกค้า &amp; ซัพพอร์ต</div>
+                    <div class="text-white-50" style="font-size: 0.7rem;">
+                        <i class="bi bi-circle-fill text-success" style="font-size: 0.5rem;"></i> เจ้าหน้าที่พร้อมตอบ 24 ชม.
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+                <button type="button" class="btn btn-sm btn-link text-white p-1 text-decoration-none" onclick="loadChatHistory()" title="รีเฟรชข้อความ">
+                    <i class="bi bi-arrow-clockwise fs-6"></i>
+                </button>
+                <button type="button" class="btn btn-sm btn-link text-white p-1 text-decoration-none" onclick="toggleLiveChatWidget()" title="ย่อหน้าต่าง">
+                    <i class="bi bi-x-lg fs-6"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Ticket Info Subheader -->
+        <div class="px-3 py-2 bg-light border-bottom d-flex justify-content-between align-items-center small" style="font-size: 0.75rem;">
+            <span class="text-muted text-truncate" style="max-width: 230px;" id="chatWidgetSubheader">
+                <i class="bi bi-ticket-perforated text-primary me-1"></i> <strong id="chatTicketCode">#TK-1001</strong>: <span id="chatTicketSubject">สอบถามการใช้งาน</span>
+            </span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill" id="chatTicketStatusBadge">ตอบแล้ว</span>
+        </div>
+
+        <!-- Quick Issue Chips (Shown only when logged in) -->
+        <div class="px-2 py-2 bg-white border-bottom d-flex gap-1 overflow-auto text-nowrap" id="chatChipsArea" style="font-size: 0.72rem;">
+            <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2 py-1" onclick="sendQuickChip('เครื่องมีอาการกระตุกและภาพดีเลย์ ขอความช่วยเหลือครับ')">
+                🚨 เครื่องกระตุก
+            </button>
+            <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2 py-1" onclick="sendQuickChip('สอบถามสถานะการคืนเงินเข้ากระเป๋าเงินครับ')">
+                💰 สอบถามเงินคืน
+            </button>
+            <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-2 py-1" onclick="sendQuickChip('ต้องการต่อเวลาใช้งานเครื่องนี้เพิ่มครับ')">
+                ⏱️ ขอต่อเวลา
+            </button>
+        </div>
+
+        <!-- Messages Stream -->
+        <div class="p-3 flex-grow-1 overflow-auto" id="chatMessagesList" style="background-color: #f8fafc;">
+            <!-- Rendered by JavaScript -->
+            <div class="text-center text-muted small my-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                <span class="ms-1">กำลังโหลดการสนทนา...</span>
+            </div>
+        </div>
+
+        <!-- Input Bar (Shown only when logged in) -->
+        <div class="p-2 bg-white border-top" id="chatInputArea">
+            <form id="chatMessageForm" onsubmit="handleSendChatMessage(event)" class="d-flex gap-2 align-items-center">
+                <input type="text" 
+                       id="chatMessageInput" 
+                       class="form-control form-control-sm rounded-pill px-3 py-2" 
+                       placeholder="พิมพ์ข้อความคุยกับแอดมิน..." 
+                       autocomplete="off" 
+                       required />
+                <button type="submit" class="btn btn-primary btn-sm rounded-circle p-0 d-flex align-items-center justify-content-center shadow-xs flex-shrink-0" style="width: 36px; height: 36px;">
+                    <i class="bi bi-send-fill text-white" style="font-size: 0.85rem;"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Live Chat JavaScript Client -->
+    <script>
+        let currentChatTicketId = null;
+        let isChatOpen = false;
+
+        function markChatAsRead() {
+            const badge = document.getElementById('liveChatUnreadBadge');
+            if (badge) {
+                badge.style.display = 'none';
+                badge.classList.add('d-none');
+            }
+            localStorage.setItem('cloudpc_chat_viewed', 'true');
+            localStorage.setItem('cloudpc_chat_last_read', Date.now().toString());
+        }
+
+        function toggleLiveChatWidget(openWithTopic = null, bookingId = null, machineName = null) {
+            const box = document.getElementById('liveChatWidgetBox');
+            if (!box) return;
+
+            if (openWithTopic) {
+                isChatOpen = true;
+                box.classList.remove('d-none');
+                box.style.display = 'flex';
+                markChatAsRead();
+                loadChatHistory(null, openWithTopic, bookingId, machineName);
+                return;
+            }
+
+            isChatOpen = !isChatOpen;
+            if (isChatOpen) {
+                box.classList.remove('d-none');
+                box.style.display = 'flex';
+                markChatAsRead();
+                loadChatHistory();
+            } else {
+                box.classList.add('d-none');
+                box.style.display = 'none';
+            }
+        }
+
+        async function loadChatHistory(specificTicketId = null, autoTopic = null, bookingId = null, machineName = null) {
+            const listEl = document.getElementById('chatMessagesList');
+            if (!listEl) return;
+
+            try {
+                const url = specificTicketId 
+                    ? `/CloudPC/GetChatData?ticketId=${specificTicketId}` 
+                    : '/CloudPC/GetChatData';
+                const res = await fetch(url);
+                const data = await res.json();
+
+                // ตรวจสอบกรณีผู้ใช้ยังไม่ได้เข้าสู่ระบบ
+                if (data.requireLogin) {
+                    listEl.innerHTML = `
+                        <div class="p-4 text-center d-flex flex-column align-items-center justify-content-center h-100 my-auto">
+                            <div class="rounded-circle bg-primary-subtle text-primary p-3 mb-3 shadow-xs">
+                                <i class="bi bi-shield-lock-fill fs-2"></i>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-2">กรุณาเข้าสู่ระบบก่อนใช้งานแชท</h6>
+                            <p class="text-muted small mb-4" style="line-height: 1.6; font-size: 0.82rem;">
+                                เพื่อความปลอดภัยและการติดตามสถานะเครื่องอย่างต่อเนื่อง กรุณาลงชื่อเข้าใช้ระบบก่อนเริ่มสนทนากับแอดมินครับ
+                            </p>
+                            <a href="/Account/Login" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm w-100 mb-2">
+                                <i class="bi bi-box-arrow-in-right me-1"></i> เข้าสู่ระบบ
+                            </a>
+                            <a href="/Account/Register" class="btn btn-outline-secondary rounded-pill px-4 btn-sm w-100">
+                                ยังไม่มีบัญชี? สมัครสมาชิกใหม่
+                            </a>
+                        </div>
+                    `;
+                    const subheader = document.getElementById('chatWidgetSubheader');
+                    if (subheader) subheader.innerHTML = '<span class="text-muted"><i class="bi bi-lock me-1"></i>ยังไม่ได้เข้าสู่ระบบ</span>';
+                    const badge = document.getElementById('chatTicketStatusBadge');
+                    if (badge) badge.style.display = 'none';
+                    const inputArea = document.getElementById('chatInputArea');
+                    if (inputArea) inputArea.style.display = 'none';
+                    const chipsArea = document.getElementById('chatChipsArea');
+                    if (chipsArea) chipsArea.style.display = 'none';
+                    return;
+                }
+
+                // กรณีล็อกอินแล้ว แสดงแผงพิมพ์และชิปตามปกติ
+                const inputArea = document.getElementById('chatInputArea');
+                if (inputArea) inputArea.style.display = 'block';
+                const chipsArea = document.getElementById('chatChipsArea');
+                if (chipsArea) chipsArea.style.display = 'flex';
+                const badge = document.getElementById('chatTicketStatusBadge');
+                if (badge) badge.style.display = 'inline-block';
+
+                if (!data.success || !data.activeTicket) {
+                    currentChatTicketId = null;
+                    listEl.innerHTML = `
+                        <div class="text-center text-muted small my-4">
+                            <i class="bi bi-chat-heart text-primary fs-2 d-block mb-2"></i>
+                            <strong>ยินดีต้อนรับสู่ฝ่ายบริการลูกค้า CloudPC!</strong><br />
+                            พิมพ์ข้อความด้านล่างเพื่อเริ่มปรึกษาหรือแจ้งปัญหากับทีมงานได้ตลอด 24 ชั่วโมงครับ
+                        </div>
+                    `;
+                    document.getElementById('chatTicketCode').innerText = '#TK-ใหม่';
+                    document.getElementById('chatTicketSubject').innerText = autoTopic || 'ติดต่อเจ้าหน้าที่';
+                    return;
+                }
+
+                const ticket = data.activeTicket;
+                currentChatTicketId = ticket.ticketId;
+                document.getElementById('chatTicketCode').innerText = ticket.ticketCode;
+                document.getElementById('chatTicketSubject').innerText = ticket.subject;
+
+                if (badge) {
+                    if (ticket.status === 'WaitingAdmin') {
+                        badge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill';
+                        badge.innerText = 'รอแอดมินตอบ';
+                    } else if (ticket.status === 'Answered') {
+                        badge.className = 'badge bg-success-subtle text-success border border-success-subtle rounded-pill';
+                        badge.innerText = 'ตอบแล้ว';
+                    } else {
+                        badge.className = 'badge bg-secondary-subtle text-secondary border rounded-pill';
+                        badge.innerText = 'แก้ไขแล้ว';
+                    }
+                }
+
+                // Render Messages
+                let html = '';
+                ticket.messages.forEach(m => {
+                    if (m.isAdmin) {
+                        const cleanSender = (m.senderName || 'เจ้าหน้าที่').replace(' (แอดมิน)', '').trim();
+                        let roleBadgeStyle = 'background-color: #2563eb; color: #fff;';
+                        let roleIcon = 'bi-shield-lock';
+                        let roleTitle = 'ผู้ดูแลระบบ';
+
+                        const lowerName = cleanSender.toLowerCase();
+                        if (m.senderRole === 'Manager' || lowerName.includes('manager') || cleanSender.includes('ผู้จัดการ')) {
+                            roleBadgeStyle = 'background-color: #d97706; color: #fff;';
+                            roleIcon = 'bi-shield-shaded';
+                            roleTitle = 'ผู้จัดการ';
+                        } else if (m.senderRole === 'Staff' || lowerName.includes('staff') || cleanSender.includes('พนักงาน')) {
+                            roleBadgeStyle = 'background-color: #0284c7; color: #fff;';
+                            roleIcon = 'bi-headset';
+                            roleTitle = 'พนักงานบริการ';
+                        } else if (m.senderRole === 'Accountant' || lowerName.includes('account') || cleanSender.includes('บัญชี')) {
+                            roleBadgeStyle = 'background-color: #16a34a; color: #fff;';
+                            roleIcon = 'bi-receipt';
+                            roleTitle = 'ฝ่ายบัญชี';
+                        }
+
+                        html += `
+                            <div class="d-flex justify-content-start mb-2">
+                                <div class="rounded-circle text-white d-flex align-items-center justify-content-center me-2 flex-shrink-0 shadow-xs" style="width: 28px; height: 28px; font-size: 0.7rem; ${roleBadgeStyle}">
+                                    <i class="bi ${roleIcon}"></i>
+                                </div>
+                                <div style="max-width: 80%;">
+                                    <div class="d-flex align-items-center gap-1 mb-1">
+                                        <span class="badge py-0 px-2 shadow-xs" style="${roleBadgeStyle}; font-size: 0.65rem;">
+                                            <i class="bi ${roleIcon} me-1"></i>${roleTitle}: ${cleanSender}
+                                        </span>
+                                        <small class="text-muted" style="font-size: 0.65rem;">${m.sentAt}</small>
+                                    </div>
+                                    <div class="p-2 px-3 rounded-4 bg-white border shadow-xs text-dark" style="border-bottom-left-radius: 4px !important; font-size: 0.85rem; line-height: 1.4;">
+                                        ${m.content}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="d-flex justify-content-end mb-2">
+                                <div style="max-width: 80%;">
+                                    <div class="text-end mb-1">
+                                        <small class="text-muted" style="font-size: 0.65rem;">${m.sentAt}</small>
+                                    </div>
+                                    <div class="p-2 px-3 rounded-4 shadow-xs text-white" style="background-color: #2563eb; border-bottom-right-radius: 4px !important; font-size: 0.85rem; line-height: 1.4;">
+                                        ${m.content}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
+                listEl.innerHTML = html;
+                listEl.scrollTop = listEl.scrollHeight;
+
+            } catch (err) {
+                console.error("Chat load error:", err);
+            }
+        }
+
+        async function handleSendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('chatMessageInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            input.value = '';
+
+            // Optimistic append
+            const listEl = document.getElementById('chatMessagesList');
+            const tempBubble = document.createElement('div');
+            tempBubble.className = 'd-flex justify-content-end mb-2';
+            tempBubble.innerHTML = `
+                <div style="max-width: 80%;">
+                    <div class="text-end mb-1">
+                        <small class="text-muted" style="font-size: 0.65rem;">เมื่อสักครู่</small>
+                    </div>
+                    <div class="p-2 px-3 rounded-4 shadow-xs text-white" style="background-color: #2563eb; border-bottom-right-radius: 4px !important; font-size: 0.85rem; line-height: 1.4;">
+                        ${message}
+                    </div>
+                </div>
+            `;
+            listEl.appendChild(tempBubble);
+            listEl.scrollTop = listEl.scrollHeight;
+
+            try {
+                const response = await fetch('/CloudPC/SendChatMessage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ticketId: currentChatTicketId,
+                        message: message,
+                        subject: 'แจ้งปัญหาการใช้งาน Cloud PC',
+                        category: 'ปัญหาการเชื่อมต่อ & รีโมท'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.requireLogin) {
+                    alert("กรุณาเข้าสู่ระบบก่อนส่งข้อความ");
+                    window.location.href = "/Account/Login";
+                    return;
+                }
+                if (result.success) {
+                    currentChatTicketId = result.ticketId;
+                }
+            } catch (err) {
+                console.error("Send message error:", err);
+            }
+        }
+
+        function sendQuickChip(text) {
+            const input = document.getElementById('chatMessageInput');
+            if (input) {
+                input.value = text;
+                const form = document.getElementById('chatMessageForm');
+                if (form) {
+                    form.dispatchEvent(new Event('submit', { cancelable: true }));
+                }
+            }
+        }
+
+        // โหลดข้อมูลเริ่มต้นเมื่อเปิดหน้าเว็บ
+        window.addEventListener('DOMContentLoaded', () => {
+            const hasViewed = localStorage.getItem('cloudpc_chat_viewed') === 'true';
+            const badge = document.getElementById('liveChatUnreadBadge');
+
+            fetch('/CloudPC/GetChatData')
+                .then(r => r.json())
+                .then(data => {
+                    if (data && data.success && data.activeTicket) {
+                        currentChatTicketId = data.activeTicket.ticketId;
+
+                        // ถ้าลูกค้ายังไม่เคยเปิดดูเลย และมีข้อความจากเจ้าหน้าที่ ให้แสดงแจ้งเตือน 1
+                        if (!hasViewed && badge) {
+                            const adminMsgs = (data.activeTicket.messages || []).filter(m => m.isAdmin);
+                            if (adminMsgs.length > 0) {
+                                badge.innerText = "1";
+                                badge.classList.remove('d-none');
+                                badge.style.display = 'inline-block';
+                            } else {
+                                badge.classList.add('d-none');
+                                badge.style.display = 'none';
+                            }
+                        } else if (badge) {
+                            // ถ้าเคยเปิดอ่านหรือดูแล้ว ไม่ต้องแสดงตัวเลขแจ้งเตือน
+                            badge.classList.add('d-none');
+                            badge.style.display = 'none';
+                        }
+                    } else if (badge) {
+                        badge.classList.add('d-none');
+                        badge.style.display = 'none';
+                    }
+                })
+                .catch(() => {});
+        });
+    </script>
+}

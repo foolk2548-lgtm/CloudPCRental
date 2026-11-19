@@ -1,0 +1,665 @@
+@model CloudPCRental.Models.UserMembershipInfo
+@{
+    Layout = "_CustomerLayout";
+    ViewData["Title"] = "ข้อมูลสมาชิกและคะแนนสะสม";
+    var currentPts = Model.CurrentPoints;
+    var nextTierPts = Model.NextTierPoints;
+    var ptsNeeded = Model.PointsNeededForNextTier;
+    var progressPercent = Model.ProgressPercentage;
+}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <div class="text-muted small">แดชบอร์ดลูกค้า</div>
+        <h3 class="fw-bold text-dark mb-0">ข้อมูลสมาชิกและระดับสิทธิประโยชน์ (Membership & Ranks)</h3>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a asp-action="Machines" class="btn btn-primary rounded-3 btn-sm shadow-xs fw-semibold px-3">
+            <i class="bi bi-display me-1"></i> เช่าเครื่องเพื่อสะสมคะแนน
+        </a>
+    </div>
+</div>
+
+<!-- 1. Membership Card & Summary Row -->
+<div class="row g-3 mb-4">
+    <!-- Virtual Card -->
+    <div class="col-lg-4">
+        <div class="p-4 rounded-4 text-white shadow-sm h-100 d-flex flex-column justify-content-between position-relative overflow-hidden" 
+             style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0369a1 100%); border: 1px solid #38bdf8; min-height: 220px;">
+            <!-- Background Decors -->
+            <div class="position-absolute end-0 top-0 translate-middle-y me-n3 mt-n3 opacity-10">
+                <i class="bi bi-gem" style="font-size: 10rem;"></i>
+            </div>
+            
+            <div class="d-flex justify-content-between align-items-center position-relative">
+                <span class="fw-bold fs-6"><i class="bi bi-cpu-fill text-info me-1"></i> CloudPC Member</span>
+                <span class="badge bg-info text-dark px-3 py-1 rounded-pill fw-bold shadow-xs" style="font-size: 0.75rem; letter-spacing: 1px;">
+                    <i class="bi bi-award-fill me-1"></i> @Model.TierName.ToUpper()
+                </span>
+            </div>
+
+            <div class="my-3 position-relative">
+                <div class="text-info-emphasis small fw-medium" style="font-size: 0.72rem;">ชื่อผู้ถือบัตรสมาชิก</div>
+                <div class="fw-bold fs-5 text-white">@Model.FullName</div>
+                <div class="text-secondary small font-monospace" style="font-size: 0.7rem;">MEMBER ID: #@Model.MemberNumber</div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-end position-relative pt-2 border-top border-secondary border-opacity-25">
+                <div>
+                    <div class="text-info-emphasis small" style="font-size: 0.72rem;">คะแนนสะสมปัจจุบัน</div>
+                    <div class="fw-bold fs-4 text-warning">@Model.CurrentPoints.ToString("N0") <small class="fs-6 text-white-50">PTS</small></div>
+                </div>
+                <div class="text-end text-light small opacity-75" style="font-size: 0.72rem;">
+                    หมดอายุ: @Model.ExpiringDate
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3 Stat Boxes -->
+    <div class="col-lg-8">
+        <div class="row g-3 h-100">
+            <div class="col-md-4">
+                <div class="card-cloudpc p-3 bg-white h-100 d-flex flex-column justify-content-between border rounded-3 shadow-xs">
+                    <span class="text-muted small">คะแนนที่พร้อมใช้งาน <i class="bi bi-wallet2 text-primary float-end fs-5"></i></span>
+                    <h3 class="fw-bold text-dark my-2">@Model.CurrentPoints.ToString("N0") <small class="fs-6 text-muted">คะแนน</small></h3>
+                    <div class="text-success small fw-medium" style="font-size: 0.72rem;">
+                        <i class="bi bi-check-circle-fill me-1"></i>เทียบเท่าส่วนลด @Model.DiscountValue.ToString("N2") THB
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-cloudpc p-3 bg-white h-100 d-flex flex-column justify-content-between border rounded-3 shadow-xs">
+                    <span class="text-muted small">คะแนนกำลังจะหมดอายุ <i class="bi bi-hourglass-split text-danger float-end fs-5"></i></span>
+                    <h3 class="fw-bold text-danger my-2">@Model.ExpiringPoints.ToString("N0") <small class="fs-6 text-muted">คะแนน</small></h3>
+                    <div class="text-muted small" style="font-size: 0.72rem;">หมดอายุ ณ วันที่ @Model.ExpiringDate</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card-cloudpc p-3 bg-white h-100 d-flex flex-column justify-content-between border rounded-3 shadow-xs" style="border-left: 4px solid #0284c7 !important;">
+                    <span class="text-muted small">ระดับสมาชิกปัจจุบัน <i class="bi bi-patch-check-fill text-info float-end fs-5"></i></span>
+                    <div class="d-flex align-items-baseline gap-2 my-1">
+                        <h3 class="fw-bold text-primary mb-0">@Model.TierName</h3>
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle small">ระดับ @Model.TierLevel</span>
+                    </div>
+                    <div class="text-muted small" style="font-size: 0.72rem;">รับคะแนนสะสมพิเศษ <strong>@(Model.Multiplier.ToString("0.0")) เท่า</strong> ทุกการเช่า</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 2. Level Progress & Next Rank Roadmap (แถบความคืบหน้าระดับสมาชิก) -->
+<div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <div>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1 mb-1">
+                <i class="bi bi-speedometer me-1"></i> เส้นทางการเลื่อนระดับ (Rank Progression)
+            </span>
+            <h5 class="fw-bold text-dark mb-0">คุณอยู่ในระดับ <span class="text-primary">@Model.TierName</span> @(Model.TierLevel < 5 ? $"(ขาดอีก {ptsNeeded:N0} คะแนน เพื่อสู่ระดับ {Model.NextTierName})" : "(คุณอยู่ในระดับสูงสุดแล้ว)")</h5>
+        </div>
+        <div class="text-end">
+            <span class="small text-muted">ความคืบหน้าสู่ @Model.NextTierName:</span>
+            <strong class="text-dark font-monospace fs-6 ms-1">@progressPercent%</strong>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress mb-3 shadow-xs" style="height: 14px; border-radius: 10px; background-color: #f1f5f9;">
+        <div class="progress-bar progress-bar-striped progress-bar-animated bg-gradient" 
+             role="progressbar" 
+             style="width: @(progressPercent)%; background: linear-gradient(90deg, #0284c7 0%, #8b5cf6 100%);" 
+             aria-valuenow="@progressPercent" 
+             aria-valuemin="0" 
+             aria-valuemax="100">
+        </div>
+    </div>
+
+    <!-- 5 Rank Milestones Nodes -->
+    <div class="row text-center g-2 pt-2 border-top">
+        <!-- 1. Bronze -->
+        <div class="col">
+            <div class="p-2 rounded-3 @(Model.TierLevel == 1 ? "bg-primary-subtle border border-primary shadow-xs position-relative" : (Model.TierLevel > 1 ? "bg-light border opacity-75" : "bg-white border text-muted"))">
+                @if (Model.TierLevel == 1) { <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-primary" style="font-size: 0.58rem;">ปัจจุบัน</span> }
+                <div class="fs-5 @(Model.TierLevel == 1 ? "text-primary" : "text-secondary")"><i class="bi bi-shield"></i></div>
+                <div class="fw-bold text-dark small" style="font-size: 0.75rem;">Bronze</div>
+                <div class="text-muted" style="font-size: 0.68rem;">0 - 299 PTS</div>
+                @if (Model.TierLevel == 1) {
+                    <span class="badge bg-primary text-white mt-1 shadow-xs" style="font-size: 0.65rem;">ระดับของคุณ</span>
+                } else if (Model.TierLevel > 1) {
+                    <span class="badge bg-secondary-subtle text-secondary border mt-1" style="font-size: 0.62rem;">ผ่านแล้ว</span>
+                }
+            </div>
+        </div>
+
+        <!-- 2. Silver -->
+        <div class="col">
+            <div class="p-2 rounded-3 @(Model.TierLevel == 2 ? "bg-primary-subtle border border-primary shadow-xs position-relative" : (Model.TierLevel > 2 ? "bg-light border opacity-75" : "bg-white border text-muted"))">
+                @if (Model.TierLevel == 2) { <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-primary" style="font-size: 0.58rem;">ปัจจุบัน</span> }
+                <div class="fs-5 @(Model.TierLevel == 2 ? "text-primary" : "text-secondary")"><i class="bi bi-shield-fill"></i></div>
+                <div class="fw-bold text-dark small" style="font-size: 0.75rem;">Silver</div>
+                <div class="text-muted" style="font-size: 0.68rem;">300 - 699 PTS</div>
+                @if (Model.TierLevel == 2) {
+                    <span class="badge bg-primary text-white mt-1 shadow-xs" style="font-size: 0.65rem;">ระดับของคุณ</span>
+                } else if (Model.TierLevel > 2) {
+                    <span class="badge bg-secondary-subtle text-secondary border mt-1" style="font-size: 0.62rem;">ผ่านแล้ว</span>
+                } else if (Model.TierLevel == 1) {
+                    <span class="badge bg-info-subtle text-info border mt-1" style="font-size: 0.62rem;">เป้าหมายถัดไป</span>
+                }
+            </div>
+        </div>
+
+        <!-- 3. Gold -->
+        <div class="col">
+            <div class="p-2 rounded-3 @(Model.TierLevel == 3 ? "bg-primary-subtle border border-primary shadow-xs position-relative" : (Model.TierLevel > 3 ? "bg-light border opacity-75" : "bg-white border text-muted"))">
+                @if (Model.TierLevel == 3) { <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-primary" style="font-size: 0.58rem;">ปัจจุบัน</span> }
+                <div class="fs-5 @(Model.TierLevel == 3 ? "text-primary" : "text-warning")"><i class="bi bi-shield-shaded"></i></div>
+                <div class="fw-bold text-dark small" style="font-size: 0.75rem;">Gold</div>
+                <div class="text-muted" style="font-size: 0.68rem;">700 - 1,199 PTS</div>
+                @if (Model.TierLevel == 3) {
+                    <span class="badge bg-primary text-white mt-1 shadow-xs" style="font-size: 0.65rem;">ระดับของคุณ</span>
+                } else if (Model.TierLevel > 3) {
+                    <span class="badge bg-secondary-subtle text-secondary border mt-1" style="font-size: 0.62rem;">ผ่านแล้ว</span>
+                } else if (Model.TierLevel == 2) {
+                    <span class="badge bg-info-subtle text-info border mt-1" style="font-size: 0.62rem;">เป้าหมายถัดไป</span>
+                }
+            </div>
+        </div>
+
+        <!-- 4. Platinum (Current for 1,200+) -->
+        <div class="col">
+            <div class="p-2 rounded-3 @(Model.TierLevel == 4 ? "bg-primary-subtle border border-primary shadow-xs position-relative" : (Model.TierLevel > 4 ? "bg-light border opacity-75" : "bg-white border text-muted"))">
+                @if (Model.TierLevel == 4) { <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-primary" style="font-size: 0.58rem;">ปัจจุบัน</span> }
+                <div class="fs-5 text-primary"><i class="bi bi-gem"></i></div>
+                <div class="fw-bold text-primary small" style="font-size: 0.78rem;">Platinum</div>
+                <div class="text-dark fw-semibold" style="font-size: 0.68rem;">1,200 - 2,499 PTS</div>
+                @if (Model.TierLevel == 4) {
+                    <span class="badge bg-primary text-white mt-1 shadow-xs" style="font-size: 0.65rem;">ระดับของคุณ</span>
+                } else if (Model.TierLevel > 4) {
+                    <span class="badge bg-secondary-subtle text-secondary border mt-1" style="font-size: 0.62rem;">ผ่านแล้ว</span>
+                } else if (Model.TierLevel == 3) {
+                    <span class="badge bg-info-subtle text-info border mt-1" style="font-size: 0.62rem;">เป้าหมายถัดไป</span>
+                }
+            </div>
+        </div>
+
+        <!-- 5. Diamond (Next) -->
+        <div class="col">
+            <div class="p-2 rounded-3 @(Model.TierLevel == 5 ? "bg-purple-subtle border border-purple shadow-xs position-relative" : "bg-white border border-dashed text-purple hover-shadow")" style="border-color: #8b5cf6 !important;">
+                @if (Model.TierLevel == 5) { <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-purple text-white" style="font-size: 0.58rem; background: #8b5cf6;">ปัจจุบัน</span> }
+                <div class="fs-5" style="color: #8b5cf6;"><i class="bi bi-trophy-fill"></i></div>
+                <div class="fw-bold text-dark small" style="font-size: 0.75rem;">Diamond</div>
+                <div class="text-muted" style="font-size: 0.68rem;">2,500+ PTS</div>
+                @if (Model.TierLevel == 5) {
+                    <span class="badge text-white mt-1 shadow-xs" style="font-size: 0.65rem; background: #8b5cf6;">ระดับของคุณ</span>
+                } else {
+                    <span class="badge bg-purple-subtle text-purple border mt-1" style="font-size: 0.62rem; color: #8b5cf6; background: #f3e8ff;">เป้าหมายถัดไป</span>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- 3. Interactive Tier Privilege Showcase (เลือกดูสิทธิพิเศษของแต่ละระดับ) -->
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <h5 class="fw-bold text-dark mb-0">
+                <i class="bi bi-stars text-warning me-1"></i> รายละเอียดสิทธิประโยชน์แยกตามระดับ
+            </h5>
+            <small class="text-muted">คลิกเลือกระดับด้านล่างเพื่อตรวจสอบสิทธิพิเศษที่จะได้รับในแต่ละขั้น</small>
+        </div>
+
+        <!-- Tab Pills to Switch Ranks -->
+        <div class="btn-group p-1 bg-light rounded-pill border" role="group">
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn" onclick="switchTierView('bronze', this)">
+                <i class="bi bi-shield text-secondary me-1"></i>Bronze
+            </button>
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn" onclick="switchTierView('silver', this)">
+                <i class="bi bi-shield-fill text-muted me-1"></i>Silver
+            </button>
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn" onclick="switchTierView('gold', this)">
+                <i class="bi bi-shield-shaded text-warning me-1"></i>Gold
+            </button>
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn active btn-primary fw-semibold shadow-xs" onclick="switchTierView('platinum', this)">
+                <i class="bi bi-gem me-1"></i>Platinum (ปัจจุบัน)
+            </button>
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn" onclick="switchTierView('diamond', this)">
+                <i class="bi bi-trophy-fill text-purple me-1" style="color: #8b5cf6;"></i>Diamond
+            </button>
+        </div>
+    </div>
+
+    <!-- Dynamic Tier Cards Container -->
+    <div id="tierContentContainer">
+        <!-- Rendered by JavaScript: Default to Platinum -->
+    </div>
+</div>
+
+<!-- 4. Tier Comparison Matrix (ตารางเปรียบเทียบสิทธิพิเศษทุกระดับชั้นแบบละเอียด) -->
+<div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <h5 class="fw-bold text-dark mb-0">
+                <i class="bi bi-table text-primary me-2"></i>ตารางเปรียบเทียบสิทธิพิเศษทุกระดับ (Tier Comparison Table)
+            </h5>
+            <small class="text-muted">เปรียบเทียบสิทธิประโยชน์และความคุ้มค่าในแต่ละขั้นอย่างชัดเจน</small>
+        </div>
+        <span class="badge bg-light text-dark border px-3 py-2 rounded-pill small">
+            <i class="bi bi-info-circle me-1 text-primary"></i> ปรับระดับอัตโนมัติทันทีที่คะแนนถึงเกณฑ์
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-bordered align-middle text-center mb-0 small">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-start ps-3 py-3" style="width: 25%;">สิทธิประโยชน์ / บริการ</th>
+                    <th style="width: 15%;">🥉 Bronze</th>
+                    <th style="width: 15%;">🥈 Silver</th>
+                    <th style="width: 15%;">🥇 Gold</th>
+                    <th style="width: 16%; background-color: #e0f2fe; border: 2px solid #0284c7; color: #0369a1;" class="position-relative">
+                        <span class="badge bg-primary text-white position-absolute top-0 start-50 translate-middle" style="font-size: 0.6rem;">ระดับของคุณ</span>
+                        💎 Platinum
+                    </th>
+                    <th style="width: 14%; background-color: #faf5ff; color: #7e22ce;">👑 Diamond</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="text-start ps-3 fw-semibold text-dark">
+                        <i class="bi bi-trophy me-2 text-warning"></i>เกณฑ์คะแนนสะสม
+                    </td>
+                    <td>0 - 299 PTS</td>
+                    <td>300 - 699 PTS</td>
+                    <td>700 - 1,199 PTS</td>
+                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">1,200 - 2,499 PTS</td>
+                    <td class="fw-bold" style="color: #8b5cf6;">2,500+ PTS ขึ้นไป</td>
+                </tr>
+                <tr>
+                    <td class="text-start ps-3 fw-semibold text-dark">
+                        <i class="bi bi-percent me-2 text-danger"></i>ส่วนลดค่าเช่าทุกสเปก
+                    </td>
+                    <td class="text-muted">-</td>
+                    <td><span class="badge bg-light text-dark border">ลด 5%</span></td>
+                    <td><span class="badge bg-warning-subtle text-dark border border-warning-subtle fw-semibold">ลด 10%</span></td>
+                    <td class="fw-bold text-success fs-6" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">ลดทันที 15%</td>
+                    <td class="fw-bold fs-6" style="color: #7e22ce;">ลดสูงสุด 25%</td>
+                </tr>
+                <tr>
+                    <td class="text-start ps-3 fw-semibold text-dark">
+                        <i class="bi bi-coin me-2 text-warning"></i>ตัวคูณคะแนนสะสม (Multiplier)
+                    </td>
+                    <td>x1.0 เท่า</td>
+                    <td>x1.2 เท่า</td>
+                    <td>x1.3 เท่า</td>
+                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">x1.5 เท่า</td>
+                    <td class="fw-bold" style="color: #8b5cf6;">x2.0 เท่า (คูณสอง)</td>
+                </tr>
+                <tr>
+                    <td class="text-start ps-3 fw-semibold text-dark">
+                        <i class="bi bi-speedometer2 me-2 text-info"></i>ความเร็วอินเทอร์เน็ตเครื่อง (Bandwidth)
+                    </td>
+                    <td>100 Mbps</td>
+                    <td>200 Mbps</td>
+                    <td>500 Mbps</td>
+                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">1 Gbps (ฟรี)</td>
+                    <td class="fw-bold" style="color: #8b5cf6;">2 Gbps ไม่จำกัด (ฟรี)</td>
+                </tr>
+                <tr>
+                    <td class="text-start ps-3 fw-semibold text-dark">
+                        <i class="bi bi-hdd-network me-2 text-primary"></i>พื้นที่ Cloud Storage ฟรี
+                    </td>
+                    <td>10 GB</td>
+                    <td>25 GB</td>
+                    <td>50 GB</td>
+                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">100 GB</td>
+                    <td class="fw-bold" style="color: #8b5cf6;">250 GB สำหรับเก็บเกม/งาน</td>
+                </tr>
+                <tr>
+                    <td class="text-start ps-3 fw-semibold text-dark">
+                        <i class="bi bi-shield-check me-2 text-success"></i>สิทธิ์จองคิวด่วนพิเศษ
+                    </td>
+                    <td class="text-muted"><i class="bi bi-dash"></i></td>
+                    <td>จองล่วงหน้า 1 วัน</td>
+                    <td>จองล่วงหน้า 3 วัน</td>
+                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">
+                        <i class="bi bi-check-circle-fill text-primary me-1"></i> คิวด่วนพิเศษ
+                    </td>
+                    <td class="fw-bold" style="color: #8b5cf6;">
+                        <i class="bi bi-star-fill text-warning me-1"></i> VIP ล็อคเครื่องล่วงหน้า 7 วัน
+                    </td>
+                </tr>
+                <tr>
+                    <td class="text-start ps-3 fw-semibold text-dark">
+                        <i class="bi bi-headset me-2 text-secondary"></i>ช่องทางดูแลช่วยเหลือพิเศษ
+                    </td>
+                    <td>แชทในเวลาทำการ</td>
+                    <td>ตอบกลับใน 1 ชม.</td>
+                    <td>แชทด่วนพิเศษ</td>
+                    <td class="fw-semibold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">เจ้าหน้าที่ดูแลเฉพาะ</td>
+                    <td class="fw-bold" style="color: #8b5cf6;">ผู้ดูแลระบบ VIP 24/7</td>
+                </tr>
+                <tr>
+                    <td class="text-start ps-3 fw-semibold text-dark">
+                        <i class="bi bi-gift me-2 text-danger"></i>ของขวัญวันเกิด (Birthday Gift)
+                    </td>
+                    <td>50 PTS</td>
+                    <td>100 PTS</td>
+                    <td>200 PTS</td>
+                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">300 PTS</td>
+                    <td class="fw-bold text-danger">เช่าเครื่องฟรี 4 ชม.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 5. How to Earn & Redeem Points Box (วิธีสะสมและแลกคะแนน) -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm h-100">
+            <h6 class="fw-bold text-dark mb-3 d-flex align-items-center">
+                <span class="p-2 bg-success-subtle text-success rounded-circle me-2"><i class="bi bi-plus-circle-fill"></i></span>
+                วิธีสะสมคะแนน (How to Earn Points)
+            </h6>
+            <ul class="list-unstyled mb-0 small text-secondary d-flex flex-column gap-2">
+                <li class="d-flex align-items-start gap-2">
+                    <i class="bi bi-check2 text-success fs-6 mt-n1"></i>
+                    <div><strong>เช่าคอมพิวเตอร์ Cloud PC:</strong> ทุกการใช้จ่าย 10 บาท รับ 1 คะแนน (สำหรับระดับ Platinum รับคูณ 1.5 เท่า)</div>
+                </li>
+                <li class="d-flex align-items-start gap-2">
+                    <i class="bi bi-check2 text-success fs-6 mt-n1"></i>
+                    <div><strong>รีวิวหลังการใช้งาน:</strong> รีวิวความพึงพอใจและสเปกเครื่อง รับเพิ่มทันที 20 คะแนนต่อครั้ง</div>
+                </li>
+                <li class="d-flex align-items-start gap-2">
+                    <i class="bi bi-check2 text-success fs-6 mt-n1"></i>
+                    <div><strong>โบนัสเลื่อนระดับ:</strong> รับคะแนนพิเศษ 300 คะแนนทันทีเมื่อเลื่อนสู่ระดับใหม่</div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm h-100">
+            <h6 class="fw-bold text-dark mb-3 d-flex align-items-center">
+                <span class="p-2 bg-primary-subtle text-primary rounded-circle me-2"><i class="bi bi-ticket-perforated-fill"></i></span>
+                วิธีแลกส่วนลดด้วยคะแนน (Redeem Points)
+            </h6>
+            <div class="row g-2 small">
+                <div class="col-6">
+                    <div class="p-3 bg-light rounded-3 border text-center">
+                        <div class="fw-bold text-dark">500 คะแนน</div>
+                        <div class="text-danger fw-bold fs-6 my-1">ลด 100 บาท</div>
+                        <div class="text-muted" style="font-size: 0.7rem;">ใช้ได้กับทุกสเปก</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="p-3 bg-light rounded-3 border text-center">
+                        <div class="fw-bold text-dark">1,000 คะแนน</div>
+                        <div class="text-danger fw-bold fs-6 my-1">ลด 220 บาท</div>
+                        <div class="text-muted" style="font-size: 0.7rem;">โบนัสคุ้มพิเศษ</div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-muted small mt-2" style="font-size: 0.72rem;">
+                <i class="bi bi-info-circle me-1"></i> สามารถกดใช้คะแนนเพื่อรับส่วนลดได้ทันทีในหน้าชำระเงินก่อนยืนยันการเช่า
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 6. Points History Table (ประวัติคะแนนสะสม) -->
+<div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+            <h6 class="fw-bold mb-0 text-dark">ประวัติคะแนนสะสม ทั้งหมด @(Model.Transactions?.Count ?? 0) รายการ</h6>
+            <small class="text-muted">รายการรับและใช้คะแนนสะสมของคุณ (คำนวณอัตโนมัติทุกการเช่าเครื่อง)</small>
+        </div>
+        <div class="d-flex gap-2">
+            <input type="text" id="ptsSearchInput" class="form-control form-control-sm" placeholder="ค้นหาประวัติคะแนน..." style="width: 200px;" oninput="filterPointsTable()" />
+            <select id="ptsTypeFilter" class="form-select form-select-sm" style="width: 170px;" onchange="filterPointsTable()">
+                <option value="all" selected>ประเภทรายการทั้งหมด</option>
+                <option value="receive">เฉพาะที่ได้รับ (+)</option>
+                <option value="spend">เฉพาะที่ใช้ไป (-)</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small" id="pointsTable">
+            <thead class="table-light text-muted">
+                <tr>
+                    <th class="ps-3">เลขที่อ้างอิง</th>
+                    <th>วันที่ทำรายการ</th>
+                    <th>รายละเอียดการทำรายการ</th>
+                    <th class="text-center">คะแนนที่ได้รับ / ใช้</th>
+                    <th class="text-end pe-3">คะแนนคงเหลือ</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model.Transactions != null && Model.Transactions.Any())
+                {
+                    foreach (var txn in Model.Transactions)
+                    {
+                        var isReceive = txn.Type == "receive";
+                        <tr data-type="@txn.Type" data-search="@(txn.ReferenceCode.ToLower()) @(txn.Description.ToLower())">
+                            <td class="ps-3 fw-bold text-dark font-monospace">@txn.ReferenceCode</td>
+                            <td>@txn.CreatedAt.ToString("d MMM yyyy, HH:mm น.", new System.Globalization.CultureInfo("th-TH"))</td>
+                            <td>
+                                <div class="fw-semibold text-dark">@txn.Description</div>
+                                <div class="text-muted small" style="font-size: 0.7rem;">@txn.SubDescription</div>
+                            </td>
+                            <td class="text-center @(isReceive ? "text-success" : "text-danger") fw-bold">
+                                @(isReceive ? "+" : "")@txn.Points.ToString("N0") คะแนน
+                            </td>
+                            <td class="text-end pe-3 fw-semibold text-dark">@txn.BalanceAfter.ToString("N0") PTS</td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            <i class="bi bi-inbox fs-3 d-block text-secondary opacity-50 mb-1"></i>
+                            ยังไม่มีประวัติคะแนนสะสม
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // Data definition for all 5 Tiers
+    const tierDetails = {
+        bronze: {
+            name: "Bronze",
+            badge: "🥉 ระดับเริ่มต้น (0 - 299 PTS)",
+            themeColor: "#64748b",
+            bgClass: "bg-secondary-subtle",
+            borderClass: "border-secondary-subtle",
+            textClass: "text-secondary",
+            discount: "ไม่มีส่วนลด",
+            multiplier: "x1.0 เท่า",
+            bandwidth: "100 Mbps มาตรฐาน",
+            storage: "10 GB พื้นที่จัดเก็บ",
+            queue: "จองคิวตามปกติ",
+            desc: "ระดับสมาชิกเริ่มต้นสำหรับผู้ใช้งานใหม่ สะสมคะแนนได้ทุกการเช่าเครื่องครบทุก 10 บาท",
+            perks: [
+                { icon: "bi-shield", title: "รับสิทธิ์สะสมคะแนน", desc: "รับ 1 คะแนนทุกการใช้จ่าย 10 บาทในระบบ" },
+                { icon: "bi-hdd", title: "Cloud Storage 10GB", desc: "พื้นที่จัดเก็บไฟล์การตั้งค่าและบันทึกเกมเบื้องต้น" },
+                { icon: "bi-gift", title: "ของขวัญวันเกิด 50 PTS", desc: "รับคะแนนสะสมฟรีในเดือนเกิดของคุณ" },
+                { icon: "bi-chat-dots", title: "บริการลูกค้ามาตรฐาน", desc: "แชทติดต่อทีมงานในเวลาทำการ 09:00 - 18:00 น." }
+            ]
+        },
+        silver: {
+            name: "Silver",
+            badge: "🥈 ระดับเงิน (300 - 699 PTS)",
+            themeColor: "#475569",
+            bgClass: "bg-light",
+            borderClass: "border-secondary",
+            textClass: "text-dark",
+            discount: "ส่วนลด 5%",
+            multiplier: "x1.2 เท่า",
+            bandwidth: "200 Mbps ความเร็วสูง",
+            storage: "25 GB พื้นที่จัดเก็บ",
+            queue: "จองล่วงหน้าได้ 1 วัน",
+            desc: "ระดับสมาชิกสำหรับผู้ใช้งานประจำ เริ่มได้รับส่วนลดและคะแนนสะสมที่เร็วยิ่งขึ้น",
+            perks: [
+                { icon: "bi-percent", title: "ส่วนลดค่าเช่า 5%", desc: "รับส่วนลดค่าเช่าเครื่องทุกสเปกทันที 5%" },
+                { icon: "bi-lightning-charge", title: "ความเร็วเน็ต 200 Mbps", desc: "เพิ่มความเร็วการดาวน์โหลดและส่งข้อมูล 2 เท่า" },
+                { icon: "bi-coin", title: "รับคะแนนสะสม 1.2 เท่า", desc: "คะแนนสะสมเพิ่มขึ้น 20% ทุกชั่วโมงการเช่า" },
+                { icon: "bi-hdd-network", title: "Cloud Storage 25GB", desc: "พื้นที่จัดเก็บข้อมูลเกมและงานที่เพิ่มขึ้น" }
+            ]
+        },
+        gold: {
+            name: "Gold",
+            badge: "🥇 ระดับทอง (700 - 1,199 PTS)",
+            themeColor: "#d97706",
+            bgClass: "bg-warning-subtle",
+            borderClass: "border-warning-subtle",
+            textClass: "text-warning-emphasis",
+            discount: "ส่วนลด 10%",
+            multiplier: "x1.3 เท่า",
+            bandwidth: "500 Mbps ความเร็วสูงมาก",
+            storage: "50 GB พื้นที่จัดเก็บ",
+            queue: "จองล่วงหน้าได้ 3 วัน",
+            desc: "ระดับสมาชิกระดับสูง รับส่วนลด 10% เต็ม พร้อมสิทธิ์จองคิวก่อนใครในช่วงเวลาเร่งด่วน",
+            perks: [
+                { icon: "bi-percent", title: "ส่วนลดค่าเช่า 10%", desc: "รับส่วนลด 10% สำหรับทุกเครื่องและทุกแพ็กเกจ" },
+                { icon: "bi-speedometer2", title: "เน็ตเร็วสูง 500 Mbps", desc: "อินเทอร์เน็ตความเร็วสูง โหลดเกมใหญ่ได้ในไม่กี่นาที" },
+                { icon: "bi-calendar-check", title: "จองเครื่องล่วงหน้า 3 วัน", desc: "สิทธิ์จองเครื่องล่วงหน้าในช่วงวันหยุดสุดสัปดาห์" },
+                { icon: "bi-coin", title: "รับคะแนนสะสม 1.3 เท่า", desc: "สะสมคะแนนเร็วยิ่งขึ้น นำไปแลกคูปองลดราคาได้ไว" }
+            ]
+        },
+        platinum: {
+            name: "Platinum",
+            badge: "💎 ระดับแพลตทินัม (1,200 - 2,499 PTS) • ระดับปัจจุบันของคุณ",
+            themeColor: "#0284c7",
+            bgClass: "bg-info-subtle",
+            borderClass: "border-info-subtle",
+            textClass: "text-primary",
+            discount: "ส่วนลด 15%",
+            multiplier: "x1.5 เท่า",
+            bandwidth: "1 Gbps กิกะบิตไฟเบอร์",
+            storage: "100 GB พื้นที่จัดเก็บ",
+            queue: "สิทธิ์จองคิวด่วนพิเศษ",
+            desc: "ระดับสมาชิกพรีเมียม สิทธิ์อัปเกรดความเร็วเน็ตระดับ Gigabit ฟรี พร้อมส่วนลด 15% และสิทธิ์คิวด่วนพิเศษ",
+            perks: [
+                { icon: "bi-lightning-charge-fill", title: "อัปเกรดแบนด์วิดท์ 1Gbps ฟรี", desc: "อัปเกรดความเร็วเน็ตจาก 100Mbps เป็น 1Gbps ฟรีทันที" },
+                { icon: "bi-percent", title: "ส่วนลดค่าเช่าเครื่อง 15%", desc: "รับส่วนลดค่าเช่าเครื่องทุกสเปกทันที 15% ในขั้นตอนชำระเงิน" },
+                { icon: "bi-shield-check", title: "สิทธิ์จองเครื่องด่วนพิเศษ", desc: "เข้าถึงสิทธิ์การจองคิวเครื่องคอมพิวเตอร์ก่อนใครในช่วงคนแน่น" },
+                { icon: "bi-hdd-network-fill", title: "พื้นที่เก็บข้อมูลเสริม 100GB", desc: "ขยายพื้นที่ Cloud Storage ฟรี 100GB สำหรับงานตัดต่อและเกม" }
+            ]
+        },
+        diamond: {
+            name: "Diamond",
+            badge: "👑 ระดับไดมอนด์สูงสุด (2,500+ PTS ขึ้นไป)",
+            themeColor: "#8b5cf6",
+            bgClass: "bg-purple-subtle",
+            borderClass: "border-purple-subtle",
+            textClass: "text-purple",
+            discount: "ส่วนลดสูงสุด 25%",
+            multiplier: "x2.0 เท่า (คูณสอง)",
+            bandwidth: "2 Gbps ไม่จำกัดความเร็ว",
+            storage: "250 GB พื้นที่จัดเก็บสูงสุด",
+            queue: "สิทธิ์ VIP Priority คิวแรกสุด",
+            desc: "ระดับสูงสุดของ CloudPC Thailand สิทธิพิเศษขั้นสุดยอด ส่วนลด 25% ตัวคูณคะแนน 2 เท่า และทีมงาน VIP ดูแลส่วนตัว",
+            perks: [
+                { icon: "bi-trophy-fill", title: "ส่วนลดค่าเช่าสูงสุด 25%", desc: "รับส่วนลดพิเศษ 25% ตลอดอายุสมาชิกสำหรับทุกเครื่องในระบบ" },
+                { icon: "bi-stars", title: "คะแนนสะสมคูณ 2 เท่า (x2.0)", desc: "รับคะแนนสะสมดับเบิ้ลทุกการเช่าเครื่อง นำไปแลกชั่วโมงเช่าฟรีได้ทันที" },
+                { icon: "bi-speedometer", title: "เน็ต 2Gbps ไม่จำกัด", desc: "เชื่อมต่อพอร์ต 2Gbps เร็วที่สุดสำหรับเรนเดอร์ 3D และสตีมมิ่ง 4K" },
+                { icon: "bi-headset", title: "ผู้ดูแลระบบส่วนตัว VIP 24/7", desc: "สายด่วนติดต่อเจ้าหน้าที่เทคนิคและผู้จัดการระบบได้ตลอด 24 ชั่วโมง" }
+            ]
+        }
+    };
+
+    function renderTierCards(tierKey) {
+        const tier = tierDetails[tierKey] || tierDetails.platinum;
+        const container = document.getElementById("tierContentContainer");
+        if (!container) return;
+
+        let perksHtml = "";
+        tier.perks.forEach(p => {
+            perksHtml += `
+                <div class="col-sm-6 col-xl-3">
+                    <div class="card-cloudpc p-3 bg-white h-100 border rounded-3 shadow-xs hover-shadow transition-all">
+                        <div class="fs-3 mb-2" style="color: ${tier.themeColor};">
+                            <i class="bi ${p.icon}"></i>
+                        </div>
+                        <h6 class="fw-bold small text-dark mb-1">${p.title}</h6>
+                        <p class="text-muted small mb-0" style="font-size: 0.75rem;">${p.desc}</p>
+                    </div>
+                </div>
+            `;
+        });
+
+        const isCurrent = (tierKey === "platinum");
+
+        container.innerHTML = `
+            <div class="p-3 mb-3 rounded-3 border d-flex justify-content-between align-items-center flex-wrap gap-2" style="background-color: ${isCurrent ? '#f0f9ff' : '#f8fafc'}; border-color: ${tier.themeColor} !important;">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="fs-4" style="color: ${tier.themeColor};"><i class="bi bi-patch-check-fill"></i></span>
+                    <div>
+                        <div class="fw-bold text-dark fs-6">${tier.badge}</div>
+                        <div class="text-muted small">${tier.desc}</div>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-white text-dark border px-3 py-2 rounded-pill shadow-xs">
+                        <i class="bi bi-percent text-danger me-1"></i> ${tier.discount}
+                    </span>
+                    <span class="badge bg-white text-dark border px-3 py-2 rounded-pill shadow-xs">
+                        <i class="bi bi-lightning text-warning me-1"></i> ${tier.multiplier}
+                    </span>
+                    <span class="badge bg-white text-dark border px-3 py-2 rounded-pill shadow-xs">
+                        <i class="bi bi-speedometer2 text-info me-1"></i> ${tier.bandwidth}
+                    </span>
+                </div>
+            </div>
+            <div class="row g-3">
+                ${perksHtml}
+            </div>
+        `;
+    }
+
+    function switchTierView(tierKey, btn) {
+        document.querySelectorAll(".tier-tab-btn").forEach(b => {
+            b.classList.remove("active", "btn-primary", "fw-semibold", "shadow-xs");
+        });
+        if (btn) {
+            btn.classList.add("active", "btn-primary", "fw-semibold", "shadow-xs");
+        }
+        renderTierCards(tierKey);
+    }
+
+    function filterPointsTable() {
+        const query = (document.getElementById("ptsSearchInput")?.value || "").toLowerCase().trim();
+        const type = document.getElementById("ptsTypeFilter")?.value || "all";
+        const rows = document.querySelectorAll("#pointsTable tbody tr");
+
+        rows.forEach(row => {
+            const rowSearch = (row.getAttribute("data-search") || "").toLowerCase();
+            const rowType = row.getAttribute("data-type") || "";
+
+            const matchQuery = !query || rowSearch.includes(query);
+            const matchType = (type === "all") || (rowType === type);
+
+            if (matchQuery && matchType) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        renderTierCards("@(Model.TierName.ToLower())");
+    });
+</script>
+}

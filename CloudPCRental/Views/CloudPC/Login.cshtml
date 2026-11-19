@@ -1,0 +1,87 @@
+@model CloudPCRental.Models.LoginViewModel
+@{
+    ViewData["Title"] = "เข้าสู่ระบบใช้งานคอมพิวเตอร์ออนไลน์ - CloudPC";
+    var returnUrl = ViewBag.ReturnUrl as string;
+}
+
+<div class="row justify-content-center py-5">
+    <div class="col-md-6 col-lg-5">
+        <div class="card-cloudpc p-4 p-md-5 bg-white shadow-sm border rounded-4">
+            <!-- Header (Wireframe Page 1) -->
+            <div class="text-center mb-4">
+                <h4 class="fw-bold text-dark mb-1">เข้าสู่ระบบใช้งานคอมพิวเตอร์ออนไลน์</h4>
+                <p class="text-muted small">เลือกเครื่องคอมพิวเตอร์และเชื่อมต่อทันที</p>
+            </div>
+
+            @if (!string.IsNullOrEmpty(returnUrl))
+            {
+                <div class="alert alert-info py-2 small d-flex align-items-center mb-3 rounded-3" role="alert">
+                    <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+                    <div>กรุณาเข้าสู่ระบบก่อน เพื่อดำเนินการและเข้าใช้งานต่อ</div>
+                </div>
+            }
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger py-2 small rounded-3" role="alert">
+                    @Html.ValidationSummary(true, "", new { @class = "mb-0" })
+                </div>
+            }
+
+            <form asp-action="Login" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+                <div class="mb-3">
+                    <label asp-for="UsernameOrEmail" class="form-label small fw-semibold text-secondary">อีเมล หรือ ชื่อผู้ใช้</label>
+                    <input asp-for="UsernameOrEmail" class="form-control rounded-3" placeholder="กรอกอีเมลผู้ใช้งานของคุณ" autofocus required id="loginEmail" />
+                    <span asp-validation-for="UsernameOrEmail" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <label asp-for="Password" class="form-label small fw-semibold text-secondary mb-0">รหัสผ่าน</label>
+                        <a asp-action="ForgotPassword" class="text-primary text-decoration-none small">ลืมรหัสผ่าน?</a>
+                    </div>
+                    <div class="input-group">
+                        <input asp-for="Password" type="password" class="form-control border-end-0 rounded-start-3" placeholder="กรอกรหัสผ่านของคุณ" required id="loginPassword" />
+                        <span class="input-group-text bg-white border-start-0 text-muted rounded-end-3 cursor-pointer" onclick="toggleLoginPassword()">
+                            <i class="bi bi-eye" id="loginEyeIcon"></i>
+                        </span>
+                    </div>
+                    <span asp-validation-for="Password" class="text-danger small"></span>
+                </div>
+
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-2 rounded-3 fw-semibold">
+                        เข้าสู่ระบบ
+                    </button>
+                </div>
+            </form>
+
+            <div class="text-center mt-4">
+                <span class="text-muted small">หากคุณยังไม่มีบัญชีใช้งาน?</span>
+                <a asp-action="Register" class="text-primary text-decoration-none fw-semibold small ms-1">สมัครสมาชิกใหม่</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        function toggleLoginPassword() {
+            var passInput = document.getElementById("loginPassword");
+            var eyeIcon = document.getElementById("loginEyeIcon");
+            if (passInput.type === "password") {
+                passInput.type = "text";
+                eyeIcon.classList.remove("bi-eye");
+                eyeIcon.classList.add("bi-eye-slash");
+            } else {
+                passInput.type = "password";
+                eyeIcon.classList.remove("bi-eye-slash");
+                eyeIcon.classList.add("bi-eye");
+            }
+        }
+    </script>
+}

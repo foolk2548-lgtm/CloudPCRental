@@ -1,0 +1,369 @@
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
+@{
+    ViewData["Title"] = "ศูนย์ช่วยเหลือและคำถามที่พบบ่อย - CloudPC";
+    var helpUserId = HttpContextAccessor.HttpContext?.Session.GetInt32("UserId") ?? 5;
+    var userTickets = CloudPCRental.Models.MockDataStore.GetSupportTickets(helpUserId);
+}
+
+<div class="py-3">
+    <!-- Header Hero -->
+    <div class="text-center mb-5 pb-2">
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill fw-semibold mb-2" style="font-size: 0.8rem;">
+            <i class="bi bi-headset me-1"></i> ฝ่ายบริการลูกค้า 24 ชม.
+        </span>
+        <h1 class="fw-bold text-dark mt-2 mb-3" style="font-size: 2.3rem; letter-spacing: -0.5px;">
+            ศูนย์ช่วยเหลือและคำถามที่พบบ่อย (Help Center)
+        </h1>
+        <p class="text-muted mx-auto mb-4" style="max-width: 650px; font-size: 1.05rem; line-height: 1.6;">
+            ค้นหาคำแนะนำ วิธีแก้ปัญหาการใช้งานเบื้องต้น หรือติดต่อเจ้าหน้าที่เทคนิคผู้เชี่ยวชาญได้ตลอด 24 ชั่วโมง
+        </p>
+
+        <!-- Search Bar with Live Filter -->
+        <div class="mx-auto" style="max-width: 580px;">
+            <div class="input-group shadow-sm rounded-4 overflow-hidden border">
+                <span class="input-group-text bg-white border-0 ps-3 text-muted">
+                    <i class="bi bi-search fs-5"></i>
+                </span>
+                <input type="text" id="faqSearchInput" class="form-control border-0 py-3 ps-2" 
+                       placeholder="ค้นหาคำถาม เช่น เน็ตหลุด, คืนเงิน, วิธีต่อเวลา, ติดตั้งโปรแกรม..."
+                       oninput="filterFAQs()" />
+                <button class="btn btn-primary px-4 fw-semibold" type="button" onclick="filterFAQs()">
+                    ค้นหา
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Filter Pills -->
+    <div class="d-flex justify-content-center flex-wrap gap-2 mb-4">
+        <button class="btn btn-sm btn-primary rounded-pill px-3 py-1 active category-btn" onclick="filterCategory('all', this)">
+            ทั้งหมด
+        </button>
+        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 bg-white category-btn" onclick="filterCategory('connection', this)">
+            การเชื่อมต่อ &amp; รีโมท
+        </button>
+        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 bg-white category-btn" onclick="filterCategory('booking', this)">
+            การจอง &amp; ชำระเงิน
+        </button>
+        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 bg-white category-btn" onclick="filterCategory('software', this)">
+            ซอฟต์แวร์ &amp; สเปกเครื่อง
+        </button>
+    </div>
+
+    <!-- FAQ Accordion -->
+    <div class="card border rounded-4 p-4 p-md-5 bg-white shadow-sm mb-5" style="border-color: #e2e8f0 !important; max-width: 880px; margin: 0 auto;">
+        <h4 class="fw-bold text-dark mb-4 d-flex align-items-center">
+            <i class="bi bi-patch-question-fill text-primary me-2 fs-4"></i> คำถามที่พบบ่อย (FAQs)
+        </h4>
+
+        <div class="accordion accordion-flush" id="faqAccordion">
+            <!-- FAQ 1 -->
+            <div class="accordion-item border-bottom py-2 faq-item" data-category="connection">
+                <h2 class="accordion-header" id="headingOne">
+                    <button class="accordion-button collapsed fw-bold text-dark px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                        1. CloudPC คืออะไร และทำงานอย่างไร?
+                    </button>
+                </h2>
+                <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-secondary" style="line-height: 1.7;">
+                        CloudPC คือบริการให้เช่าคอมพิวเตอร์ประสิทธิภาพสูงที่ติดตั้งอยู่ในศูนย์ข้อมูล Data Center มาตรฐานสากล ผู้ใช้งานสามารถควบคุมเมาส์ คีย์บอร์ด และรับการถ่ายทอดภาพ/เสียงแบบความหน่วงต่ำพิเศษ (Ultra-low Latency) เสมือนนั่งอยู่หน้าเครื่องจริง รองรับทั้งงานเล่นเกมกราฟิกสูง งานตัดต่อวิดีโอ 3D และงานประมวลผลข้อมูล AI
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 2 -->
+            <div class="accordion-item border-bottom py-2 faq-item" data-category="connection">
+                <h2 class="accordion-header" id="headingTwo">
+                    <button class="accordion-button collapsed fw-bold text-dark px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                        2. หากอินเทอร์เน็ตของฉันหลุด ข้อมูลในเครื่องจะสูญหายหรือไม่?
+                    </button>
+                </h2>
+                <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-secondary" style="line-height: 1.7;">
+                        <strong>ไม่สูญหายครับ!</strong> เครื่อง Cloud PC ของคุณจะยังคงเปิดทำงานต่อไปจนกว่าจะสิ้นสุดชั่วโมงการจองตามรอบบิลของคุณ หากอินเทอร์เน็ตของคุณหลุด คุณสามารถเปิดใหม่อีกครั้งและกดปุ่ม "เข้ารีโมท" ได้ทันที และไฟล์งานหรือเกมที่เปิดค้างอยู่จะยังคงสถานะเดิม 100%
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 3 -->
+            <div class="accordion-item border-bottom py-2 faq-item" data-category="booking">
+                <h2 class="accordion-header" id="headingThree">
+                    <button class="accordion-button collapsed fw-bold text-dark px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                        3. ถ้าต้องการต่อเวลาการใช้งานเครื่องต้องทำอย่างไร?
+                    </button>
+                </h2>
+                <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-secondary" style="line-height: 1.7;">
+                        คุณสามารถเข้าสู่เมนู <strong>"ประวัติการจองของฉัน"</strong> แล้วคลิกปุ่ม <strong>"จัดการเครื่อง"</strong> จากนั้นเลือกช่วงเวลาที่ต้องการขยายต่อ หากเครื่องนั้นยังไม่มีผู้ใช้งานอื่นจองต่อในสล็อตถัดไป ระบบจะทำการต่อเวลาให้คุณอย่างต่อเนื่องโดยไม่ต้องรีสตาร์ทเครื่องใหม่
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 4 -->
+            <div class="accordion-item border-bottom py-2 faq-item" data-category="booking">
+                <h2 class="accordion-header" id="headingFour">
+                    <button class="accordion-button collapsed fw-bold text-dark px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                        4. สามารถขอยกเลิกการจองและขอรับเงินคืนได้หรือไม่?
+                    </button>
+                </h2>
+                <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-secondary" style="line-height: 1.7;">
+                        สามารถกดยกเลิกการจองได้ฟรีโดยไม่มีค่าธรรมเนียม หากยกเลิกล่วงหน้าก่อนถึงเวลาเริ่มใช้งานอย่างน้อย <strong>30 นาที</strong> โดยระบบจะคืนเงินค่าเช่าเต็มจำนวน 100% กลับเข้าสู่ <strong>CloudPC Wallet</strong> ของคุณทันทีเพื่อให้คุณนำไปใช้จองเครื่องอื่นหรือรอบเวลาถัดไป
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 5 -->
+            <div class="accordion-item border-bottom py-2 faq-item" data-category="software">
+                <h2 class="accordion-header" id="headingFive">
+                    <button class="accordion-button collapsed fw-bold text-dark px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                        5. ฉันสามารถติดตั้งเกมหรือโปรแกรมส่วนตัวได้หรือไม่?
+                    </button>
+                </h2>
+                <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-secondary" style="line-height: 1.7;">
+                        สามารถติดตั้งได้อย่างอิสระ! บัญชีผู้ใช้งานที่ได้รับจะมีสิทธิ์ <strong>Administrator</strong> เต็มรูปแบบ คุณสามารถดาวน์โหลด Steam, Epic Games, Valorant, Adobe Premiere, Blender หรือเครื่องมือ AI ต่างๆ ได้ตามสะดวก (เครื่องเชื่อมต่ออินเทอร์เน็ตความเร็วสูง 1-2 Gbps ทำให้ดาวน์โหลดเกมขนาดใหญ่ได้ภายในไม่กี่นาที)
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQ 6 -->
+            <div class="accordion-item border-bottom py-2 faq-item" data-category="connection">
+                <h2 class="accordion-header" id="headingSix">
+                    <button class="accordion-button collapsed fw-bold text-dark px-0" type="button" data-bs-toggle="collapse" data-bs-target="#faq6">
+                        6. ภาพกระตุกหรือเกิดอาการหน่วง (Lag) แก้ไขอย่างไร?
+                    </button>
+                </h2>
+                <div id="faq6" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                    <div class="accordion-body px-0 text-secondary" style="line-height: 1.7;">
+                        แนะนำขั้นตอนแก้ไขเบื้องต้นดังนี้:
+                        <ul class="mt-2 mb-0 ps-3">
+                            <li>เปลี่ยนจากการเชื่อมต่อ Wi-Fi ทั่วไปมาเป็นสาย LAN หรือเชื่อมต่อกับคลื่น Wi-Fi 5GHz / Wi-Fi 6</li>
+                            <li>ปิดโปรแกรมดาวน์โหลดหรือสตรีมวิดีโออื่นๆ ภายในบ้านที่ใช้แบนด์วิดท์สูง</li>
+                            <li>ในเมนูตั้งค่ารีโมท สามารถปรับระดับ Bitrate ให้เหมาะกับความเร็วเน็ต เช่น ปรับเป็น 10-20 Mbps หรือเลือกความละเอียด 1080p 60FPS</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="noFaqMessage" class="text-center py-4 text-muted d-none">
+            <i class="bi bi-search fs-2 d-block mb-2 text-secondary"></i>
+            ไม่พบคำตอบที่ตรงกับคำค้นหาของคุณ กรุณาลองใช้คำอื่นหรือติดต่อเจ้าหน้าที่ฝ่ายบริการด้านล่าง
+        </div>
+    </div>
+
+    <!-- Contact Channels Section (3 Cards) -->
+    <div class="mb-5" style="max-width: 880px; margin: 0 auto;">
+        <h4 class="fw-bold text-dark mb-4 text-center">ช่องทางการติดต่อและขอความช่วยเหลือ</h4>
+        <div class="row g-4">
+            <!-- Channel 1 -->
+            <div class="col-md-4">
+                <div class="card h-100 border rounded-4 p-4 text-center bg-white shadow-sm" style="border-color: #e2e8f0 !important;">
+                    <div class="rounded-circle bg-primary-subtle text-primary mx-auto d-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px;">
+                        <i class="bi bi-telephone-fill fs-4"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1">สายด่วนช่วยเหลือ</h6>
+                    <p class="text-muted small mb-3">ตลอด 24 ชั่วโมง ทุกวัน</p>
+                    <a href="tel:021234567" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold">
+                        02-123-4567
+                    </a>
+                </div>
+            </div>
+
+            <!-- Channel 2 -->
+            <div class="col-md-4">
+                <div class="card h-100 border rounded-4 p-4 text-center bg-white shadow-sm" style="border-color: #e2e8f0 !important;">
+                    <div class="rounded-circle bg-success-subtle text-success mx-auto d-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px;">
+                        <i class="bi bi-line fs-4"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1">LINE Official</h6>
+                    <p class="text-muted small mb-3">แชทสอบถาม ตอบใน 5 นาที</p>
+                    <a href="https://line.me" target="_blank" class="btn btn-success btn-sm rounded-pill px-3 fw-bold">
+                        @@CloudPC_TH
+                    </a>
+                </div>
+            </div>
+
+            <!-- Channel 3 -->
+            <div class="col-md-4">
+                <div class="card h-100 border rounded-4 p-4 text-center bg-white shadow-sm" style="border-color: #e2e8f0 !important;">
+                    <div class="rounded-circle bg-info-subtle text-info mx-auto d-flex align-items-center justify-content-center mb-3" style="width: 56px; height: 56px;">
+                        <i class="bi bi-envelope-fill fs-4"></i>
+                    </div>
+                    <h6 class="fw-bold text-dark mb-1">อีเมลติดต่อ</h6>
+                    <p class="text-muted small mb-3">สำหรับประสานงานธุรกิจ</p>
+                    <a href="mailto:support@cloudpc.in.th" class="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-bold">
+                        support@cloudpc.in.th
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section: User's Support History & Live Chat Trigger -->
+    @if (userTickets != null && userTickets.Any())
+    {
+        <div class="card border rounded-4 p-4 bg-white shadow-sm mb-4" style="border-color: #e2e8f0 !important; max-width: 880px; margin: 0 auto;">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">
+                        <i class="bi bi-clock-history text-primary me-2"></i> ประวัติการติดต่อและแจ้งปัญหาของคุณ (@userTickets.Count รายการ)
+                    </h5>
+                    <p class="text-muted small mb-0">คุณสามารถเปิดอ่านข้อความที่แอดมินตอบกลับ หรือพิมพ์สนทนาต่อได้ทันที</p>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold shadow-xs" onclick="toggleLiveChatWidget()">
+                    <i class="bi bi-chat-dots-fill me-1"></i> เปิดห้องแชทสด (Live Chat)
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light">
+                        <tr>
+                            <th>รหัสคำขอ</th>
+                            <th>หัวข้อเรื่อง</th>
+                            <th>หมวดหมู่</th>
+                            <th>สถานะการตอบ</th>
+                            <th>อัปเดตล่าสุด</th>
+                            <th class="text-end">การจัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in userTickets)
+                        {
+                            var statusBadge = t.Status == "WaitingAdmin" ? "bg-danger text-white" :
+                                              t.Status == "Answered" ? "bg-success text-white" : "bg-secondary text-white";
+                            var statusLabel = t.Status == "WaitingAdmin" ? "รอแอดมินตอบ" :
+                                              t.Status == "Answered" ? "แอดมินตอบแล้ว" : "แก้ไขเสร็จสิ้น";
+                            <tr>
+                                <td><span class="badge bg-light text-primary border font-monospace">@t.TicketCode</span></td>
+                                <td>
+                                    <div class="fw-semibold text-dark">@t.Subject</div>
+                                    @if (t.RelatedBookingId.HasValue)
+                                    {
+                                        <div class="text-muted" style="font-size: 0.72rem;">เครื่อง: @t.RelatedMachineName (#CPC-@t.RelatedBookingId)</div>
+                                    }
+                                </td>
+                                <td><span class="badge bg-light text-secondary border">@t.Category</span></td>
+                                <td><span class="badge @statusBadge rounded-pill">@statusLabel</span></td>
+                                <td class="text-muted">@t.UpdatedAt.ToString("dd/MM HH:mm น.")</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-xs btn-outline-primary rounded-pill px-3 py-1 fw-semibold" onclick="toggleLiveChatWidget('@t.Subject', @(t.RelatedBookingId ?? 0))">
+                                        <i class="bi bi-chat-fill me-1"></i> เปิดแชท
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+
+    <!-- Quick Message Box -->
+    <div class="card border rounded-4 p-4 p-md-5 bg-white shadow-sm" style="border-color: #e2e8f0 !important; max-width: 880px; margin: 0 auto;">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h4 class="fw-bold text-dark mb-1">ส่งข้อความแจ้งปัญหาถึงแอดมิน</h4>
+                <p class="text-muted small mb-0">หากพบปัญหาการใช้งาน สัญญาณขัดข้อง หรือมีข้อสงสัย กรอกแบบฟอร์มเพื่อส่งเข้าแชทแอดมินได้ทันที</p>
+            </div>
+            <button type="button" class="btn btn-outline-primary rounded-pill px-3 py-1 btn-sm fw-semibold shadow-xs" onclick="toggleLiveChatWidget()">
+                <i class="bi bi-headset me-1"></i> คุยแชทสด 24 ชม.
+            </button>
+        </div>
+
+        <form asp-action="CreateSupportTicket" method="post">
+            @Html.AntiForgeryToken()
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label small fw-semibold text-dark">หัวข้อเรื่องที่ต้องการแจ้งปัญหา <span class="text-danger">*</span></label>
+                    <input type="text" name="subject" class="form-control rounded-3" placeholder="เช่น ขอเปลี่ยนเครื่องเนื่องจากภาพกระตุก, สอบถามเงินคืน" required />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label small fw-semibold text-dark">หมวดหมู่ของปัญหา</label>
+                    <select name="category" class="form-select rounded-3">
+                        <option value="ปัญหาการเชื่อมต่อ & รีโมท" selected>ปัญหาการเชื่อมต่อ &amp; รีโมทเดสก์ท็อป</option>
+                        <option value="แจ้งเครื่องขัดข้อง / จอฟ้า">แจ้งคอมพิวเตอร์ขัดข้อง / จอฟ้า / รีสตาร์ทไม่ติด</option>
+                        <option value="การจอง & ชำระเงิน">สอบถามการชำระเงินและขอเงินคืน</option>
+                        <option value="ซอฟต์แวร์ & สเปกเครื่อง">ขอเพิ่มซอฟต์แวร์หรือสเปกพิเศษ</option>
+                        <option value="ทั่วไป">เรื่องอื่นๆ ทั่วไป</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="form-label small fw-semibold text-dark">รายละเอียดข้อความส่งถึงเจ้าหน้าที่ <span class="text-danger">*</span></label>
+                <textarea name="message" class="form-control rounded-3" rows="4" placeholder="พิมพ์รายละเอียดที่คุณต้องการให้แอดมินช่วยเหลือ เช่น เครื่องมีอาการกระตุกตั้งแต่เริ่มเช่า รบกวนตรวจสอบให้หน่อยครับ..." required></textarea>
+            </div>
+            <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary px-4 py-2 rounded-3 fw-semibold shadow-sm">
+                    <i class="bi bi-send-fill me-1"></i> ส่งข้อความแจ้งปัญหาเข้าห้องแชท
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function filterFAQs() {
+        const query = document.getElementById('faqSearchInput').value.toLowerCase().trim();
+        const items = document.querySelectorAll('.faq-item');
+        let matchedCount = 0;
+
+        items.forEach(item => {
+            const text = item.innerText.toLowerCase();
+            if (!query || text.includes(query)) {
+                item.classList.remove('d-none');
+                matchedCount++;
+            } else {
+                item.classList.add('d-none');
+            }
+        });
+
+        const noMsg = document.getElementById('noFaqMessage');
+        if (matchedCount === 0) {
+            noMsg.classList.remove('d-none');
+        } else {
+            noMsg.classList.add('d-none');
+        }
+    }
+
+    function filterCategory(cat, btn) {
+        // Active class on buttons
+        document.querySelectorAll('.category-btn').forEach(b => {
+            b.classList.remove('btn-primary', 'active');
+            b.classList.add('btn-outline-secondary', 'bg-white');
+        });
+        btn.classList.remove('btn-outline-secondary', 'bg-white');
+        btn.classList.add('btn-primary', 'active');
+
+        const items = document.querySelectorAll('.faq-item');
+        let matchedCount = 0;
+
+        items.forEach(item => {
+            const itemCat = item.getAttribute('data-category');
+            if (cat === 'all' || itemCat === cat) {
+                item.classList.remove('d-none');
+                matchedCount++;
+            } else {
+                item.classList.add('d-none');
+            }
+        });
+
+        const noMsg = document.getElementById('noFaqMessage');
+        if (matchedCount === 0) {
+            noMsg.classList.remove('d-none');
+        } else {
+            noMsg.classList.add('d-none');
+        }
+    }
+
+    function handleSupportSubmit(e) {
+        e.preventDefault();
+        const alertBox = document.getElementById('supportSuccessAlert');
+        alertBox.classList.remove('d-none');
+        document.getElementById('supportContactForm').reset();
+    }
+</script>
+}

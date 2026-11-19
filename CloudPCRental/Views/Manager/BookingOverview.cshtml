@@ -1,0 +1,98 @@
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "ภาพรวมการจอง";
+    var allBookings  = ViewBag.AllBookings  as List<CloudPCRental.Models.Booking> ?? new();
+    var pending      = ViewBag.PendingBookings as List<CloudPCRental.Models.Booking> ?? new();
+    var approved     = ViewBag.ApprovedBookings as List<CloudPCRental.Models.Booking> ?? new();
+    var refunds      = ViewBag.RefundRequests as List<CloudPCRental.Models.Booking> ?? new();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="text-muted small">ติดตามและตรวจสอบสถานะการจองทั้งระบบ</div>
+        <h3 class="fw-bold text-dark mb-0">ภาพรวมการจอง</h3>
+    </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card-cloudpc bg-white p-3 text-center">
+            <div class="fs-2 fw-bold text-primary">@allBookings.Count</div>
+            <div class="small text-muted">จองทั้งหมด</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card-cloudpc bg-white p-3 text-center">
+            <div class="fs-2 fw-bold text-success">@approved.Count</div>
+            <div class="small text-muted">อนุมัติแล้ว</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card-cloudpc bg-white p-3 text-center">
+            <div class="fs-2 fw-bold text-warning">@pending.Count</div>
+            <div class="small text-muted">รอตรวจสอบ</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card-cloudpc bg-white p-3 text-center">
+            <div class="fs-2 fw-bold text-info">@refunds.Count</div>
+            <div class="small text-muted">ขอคืนเงิน</div>
+        </div>
+    </div>
+</div>
+
+<!-- Booking Table -->
+<div class="card-cloudpc bg-white p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-task text-primary me-1"></i>รายการจองทั้งหมด @allBookings.Count รายการ</h6>
+        <input type="text" class="form-control form-control-sm rounded-2" style="width:220px;" placeholder="ค้นหาเลขที่จอง, ชื่อ..." oninput="filterTable(this.value)" />
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle" id="bookingTable">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-2">เลขที่จอง</th>
+                    <th>ลูกค้า</th>
+                    <th>เครื่อง</th>
+                    <th>วันที่จอง</th>
+                    <th>ยอด (฿)</th>
+                    <th>สถานะ</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in allBookings)
+                {
+                    var (cls, label) = b.PaymentStatus switch
+                    {
+                        "Approved"           => ("bg-success-subtle text-success border-success-subtle", "อนุมัติแล้ว"),
+                        "จอง (พร้อมใช้งาน)" => ("bg-success-subtle text-success border-success-subtle", "จองแล้ว"),
+                        "Pending"            => ("bg-warning-subtle text-warning border-warning-subtle", "รอตรวจสอบ"),
+                        "Rejected"           => ("bg-danger-subtle text-danger border-danger-subtle", "ปฏิเสธ"),
+                        "RefundRequested"    => ("bg-warning-subtle text-warning border-warning-subtle", "ขอคืนเงิน"),
+                        "Refunded"           => ("bg-info-subtle text-info border-info-subtle", "คืนเงินแล้ว"),
+                        "RefundRejected"     => ("bg-danger-subtle text-danger border-danger-subtle", "ปฏิเสธคืนเงิน"),
+                        _                    => ("bg-secondary-subtle text-secondary border-secondary-subtle", b.PaymentStatus)
+                    };
+                    <tr class="booking-row">
+                        <td class="ps-2 fw-semibold text-primary" style="font-size:0.82rem;">#CPC-@b.BookingId</td>
+                        <td style="font-size:0.82rem;">@(b.User?.Username ?? $"User #{b.UserId}")</td>
+                        <td style="font-size:0.82rem;">@(b.Machine?.MachineName ?? $"Machine #{b.MachineId}")</td>
+                        <td style="font-size:0.8rem;" class="text-muted">@b.PaymentDate.ToString("dd/MM/yy HH:mm")</td>
+                        <td style="font-size:0.82rem;" class="fw-semibold">@b.TotalAmount.ToString("N2")</td>
+                        <td><span class="badge border @cls" style="font-size:0.72rem;">@label</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function filterTable(q) {
+        q = q.toLowerCase();
+        document.querySelectorAll('.booking-row').forEach(function(row) {
+            row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    }
+</script>

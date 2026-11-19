@@ -1,0 +1,65 @@
+@model CloudPCRental.Models.RegisterViewModel
+@{
+    ViewData["Title"] = "สมัครสมาชิกใหม่ - CloudPC";
+}
+
+<div class="row justify-content-center py-5">
+    <div class="col-md-6 col-lg-5">
+        <div class="card-cloudpc p-4 p-md-5 bg-white">
+            <div class="text-center mb-4">
+                <h4 class="fw-bold text-dark mb-1">สมัครสมาชิกใหม่</h4>
+                <p class="text-muted small">สร้างบัญชีผู้ใช้งานเพื่อเริ่มต้นจองและใช้งานคอมพิวเตอร์คลาวด์</p>
+            </div>
+
+            @if (!ViewData.ModelState.IsValid)
+            {
+                <div class="alert alert-danger py-2 small" role="alert">
+                    @Html.ValidationSummary(true, "", new { @class = "mb-0" })
+                </div>
+            }
+
+            <form asp-action="Register" method="post">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label asp-for="Username" class="form-label small fw-semibold text-secondary">ชื่อผู้ใช้ (Username)</label>
+                    <input asp-for="Username" class="form-control" placeholder="ตั้งชื่อผู้ใช้งานของคุณ" autofocus required />
+                    <span asp-validation-for="Username" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Email" class="form-label small fw-semibold text-secondary">อีเมล (Email)</label>
+                    <input asp-for="Email" class="form-control" placeholder="เช่น yourname@example.com" required />
+                    <span asp-validation-for="Email" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Password" class="form-label small fw-semibold text-secondary">รหัสผ่าน</label>
+                    <input asp-for="Password" type="password" class="form-control" placeholder="กำหนดรหัสผ่าน" required />
+                    <span asp-validation-for="Password" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="ConfirmPassword" class="form-label small fw-semibold text-secondary">ยืนยันรหัสผ่าน</label>
+                    <input asp-for="ConfirmPassword" type="password" class="form-control" placeholder="ยืนยันรหัสผ่านอีกครั้ง" required />
+                    <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+                </div>
+
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg py-2 rounded-3 fw-semibold">
+                        ยืนยันการสมัครสมาชิก
+                    </button>
+                </div>
+            </form>
+
+            <div class="text-center mt-4">
+                <span class="text-muted small">มีบัญชีผู้ใช้งานอยู่แล้ว?</span>
+                <a asp-action="Login" class="text-primary text-decoration-none fw-semibold small ms-1">เข้าสู่ระบบ</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

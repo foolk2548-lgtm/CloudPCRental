@@ -1,0 +1,1217 @@
+@{
+    Layout = "_CustomerLayout";
+    ViewData["Title"] = "ประวัติการจองของฉัน";
+}
+
+<!-- Page Alert Container -->
+<div id="pageAlertBox" class="alert alert-success d-none shadow-sm border-0 d-flex align-items-center mb-4 rounded-3" role="alert">
+    <i class="bi bi-check-circle-fill fs-5 me-2" id="pageAlertIcon"></i>
+    <div id="pageAlertText"></div>
+    <button type="button" class="btn-close ms-auto" onclick="hidePageAlert()"></button>
+</div>
+
+<!-- Header (Wireframe Page 7) -->
+<div class="mb-4">
+    <div class="text-muted small">แดชบอร์ดลูกค้า</div>
+    <h3 class="fw-bold text-dark mb-0">ประวัติการจองของฉัน</h3>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card-cloudpc p-3 bg-white h-100 border rounded-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small">การจองทั้งหมด</span>
+                    <h3 class="fw-bold text-dark mt-1 mb-0" id="totalBookingsStat">@(ViewBag.TotalBookingsCount ?? 4) <small class="fs-6 text-muted">ครั้ง</small></h3>
+                    <div class="text-muted small mt-1" style="font-size: 0.72rem;">ประวัติการเช่าทั้งหมดของคุณ</div>
+                </div>
+                <div class="p-3 bg-light rounded-3 text-secondary">
+                    <i class="bi bi-calendar3 fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card-cloudpc p-3 bg-white h-100 border rounded-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small">กำลังใช้งานอยู่</span>
+                    <h3 class="fw-bold text-primary mt-1 mb-0" id="activeMachinesStat">@(ViewBag.ActiveMachinesCount ?? 0) <small class="fs-6 text-muted">เครื่อง</small></h3>
+                    <div class="text-muted small mt-1" style="font-size: 0.72rem;">@((ViewBag.ActiveMachinesCount != null && (int)ViewBag.ActiveMachinesCount > 0) ? "กำลังเชื่อมต่อออนไลน์ในขณะนี้" : "ไม่มีเครื่องที่เชื่อมต่อค้างอยู่")</div>
+                </div>
+                <div class="p-3 bg-primary-subtle text-primary rounded-3">
+                    <i class="bi bi-play-fill fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card-cloudpc p-3 bg-white h-100 border rounded-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small">เวลาสะสมรวม</span>
+                    <h3 class="fw-bold text-dark mt-1 mb-0" id="accumulatedHoursStat">@(ViewBag.AccumulatedHoursCount ?? 48) <small class="fs-6 text-muted">ชั่วโมง</small></h3>
+                    <div class="text-muted small mt-1" style="font-size: 0.72rem;">เวลาการใช้งาน Cloud PC ทั้งหมด</div>
+                </div>
+                <div class="p-3 bg-light rounded-3 text-secondary">
+                    <i class="bi bi-clock-history fs-4"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bookings Table Section -->
+<div class="card-cloudpc bg-white p-4 mb-4 border rounded-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h6 class="fw-bold mb-0 text-dark">
+            <i class="bi bi-list-task text-primary me-1"></i> รายการประวัติการจองทั้งหมด @(ViewBag.TotalBookingsCount ?? 4) รายการ
+        </h6>
+        <div class="d-flex gap-2">
+            <input type="text" id="bookingSearchInput" class="form-control form-control-sm rounded-2" 
+                   placeholder="ค้นหาเลขที่จอง, ชื่อเครื่อง..." style="width: 210px;" oninput="filterBookingsTable()" />
+            <select id="bookingStatusFilter" class="form-select form-select-sm rounded-2" style="width: 150px;" onchange="filterBookingsTable()">
+                <option value="all" selected>สถานะทั้งหมด</option>
+                <option value="booked">จอง</option>
+                <option value="completed">เสร็จ</option>
+                <option value="cancelled">ยกเลิก</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small" id="bookingsTable">
+            <thead class="table-light text-muted">
+                <tr>
+                    <th class="ps-3">เลขที่จอง</th>
+                    <th>ชื่อเครื่อง</th>
+                    <th>วันเวลา</th>
+                    <th>สถานะ</th>
+                    <th class="text-end pe-3">จัดการ</th>
+                </tr>
+            </thead>
+            <tbody>
+                @* 1. รายการเครื่องใหม่ที่ผู้ใช้เพิ่งกดเช่าเข้ามาแบบเรียลไทม์ *@
+                @if (ViewBag.NewBookings != null)
+                {
+                    foreach (var nb in (List<CloudPCRental.Models.Booking>)ViewBag.NewBookings)
+                    {
+                        var machine = nb.Machine ?? CloudPCRental.Models.MockDataStore.GetMachineById(nb.MachineId);
+                        var mName = machine?.MachineName ?? "Cloud PC";
+                        var mSpec = $"Spec: {machine?.CPU ?? "High CPU"} | {machine?.RAM ?? "32GB RAM"} | {machine?.GPU ?? "High GPU"}";
+                        var timeText = !string.IsNullOrEmpty(nb.Note) && nb.Note.Contains("(") ? nb.Note : $"{nb.PaymentDate.ToString("d MMM yyyy, HH:mm", new System.Globalization.CultureInfo("th-TH"))} - {nb.PaymentDate.AddHours(nb.RentalHours):HH:mm} ({nb.RentalHours} ชม.)";
+                        string rowStatus = (nb.PaymentStatus == "Refunded" || nb.PaymentStatus == "RefundRejected" || nb.PaymentStatus == "Rejected") ? "cancelled" : (nb.PaymentStatus == "RefundRequested" || nb.PaymentStatus == "Pending" ? "pending" : "booked");
+
+                        <tr id="bookingRow@(nb.BookingId)" data-status="@rowStatus" data-search="#cpc-@nb.BookingId @mName.ToLower()">
+                            <td class="ps-3 fw-bold text-primary font-monospace">#CPC-@nb.BookingId</td>
+                            <td>
+                                <div class="fw-bold text-dark d-flex align-items-center gap-1">
+                                    <span>@mName</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.65rem;">เครื่องเช่าใหม่</span>
+                                </div>
+                                <div class="text-muted" style="font-size: 0.72rem;">@mSpec</div>
+                            </td>
+                            <td>@timeText</td>
+                            <td id="statusCell@(nb.BookingId)">
+                                @if (nb.PaymentStatus == "Pending")
+                                {
+                                    <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                        <i class="bi bi-hourglass-split me-1 text-warning-emphasis"></i> รอฝ่ายบัญชีตรวจสอบสลิป
+                                    </span>
+                                }
+                                else if (nb.PaymentStatus == "Rejected")
+                                {
+                                    <span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                        <i class="bi bi-x-circle me-1"></i> ปฏิเสธสลิปโอนเงิน
+                                    </span>
+                                }
+                                else if (nb.PaymentStatus == "RefundRequested")
+                                {
+                                    <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                        <i class="bi bi-hourglass-split me-1 text-warning-emphasis"></i> รอฝ่ายบัญชีตรวจสอบคืนเงิน
+                                    </span>
+                                }
+                                else if (nb.PaymentStatus == "Refunded")
+                                {
+                                    <span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                        <i class="bi bi-check2-circle me-1"></i> คืนเงินเรียบร้อย (+@nb.TotalAmount.ToString("N2") ฿)
+                                    </span>
+                                }
+                                else if (nb.PaymentStatus == "RefundRejected")
+                                {
+                                    <span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                        <i class="bi bi-x-circle me-1"></i> ปฏิเสธการคืนเงิน
+                                    </span>
+                                }
+                                else if (nb.PaymentStatus == "Completed")
+                                {
+                                    <span class="badge" style="background-color: #f0fdf4 !important; color: #15803d !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                        <i class="bi bi-check-circle-fill me-1"></i> เสร็จสิ้น
+                                    </span>
+                                }
+                                else if (nb.PaymentStatus == "InUse")
+                                {
+                                    <span class="badge" style="background-color: #fef9c3 !important; color: #854d0e !important; border: 1px solid #fde047 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;"
+                                          id="inuseBadge@(nb.BookingId)">
+                                        <i class="bi bi-lightning-charge-fill me-1"></i> กำลังใช้งาน
+                                        @if (nb.EndTime.HasValue)
+                                        {
+                                            <span class="ms-1" id="countdown@(nb.BookingId)" data-end="@nb.EndTime.Value.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)"></span>
+                                        }
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge" style="background-color: #eff6ff !important; color: #1d4ed8 !important; border: 1px solid #bfdbfe !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                        <i class="bi bi-play-circle-fill text-primary me-1"></i> จอง (พร้อมใช้งาน)
+                                        @if (nb.StartTime.HasValue)
+                                        {
+                                            <span class="ms-1 text-muted" style="font-size:0.7rem;" id="startIn@(nb.BookingId)" data-start="@nb.StartTime.Value.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)"></span>
+                                        }
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-end pe-3" id="actionCell@(nb.BookingId)">
+                                @if (nb.PaymentStatus == "Pending")
+                                {
+                                    <button type="button" class="btn btn-outline-warning btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
+                                            onclick="openCustomerSlipModal('@nb.BookingId', '@(nb.SlipImageUrl ?? "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80")', @nb.TotalAmount)">
+                                        <i class="bi bi-image me-1"></i> ดูสลิปที่ส่งตรวจ
+                                    </button>
+                                }
+                                else if (nb.PaymentStatus == "Rejected")
+                                {
+                                    <button type="button" class="btn btn-outline-danger btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
+                                            onclick="openCustomerRejectReasonModal('@nb.BookingId', '@(nb.Note ?? "สลิปไม่ถูกต้อง หรือยอดเงินไม่ตรงกับรายการ")')">
+                                        <i class="bi bi-exclamation-circle me-1"></i> ดูเหตุผลปฏิเสธ
+                                    </button>
+                                }
+                                else if (nb.PaymentStatus == "RefundRequested" || nb.PaymentStatus == "RefundRejected")
+                                {
+                                    <button type="button" class="btn btn-outline-warning btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
+                                            onclick="openRefundStatusModal('@nb.BookingId', '@nb.PaymentStatus', '@(nb.RefundReason ?? "ขอยกเลิกการจองและขอคืนเงิน")', '@(nb.Note ?? "ฝ่ายบัญชีกำลังตรวจสอบข้อมูล")', @nb.TotalAmount)">
+                                        <i class="bi bi-clock-history me-1"></i> ดูสถานะคำขอคืนเงิน
+                                    </button>
+                                }
+                                else if (nb.PaymentStatus == "Refunded")
+                                {
+                                    <div class="d-inline-flex align-items-center gap-1 justify-content-end">
+                                        <button type="button" class="btn btn-outline-success btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
+                                                onclick="openRefundStatusModal('@nb.BookingId', '@nb.PaymentStatus', '@(nb.RefundReason ?? "")', '@(nb.Note ?? "คืนเงินเรียบร้อยแล้ว")', @nb.TotalAmount)">
+                                            <i class="bi bi-check-circle-fill me-1"></i> ดูผลการคืนเงิน (+@nb.TotalAmount.ToString("N0") ฿)
+                                        </button>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <button type="button" class="btn btn-primary btn-sm py-1 px-3 rounded-2 me-1 shadow-sm fw-semibold" style="font-size: 0.78rem;" onclick="openMachineControl('@nb.BookingId', '@mName')">
+                                        <i class="bi bi-gear-fill me-1"></i> จัดการเครื่อง
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2 rounded-2" style="font-size: 0.78rem;" onclick="openRefundModal('@nb.BookingId', '@mName', @nb.TotalAmount)" title="ขอยกเลิกการจองและขอคืนเงิน">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i> ยกเลิก
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+
+                <!-- Row 1: Active Booking / Refunded -->
+                <tr id="bookingRow94812" data-status="@(ViewBag.Booking94812Status == "Refunded" || ViewBag.Booking94812Status == "RefundRejected" ? "cancelled" : "booked")" data-search="#cpc-94812 extreme gaming pc - rtx 4090">
+                    <td class="ps-3 fw-bold text-dark font-monospace">#CPC-94812</td>
+                    <td>
+                        <div class="fw-bold text-dark">Extreme Gaming PC - RTX 4090</div>
+                        <div class="text-muted" style="font-size: 0.72rem;">Spec: AMD Ryzen 9 | 32GB RAM | 1Gbps Bandwidth</div>
+                    </td>
+                    <td id="bookingTime94812">25 ต.ค. 2023, 14:00 - 18:00 (4 ชม.)</td>
+                    <td id="statusCell94812">
+                        @if (ViewBag.Booking94812Status == "RefundRequested")
+                        {
+                            <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                <i class="bi bi-hourglass-split me-1 text-warning-emphasis"></i> รอฝ่ายบัญชีตรวจสอบคืนเงิน
+                            </span>
+                        }
+                        else if (ViewBag.Booking94812Status == "Refunded")
+                        {
+                            <span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                <i class="bi bi-check2-circle me-1"></i> คืนเงินเรียบร้อย (+60.00 ฿)
+                            </span>
+                        }
+                        else if (ViewBag.Booking94812Status == "RefundRejected")
+                        {
+                            <span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                <i class="bi bi-x-circle me-1"></i> ปฏิเสธการคืนเงิน
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge" style="background-color: #eff6ff !important; color: #1d4ed8 !important; border: 1px solid #bfdbfe !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">จอง</span>
+                        }
+                    </td>
+                    <td class="text-end pe-3" id="actionCell94812">
+                        @if (ViewBag.Booking94812Status == "RefundRequested" || ViewBag.Booking94812Status == "RefundRejected")
+                        {
+                            <button type="button" class="btn btn-outline-warning btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
+                                    onclick="openRefundStatusModal('94812', '@ViewBag.Booking94812Status', '@(ViewBag.Booking94812Reason ?? "กดจองผิดวัน ต้องการเปลี่ยนวันใช้งาน")', '@(ViewBag.Booking94812Note ?? "ตรวจสอบเงื่อนไขตรงตามนโยบาย")', 60.00)">
+                                <i class="bi bi-clock-history me-1"></i> ดูสถานะคำขอคืนเงิน
+                            </button>
+                        }
+                        else if (ViewBag.Booking94812Status == "Refunded")
+                        {
+                            <div class="d-inline-flex align-items-center gap-1 justify-content-end">
+                                <button type="button" class="btn btn-outline-success btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
+                                        onclick="openRefundStatusModal('94812', '@ViewBag.Booking94812Status', '@(ViewBag.Booking94812Reason ?? "")', '@(ViewBag.Booking94812Note ?? "คืนเงินเรียบร้อยแล้ว")', 60.00)">
+                                    <i class="bi bi-check-circle-fill me-1"></i> ดูผลการคืนเงิน (+60 ฿)
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-primary btn-sm py-1 px-3 rounded-2 me-1 shadow-sm fw-semibold" style="font-size: 0.78rem;" data-bs-toggle="modal" data-bs-target="#machineControlModal">
+                                <i class="bi bi-gear-fill me-1"></i> จัดการเครื่อง
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2 rounded-2" style="font-size: 0.78rem;" onclick="openRefundModal('94812', 'Extreme Gaming PC - RTX 4090', 60.00)" title="ขอยกเลิกการจองและขอคืนเงิน">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> ยกเลิก
+                            </button>
+                        }
+                    </td>
+                </tr>
+
+                <!-- Row 2: Completed -->
+                <tr data-status="completed" data-search="#cpc-93721 standard office pc - core i5">
+                    <td class="ps-3 fw-bold text-dark font-monospace">#CPC-93721</td>
+                    <td>
+                        <div class="fw-bold text-dark">Standard Office PC - Core i5</div>
+                        <div class="text-muted" style="font-size: 0.72rem;">Spec: Intel Core i5 | 16GB RAM | 100Mbps Bandwidth</div>
+                    </td>
+                    <td>24 ต.ค. 2023, 09:00 - 12:00 (3 ชม.)</td>
+                    <td><span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px;">เสร็จ</span></td>
+                    <td class="text-end pe-3 text-muted">ทำรายการเสร็จสิ้น</td>
+                </tr>
+
+                <!-- Row 3: Cancelled -->
+                <tr data-status="cancelled" data-search="#cpc-91605 high-end workstation - rtx 3080">
+                    <td class="ps-3 fw-bold text-dark font-monospace">#CPC-91605</td>
+                    <td>
+                        <div class="fw-bold text-dark">High-End Workstation - RTX 3080</div>
+                        <div class="text-muted" style="font-size: 0.72rem;">Spec: AMD Ryzen 7 | 32GB RAM | 500Mbps Bandwidth</div>
+                    </td>
+                    <td>22 ต.ค. 2023, 10:00 - 15:00 (5 ชม.)</td>
+                    <td><span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px;">ยกเลิก</span></td>
+                    <td class="text-end pe-3 text-muted">ยกเลิกแล้ว</td>
+                </tr>
+
+                <!-- Row 4: Completed -->
+                <tr data-status="completed" data-search="#cpc-89540 ai & developer node - a100 gpu">
+                    <td class="ps-3 fw-bold text-dark font-monospace">#CPC-89540</td>
+                    <td>
+                        <div class="fw-bold text-dark">AI &amp; Developer Node - A100 GPU</div>
+                        <div class="text-muted" style="font-size: 0.72rem;">Spec: NVIDIA A100 | 64GB RAM | 2Gbps Bandwidth</div>
+                    </td>
+                    <td>18 ต.ค. 2023, 13:00 - 21:00 (8 ชม.)</td>
+                    <td><span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px;">เสร็จ</span></td>
+                    <td class="text-end pe-3 text-muted">ทำรายการเสร็จสิ้น</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- No Results Row -->
+        <div id="noBookingsFound" class="text-center py-4 text-muted d-none">
+            <i class="bi bi-search fs-3 d-block mb-1 text-secondary"></i>
+            ไม่พบรายการประวัติการจองที่ตรงกับเงื่อนไขการค้นหา
+        </div>
+    </div>
+
+    <!-- Bottom summary -->
+    <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top small text-muted">
+        <span id="bookingCountText">แสดงทั้งหมด @(ViewBag.TotalBookingsCount ?? 4) รายการประวัติการจอง</span>
+        <span class="text-success"><i class="bi bi-shield-check me-1"></i> เชื่อมต่อระบบคลาวด์เสร็จสมบูรณ์</span>
+    </div>
+</div>
+
+<!-- Modal: จัดการเครื่อง Cloud PC (Interactive Machine Management - Exactly as User's Screenshot) -->
+<div class="modal fade" id="machineControlModal" tabindex="-1" aria-labelledby="machineControlModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom px-4 pt-4 pb-3">
+                <div>
+                    <h5 class="modal-title fw-bold text-dark mb-1" id="machineControlModalLabel">
+                        <i class="bi bi-pc-display text-primary me-2"></i> แผงควบคุมและจัดการเครื่อง Cloud PC
+                    </h5>
+                    <div class="text-muted small">หมายเลขการจอง: <span class="fw-bold text-dark" id="modalMachineCode">#CPC-94812</span> | เครื่อง: <span class="fw-bold text-primary" id="modalMachineTitle">Extreme Gaming PC - RTX 4090</span></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Status & Countdown banner -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="text-muted small mb-1">สถานะระบบปัจจุบัน</div>
+                            <div class="d-flex align-items-center">
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 me-2" id="machineStatusBadge">
+                                    <i class="bi bi-check-circle-fill me-1"></i> เชื่อมต่อออนไลน์ (Online)
+                                </span>
+                                <span class="small text-muted" id="machinePing"><i class="bi bi-reception-4 text-success me-1"></i> 12 ms</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-3 bg-primary-subtle text-primary rounded-3 border border-primary-subtle">
+                            <div class="text-primary-emphasis small mb-1">เวลาคงเหลือในการใช้งาน</div>
+                            <div class="fw-bold fs-4 font-monospace" id="countdownClock">03:45:18</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Connection Credentials Box -->
+                <div class="card border rounded-3 p-3 mb-4 bg-light">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-key-fill text-warning me-1"></i> ข้อมูลการเข้าใช้งานเครื่อง (Remote Access Credentials)</h6>
+                    <div class="row g-3 small">
+                        <div class="col-sm-6">
+                            <label class="text-muted d-block">IP Address / Host</label>
+                            <div class="input-group input-group-sm mt-1">
+                                <input type="text" class="form-control font-monospace" value="103.22.180.45:3389" readonly id="ipField" />
+                                <button class="btn btn-outline-secondary" type="button" id="btnCopyIp" onclick="copyToClipboard('ipField', 'btnCopyIp', 'IP Address')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="text-muted d-block">Username</label>
+                            <div class="input-group input-group-sm mt-1">
+                                <input type="text" class="form-control font-monospace" value="CloudUser_94812" readonly id="userField" />
+                                <button class="btn btn-outline-secondary" type="button" id="btnCopyUser" onclick="copyToClipboard('userField', 'btnCopyUser', 'Username')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="text-muted d-block">Password</label>
+                            <div class="input-group input-group-sm mt-1">
+                                <input type="password" class="form-control font-monospace" value="GameFast#2024!" readonly id="passField" />
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility()">
+                                    <i class="bi bi-eye" id="eyeIcon"></i>
+                                </button>
+                                <button class="btn btn-outline-secondary" type="button" id="btnCopyPass" onclick="copyToClipboard('passField', 'btnCopyPass', 'รหัสผ่าน')">
+                                    <i class="bi bi-clipboard"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="text-muted d-block">เครือข่ายและความเร็ว</label>
+                            <div class="mt-1 pt-1 fw-semibold text-dark">
+                                <i class="bi bi-speedometer2 text-primary me-1"></i> 1 Gbps Dedicated Fiber
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hardware Specifications -->
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-cpu-fill text-primary me-1"></i> ข้อมูลสเปกฮาร์ดแวร์</h6>
+                    <div class="row g-2 text-muted small">
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-2 p-2 bg-white">
+                                <strong class="text-dark d-block">CPU</strong>
+                                AMD Ryzen 9 7900X (12C/24T)
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-2 p-2 bg-white">
+                                <strong class="text-dark d-block">RAM</strong>
+                                32GB DDR5 6000MHz
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-2 p-2 bg-white">
+                                <strong class="text-dark d-block">GPU</strong>
+                                NVIDIA RTX 4080 (16GB VRAM)
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="border rounded-2 p-2 bg-white">
+                                <strong class="text-dark d-block">Storage</strong>
+                                1TB NVMe PCIe 4.0 SSD
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Machine Action Controls (4 Buttons from User's Screenshot) -->
+                <div class="border-top pt-3">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-sliders text-secondary me-1"></i> คำสั่งควบคุมเครื่อง</h6>
+                    <div class="d-flex flex-wrap gap-2 align-items-center">
+                        <button type="button" id="btnRestart" class="btn btn-outline-primary btn-sm rounded-2 px-3 py-2 fw-semibold" onclick="restartMachine()">
+                            <i class="bi bi-arrow-repeat me-1" id="restartIcon"></i> รีสตาร์ทเครื่อง (Restart)
+                        </button>
+                        <button type="button" id="btnExtend" class="btn btn-outline-success btn-sm rounded-2 px-3 py-2 fw-semibold" onclick="extendTime()">
+                            <i class="bi bi-clock-history me-1"></i> ต่อเวลาใช้งาน (+1 ชม.)
+                        </button>
+                        <button type="button" id="btnResetPass" class="btn btn-outline-warning btn-sm rounded-2 px-3 py-2 fw-semibold" onclick="resetPasswordModal()">
+                            <i class="bi bi-shield-lock me-1"></i> รีเซ็ตรหัสผ่านเครื่อง
+                        </button>
+                        <button type="button" id="btnEndSession" class="btn btn-outline-danger btn-sm rounded-2 px-3 py-2 fw-semibold ms-auto" onclick="endSessionConfirm()">
+                            <i class="bi bi-power me-1"></i> คืนเครื่อง / สิ้นสุดการเช่า
+                        </button>
+                    </div>
+                </div>
+
+                <div id="actionFeedback" class="alert alert-success mt-3 small py-2 d-none" role="alert"></div>
+            </div>
+            <div class="modal-footer border-top px-4 py-3">
+                <button type="button" class="btn btn-secondary rounded-2 px-4 small" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Footer Box -->
+<div class="p-3 bg-light border rounded-3 d-flex align-items-center justify-content-between flex-wrap gap-2 small text-secondary mb-4">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-question-circle-fill text-primary fs-5 me-3"></i>
+        <div>
+            <strong>มีข้อสงสัยหรือปัญหาเกี่ยวกับเครื่อง Cloud PC ของคุณ?</strong><br />
+            เครื่องกระตุก สัญญาณขัดข้อง หรือต้องการความช่วยเหลือ คุณสามารถติดต่อเจ้าหน้าที่บริการลูกค้าได้ตลอด 24 ชั่วโมง
+        </div>
+    </div>
+    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-semibold shadow-xs" onclick="toggleLiveChatWidget('แจ้งปัญหาเครื่องขัดข้องจากการจอง')">
+        <i class="bi bi-chat-dots-fill me-1"></i> เปิดแชทกับแอดมินทันที
+    </button>
+</div>
+
+<!-- =============================================================== -->
+<!-- Modal: ขอยกเลิกการจองและยื่นขอคืนเงิน (Customer Request Refund Modal) -->
+<!-- =============================================================== -->
+<div class="modal fade" id="requestRefundModal" tabindex="-1" aria-labelledby="requestRefundModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header border-0 pb-0">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="p-2 bg-danger-subtle text-danger rounded-circle">
+                        <i class="bi bi-arrow-counterclockwise fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="requestRefundModalLabel">ขอยกเลิกการจองและยื่นขอคืนเงิน</h5>
+                        <small class="text-muted">รายการจองรหัส: <strong id="refundModalBookingCode">#CPC-94812</strong></small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="RequestRefund" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="bookingId" id="refundModalBookingId" value="94812" />
+                <input type="hidden" name="refundAmount" id="refundModalAmountInput" value="60.00" />
+
+                <div class="modal-body p-4">
+                    <!-- สรุปรายการจองที่จะขอคืนเงิน -->
+                    <div class="p-3 rounded-3 mb-3" style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-muted small">เครื่องคอมพิวเตอร์:</span>
+                            <span class="fw-bold text-dark" id="refundModalMachineName">Extreme Gaming PC - RTX 4090</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="text-muted small">ระยะเวลาที่จอง:</span>
+                            <span class="text-dark" id="refundModalTimeRange">4 ชั่วโมง (14:00 - 18:00)</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 mt-2 border-top">
+                            <span class="fw-semibold text-secondary small">ยอดเงินที่จะได้รับคืน:</span>
+                            <span class="fw-bold text-danger fs-5" id="refundModalAmountText">60.00 THB</span>
+                        </div>
+                    </div>
+
+                    <!-- นโยบายการตรวจสอบการคืนเงิน -->
+                    <div class="alert border-0 small mb-3" style="background-color: #fffbeb; color: #92400e; border-left: 4px solid #f59e0b; border-radius: 8px;">
+                        <div class="d-flex align-items-start gap-2">
+                            <i class="bi bi-shield-exclamation text-warning fs-6 mt-1"></i>
+                            <div>
+                                <strong>เงื่อนไขการคืนเงินของระบบ:</strong><br />
+                                คำขอจะถูกส่งไปยัง <strong>ฝ่ายบัญชีและการเงิน</strong> เพื่อตรวจสอบข้อมูลและเหตุผล หากตรงตามเงื่อนไข ยอดเงินจะถูกโอนคืนเข้า <strong>CloudPC Wallet</strong> ของคุณทันที
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- เหตุผลในการขอคืนเงิน -->
+                    <div class="mb-3">
+                        <label for="refundReasonSelect" class="form-label small fw-semibold text-secondary">
+                            เหตุผลในการขอยกเลิกและขอคืนเงิน <span class="text-danger">*</span>
+                        </label>
+                        <select id="refundReasonSelect" name="refundReason" class="form-select">
+                            <option value="เครื่องมีปัญหาจอฟ้าและกระตุก ไม่สามารถเรนเดอร์งานกราฟิกต่อได้">เครื่องมีปัญหาจอฟ้า / เครื่องดับ / ค้างกระตุก</option>
+                            <option value="กดจองผิดวันหรือผิดเวลา ต้องการเปลี่ยนวันใช้งาน">จองผิดวันหรือเวลา ต้องการเปลี่ยนไปจองเครื่องอื่น</option>
+                            <option value="เกิดเหตุสุดวิสัย ไฟตกหรืออินเทอร์เน็ตที่บ้านขัดข้อง">เกิดเหตุสุดวิสัย / ไฟตก / เน็ตที่บ้านใช้งานไม่ได้</option>
+                            <option value="ปัญหาการเชื่อมต่ออื่นๆ">ปัญหาอื่นๆ (ระบุในรายละเอียดด้านล่าง)</option>
+                        </select>
+                    </div>
+
+                    <!-- รายละเอียดเพิ่มเติม -->
+                    <div class="mb-3">
+                        <label for="refundIssueDetail" class="form-label small fw-semibold text-secondary">
+                            รายละเอียดเพิ่มเติมส่งถึงฝ่ายบัญชี
+                        </label>
+                        <textarea id="refundIssueDetail" name="issueDetail" class="form-control" rows="3" placeholder="ระบุรายละเอียดอาการหรือเหตุผล เช่น เครื่องเชื่อมต่อไม่ติดตั้งแต่เริ่มเช่า ขอยกเลิกและขอเงินคืนครับ..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light border-0 py-3 px-4 d-flex justify-content-between">
+                    <button type="button" class="btn btn-link text-muted text-decoration-none small" onclick="quickCancelInstant()">
+                        <i class="bi bi-lightning-charge-fill text-warning me-1"></i> ยกเลิกด่วนทันที (Instant Wallet Demo)
+                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-light rounded-3 px-3" data-bs-dismiss="modal">ปิด</button>
+                        <button type="submit" class="btn btn-danger rounded-3 px-4 fw-semibold shadow-sm">
+                            <i class="bi bi-send-fill me-1"></i> ส่งคำขอคืนเงิน
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- =============================================================== -->
+<!-- Modal: ตรวจสอบสถานะคำขอคืนเงิน (Refund Status Modal) -->
+<!-- =============================================================== -->
+<div class="modal fade" id="refundStatusModal" tabindex="-1" aria-labelledby="refundStatusModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 16px;">
+            <div class="modal-header border-0 pb-0">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="p-2 bg-warning-subtle text-warning rounded-circle" id="refundStatusHeaderIcon">
+                        <i class="bi bi-clock-history fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="refundStatusModalLabel">สถานะคำขอยกเลิกและคืนเงิน</h5>
+                        <small class="text-muted">รายการจองรหัส: <strong id="refundStatusBookingCode">#CPC-94812</strong></small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="text-center py-3">
+                    <div class="mb-3" id="refundStatusIconContainer">
+                        @if (ViewBag.Booking94812Status == "RefundRequested")
+                        {
+                            <i class="bi bi-hourglass-split text-warning" style="font-size: 3.5rem;"></i>
+                        }
+                        else if (ViewBag.Booking94812Status == "Refunded")
+                        {
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 3.5rem;"></i>
+                        }
+                        else if (ViewBag.Booking94812Status == "RefundRejected")
+                        {
+                            <i class="bi bi-x-circle-fill text-danger" style="font-size: 3.5rem;"></i>
+                        }
+                    </div>
+                    <h5 class="fw-bold @(ViewBag.Booking94812Status == "Refunded" ? "text-success" : (ViewBag.Booking94812Status == "RefundRejected" ? "text-danger" : "text-dark"))" id="refundStatusTitle">
+                        @(ViewBag.Booking94812Status == "Refunded" ? "อนุมัติคืนเงินเรียบร้อยแล้ว" : (ViewBag.Booking94812Status == "RefundRejected" ? "ปฏิเสธคำขอคืนเงิน" : "อยู่ระหว่างการตรวจสอบข้อมูล"))
+                    </h5>
+                    <div id="refundStatusDesc">
+                        @if (ViewBag.Booking94812Status == "RefundRequested")
+                        {
+                            <p class="text-muted small">ฝ่ายบัญชีกำลังตรวจสอบเงื่อนไขตามนโยบายของระบบ เพื่ออนุมัติและโอนเงินคืนเข้ากระเป๋าเงินของคุณ</p>
+                        }
+                        else if (ViewBag.Booking94812Status == "Refunded")
+                        {
+                            <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 mb-2">
+                                <i class="bi bi-wallet2 me-1"></i> โอนเครดิตเข้ากระเป๋าเงิน: <strong>+60.00 THB</strong>
+                            </div>
+                            <p class="text-muted small mb-0">ฝ่ายบัญชีได้ตรวจสอบเงื่อนไขและอนุมัติการคืนเงินตามคำขอของคุณเรียบร้อยแล้ว ยอดเงินได้ถูกโอนเข้า CloudPC Wallet พร้อมใช้งานทันที</p>
+                        }
+                        else if (ViewBag.Booking94812Status == "RefundRejected")
+                        {
+                            <p class="text-muted small">คำขอนี้ไม่ตรงตามเงื่อนไขการคืนเงินของบริษัท</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="p-3 rounded-3 bg-light border small">
+                    <div class="mb-2 d-flex justify-content-between align-items-center">
+                        <span class="text-muted">สถานะการคืนเงิน:</span>
+                        <div id="refundStatusBadge">
+                            @if (ViewBag.Booking94812Status == "Refunded")
+                            {
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                    <i class="bi bi-check-circle-fill me-1"></i> อนุมัติคืนเงินสำเร็จ
+                                </span>
+                            }
+                            else if (ViewBag.Booking94812Status == "RefundRejected")
+                            {
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                                    <i class="bi bi-x-circle me-1"></i> ปฏิเสธคำขอ
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                                    <i class="bi bi-hourglass-split me-1"></i> รอฝ่ายบัญชีตรวจสอบ
+                                </span>
+                            }
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <span class="text-muted">เหตุผลที่ลูกค้ายื่นขอคืนเงิน:</span>
+                        <div class="fw-medium text-dark mt-1" id="refundStatusReason">
+                            @(string.IsNullOrEmpty(ViewBag.Booking94812Reason as string) ? "กดจองผิดวัน ต้องการเปลี่ยนวันใช้งาน" : ViewBag.Booking94812Reason)
+                        </div>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between align-items-center">
+                        <span class="text-muted">ยอดเงินที่ขอคืน:</span>
+                        <div class="fw-bold text-danger fs-6" id="refundStatusAmount">60.00 THB</div>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between align-items-center pt-2 border-top">
+                        <span class="text-muted">ยอดเงินคงเหลือในกระเป๋าปัจจุบัน:</span>
+                        <div class="fw-bold text-primary fs-6">@(ViewBag.CurrentBalance ?? "600.00") THB</div>
+                    </div>
+                    <div class="mt-2 pt-2 border-top @(string.IsNullOrEmpty(ViewBag.Booking94812Note as string) ? "d-none" : "")" id="refundStatusNoteContainer">
+                        <span class="text-muted">หมายเหตุจากฝ่ายบัญชี:</span>
+                        <div class="fw-semibold text-success mt-1" id="refundStatusNote">@ViewBag.Booking94812Note</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0 py-2 px-4">
+                <button type="button" class="btn btn-secondary rounded-3 px-4 btn-sm" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: ดูสลิปที่ลูกค้าส่งตรวจ (Customer Slip View Modal) -->
+<div class="modal fade" id="customerSlipModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="p-2 bg-warning-subtle text-warning rounded-circle">
+                        <i class="bi bi-hourglass-split fs-5"></i>
+                    </div>
+                    <div>
+                        <h6 class="modal-title fw-bold text-dark mb-0" id="customerSlipModalTitle">สลิปโอนเงินที่ส่งตรวจสอบ</h6>
+                        <small class="text-muted" id="customerSlipModalSubtitle">สถานะ: รอฝ่ายบัญชีตรวจสอบ</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-3">
+                <div class="alert alert-warning small text-start py-2 px-3 mb-3 border-0 rounded-3">
+                    <i class="bi bi-info-circle me-1"></i> เมื่อฝ่ายบัญชีตรวจสอบและอนุมัติสลิปนี้แล้ว ระบบจะเปิดสิทธิ์ให้คุณเข้าใช้งานเครื่องคอมพิวเตอร์ได้ทันที
+                </div>
+                <img id="customerSlipModalImg" src="" alt="Slip Preview" class="img-fluid rounded shadow-sm border" style="max-height: 460px;" />
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary btn-sm px-4 rounded-3" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: ดูเหตุผลการปฏิเสธสลิป (Customer Reject Reason Modal) -->
+<div class="modal fade" id="customerRejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-danger text-white rounded-top-4">
+                <h6 class="modal-title fw-bold mb-0">
+                    <i class="bi bi-x-octagon-fill me-2"></i> สลิปโอนเงินถูกปฏิเสธโดยฝ่ายบัญชี
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label small text-muted">รหัสรายการจอง:</label>
+                    <div class="fw-bold font-monospace text-dark" id="customerRejectCode">#CPC-0000</div>
+                </div>
+                <div class="p-3 bg-danger-subtle border border-danger-subtle rounded-3 mb-3">
+                    <div class="fw-semibold text-danger small mb-1">เหตุผลจากฝ่ายบัญชี:</div>
+                    <div class="text-dark small" id="customerRejectReasonText">-</div>
+                </div>
+                <div class="text-muted small">
+                    <i class="bi bi-arrow-repeat me-1"></i> คุณสามารถทำการจองใหม่และแนบสลิปที่ถูกต้องได้ตลอดเวลาครับ
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary btn-sm px-4 rounded-3" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Form สำหรับยกเลิกการจองและคืนเงินเข้ากระเป๋าเงินแบบเรียลไทม์ (Instant Demo) -->
+<form id="cancelBookingRealtimeForm" asp-action="CancelBooking" method="post" style="display:none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="refundAmount" value="60.00" />
+    <input type="hidden" name="bookingCode" value="#CPC-94812" />
+</form>
+
+@section Scripts {
+<script>
+    // 1. Live Countdown Timer (Initialized to 03:45:18 = 13518 seconds)
+    var remainingSeconds = (3 * 3600) + (45 * 60) + 18;
+    var timerInterval = null;
+
+    function formatTime(totalSecs) {
+        if (totalSecs <= 0) return "00:00:00 (หมดเวลา)";
+        var h = Math.floor(totalSecs / 3600);
+        var m = Math.floor((totalSecs % 3600) / 60);
+        var s = totalSecs % 60;
+        return (h < 10 ? "0" + h : h) + ":" + 
+               (m < 10 ? "0" + m : m) + ":" + 
+               (s < 10 ? "0" + s : s);
+    }
+
+    function startTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(function() {
+            if (remainingSeconds > 0) {
+                remainingSeconds--;
+                var clock = document.getElementById("countdownClock");
+                if (clock) clock.innerText = formatTime(remainingSeconds);
+            } else {
+                clearInterval(timerInterval);
+                var clock = document.getElementById("countdownClock");
+                if (clock) clock.innerText = "หมดเวลาใช้งาน";
+            }
+        }, 1000);
+    }
+    startTimer();
+
+    // 2. Copy to Clipboard with Feedback and Icon Change
+    function copyToClipboard(elementId, btnId, label) {
+        var copyText = document.getElementById(elementId);
+        if (!copyText) return;
+        
+        navigator.clipboard.writeText(copyText.value).then(function() {
+            showFeedback("คัดลอก " + label + " เรียบร้อยแล้ว: " + copyText.value, "success");
+            var btn = document.getElementById(btnId);
+            if (btn) {
+                var oldHtml = btn.innerHTML;
+                btn.innerHTML = '<i class="bi bi-check-lg text-success"></i>';
+                setTimeout(function() { btn.innerHTML = oldHtml; }, 1500);
+            }
+        }).catch(function() {
+            // Fallback
+            copyText.select();
+            document.execCommand("copy");
+            showFeedback("คัดลอก " + label + " เรียบร้อยแล้ว", "success");
+        });
+    }
+
+    // 3. Toggle Password Visibility
+    function togglePasswordVisibility() {
+        var field = document.getElementById("passField");
+        var icon = document.getElementById("eyeIcon");
+        if (field.type === "password") {
+            field.type = "text";
+            icon.classList.remove("bi-eye");
+            icon.classList.add("bi-eye-slash");
+        } else {
+            field.type = "password";
+            icon.classList.remove("bi-eye-slash");
+            icon.classList.add("bi-eye");
+        }
+    }
+
+    // 4. Restart Machine
+    function restartMachine() {
+        var btn = document.getElementById("btnRestart");
+        var icon = document.getElementById("restartIcon");
+        var badge = document.getElementById("machineStatusBadge");
+        var ping = document.getElementById("machinePing");
+
+        btn.disabled = true;
+        badge.className = "badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1 me-2";
+        badge.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> กำลังรีสตาร์ทเครื่อง...';
+        ping.innerHTML = '<i class="bi bi-arrow-repeat text-warning me-1"></i> --- ms';
+        showFeedback("ส่งสัญญาณรีสตาร์ทเครื่อง PRO 01 ไปยัง Hypervisor สำเร็จ กำลังบูตระบบใหม่...", "warning");
+
+        setTimeout(function() {
+            btn.disabled = false;
+            badge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-1 me-2";
+            badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> เชื่อมต่อออนไลน์ (Online)';
+            ping.innerHTML = '<i class="bi bi-reception-4 text-success me-1"></i> 12 ms';
+            showFeedback("เครื่อง #CPC-94812 รีสตาร์ทและเชื่อมต่อออนไลน์พร้อมใช้งานเรียบร้อยแล้ว!", "success");
+        }, 2200);
+    }
+
+    // 5. Extend Time (+1 Hour with Wallet Balance Check)
+    var currentHours = 4;
+    function extendTime() {
+        var extendPrice = 15.00;
+        var navEl = document.getElementById("customerNavBalance");
+        var currentNavText = navEl ? navEl.innerText.replace(" THB", "").replace(/,/g, "") : "600";
+        var currentBal = parseFloat(currentNavText) || 0;
+
+        if (currentBal < extendPrice) {
+            showFeedback("ยอดเงินในกระเป๋าไม่เพียงพอสำหรับการต่อเวลา (มี " + currentBal.toFixed(2) + " THB ต้องการ 15.00 THB) คุณจะต้องมีเงินเพียงพอกับค่าใช้จ่าย กรุณาเติมเงินก่อนครับ", "danger");
+            showPageAlert("ยอดเงินในกระเป๋าไม่เพียงพอสำหรับการต่อเวลา (มี " + currentBal.toFixed(2) + " THB ต้องการ 15.00 THB) กรุณาเติมเงินเข้ากระเป๋าเงินก่อนครับ", "danger");
+            return;
+        }
+
+        var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
+        var formData = new FormData();
+        formData.append('amount', extendPrice);
+        formData.append('title', 'ต่อเวลาใช้งานเครื่อง #CPC-94812 (+1 ชั่วโมง)');
+        formData.append('__RequestVerificationToken', token);
+
+        fetch('/CloudPC/DeductWalletAjax', {
+            method: 'POST',
+            body: formData
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.success) {
+                if (navEl) navEl.innerText = data.formatted;
+                remainingSeconds += 3600;
+                var clock = document.getElementById("countdownClock");
+                if (clock) clock.innerText = formatTime(remainingSeconds);
+
+                currentHours += 1;
+                var timeCell = document.getElementById("bookingTime94812");
+                if (timeCell) {
+                    var endHour = 14 + currentHours;
+                    timeCell.innerText = `25 ต.ค. 2023, 14:00 - ${endHour}:00 (${currentHours} ชม.)`;
+                }
+
+                var stat = document.getElementById("accumulatedHoursStat");
+                if (stat) stat.innerHTML = `${48 + (currentHours - 4)} <small class="fs-6 text-muted">ชั่วโมง</small>`;
+
+                showFeedback(`หักค่าต่อเวลา -${extendPrice.toFixed(2)} THB สำเร็จ! ขยายเวลาถึง ${14 + currentHours}:00 น. (ยอดคงเหลือ: ${data.formatted})`, "success");
+                showPageAlert(`ต่อเวลาการจองเครื่อง #CPC-94812 สำเร็จ (+1 ชม.) หักค่าบริการ ${extendPrice.toFixed(2)} THB ยอดเงินคงเหลือ: ${data.formatted}`, "success");
+            } else {
+                showFeedback(data.message || "ยอดเงินคงเหลือไม่พอสำหรับการต่อเวลา", "danger");
+                showPageAlert(data.message || "ยอดเงินคงเหลือไม่พอสำหรับการต่อเวลา กรุณาเติมเงินก่อนครับ", "danger");
+            }
+        })
+        .catch(function() {
+            remainingSeconds += 3600;
+            var clock = document.getElementById("countdownClock");
+            if (clock) clock.innerText = formatTime(remainingSeconds);
+            showFeedback("ต่อเวลาการใช้งานสำเร็จ +1 ชั่วโมง!", "success");
+        });
+    }
+
+    // 6. Reset Password
+    function resetPasswordModal() {
+        var randomNum = Math.floor(1000 + Math.random() * 9000);
+        var newPass = "Pass#" + randomNum + "!";
+        var passInput = document.getElementById("passField");
+        passInput.value = newPass;
+        passInput.type = "text";
+        
+        var icon = document.getElementById("eyeIcon");
+        if (icon) {
+            icon.classList.remove("bi-eye");
+            icon.classList.add("bi-eye-slash");
+        }
+
+        showFeedback("รีเซ็ตรหัสผ่านเครื่องใหม่เป็น: " + newPass + " เรียบร้อยแล้ว", "success");
+    }
+
+    // 7. End Rental / Return Machine
+    function endSessionConfirm() {
+        if (confirm("คุณแน่ใจหรือไม่ว่าต้องการคืนเครื่องและสิ้นสุดการเช่า #CPC-94812 ในครั้งนี้?")) {
+            // Stop timer
+            if (timerInterval) clearInterval(timerInterval);
+            var clock = document.getElementById("countdownClock");
+            if (clock) clock.innerText = "สิ้นสุดการเช่าแล้ว";
+
+            var badge = document.getElementById("machineStatusBadge");
+            if (badge) {
+                badge.className = "badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2 py-1 me-2";
+                badge.innerHTML = '<i class="bi bi-power me-1"></i> สิ้นสุดการเช่าแล้ว';
+            }
+
+            // Disable buttons
+            document.getElementById("btnRestart").disabled = true;
+            document.getElementById("btnExtend").disabled = true;
+            document.getElementById("btnResetPass").disabled = true;
+            document.getElementById("btnEndSession").disabled = true;
+
+            // Update row in table
+            var row = document.getElementById("bookingRow94812");
+            if (row) row.setAttribute("data-status", "completed");
+
+            var statusCell = document.getElementById("statusCell94812");
+            if (statusCell) {
+                statusCell.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">เสร็จ</span>';
+            }
+
+            var actionCell = document.getElementById("actionCell94812");
+            if (actionCell) {
+                actionCell.className = "text-end pe-3 text-muted";
+                actionCell.innerText = "ทำรายการเสร็จสิ้น";
+            }
+
+            // Update active machines counter
+            var activeStat = document.getElementById("activeMachinesStat");
+            if (activeStat) activeStat.innerHTML = '0 <small class="fs-6 text-muted">เครื่อง</small>';
+
+            // Close modal
+            var modalEl = document.getElementById('machineControlModal');
+            var modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+
+            showPageAlert("คืนเครื่อง #CPC-94812 เรียบร้อยแล้ว ขอบคุณที่เลือกใช้บริการ CloudPC ครับ", "success");
+        }
+    }
+
+    // 8. Cancel Booking
+    function cancelBooking(bookingId, amount) {
+        bookingId = bookingId || "94812";
+        amount = amount || "60.00";
+        if (confirm("ยืนยันการยกเลิกการจอง #CPC-" + bookingId + " หรือไม่?\nระบบจะคืนเงินจำนวน +" + amount + " THB เข้ากระเป๋าเงิน CloudPC Wallet ให้คุณทันทีแบบเรียลไทม์")) {
+            var form = document.getElementById("cancelBookingRealtimeForm");
+            if (form) {
+                var amtField = form.querySelector('input[name="refundAmount"]');
+                var codeField = form.querySelector('input[name="bookingCode"]');
+                if (amtField) amtField.value = amount;
+                if (codeField) codeField.value = "#CPC-" + bookingId;
+                form.submit();
+            }
+        }
+    }
+
+    function quickCancelInstant() {
+        var idInput = document.getElementById("refundModalBookingId");
+        var bookingId = idInput ? idInput.value : "94812";
+        var amtInput = document.getElementById("refundModalAmountInput");
+        var amount = amtInput ? amtInput.value : "60.00";
+
+        var modalEl = document.getElementById('requestRefundModal');
+        if (modalEl && typeof bootstrap !== "undefined") {
+            var modalInstance = bootstrap.Modal.getInstance(modalEl);
+            if (modalInstance) modalInstance.hide();
+        }
+        cancelBooking(bookingId, amount);
+    }
+
+    // 9. Live Search and Filter
+    function filterBookingsTable() {
+        var query = document.getElementById("bookingSearchInput").value.toLowerCase().trim();
+        var statusFilter = document.getElementById("bookingStatusFilter").value;
+        var rows = document.querySelectorAll("#bookingsTable tbody tr");
+        var visibleCount = 0;
+
+        rows.forEach(function(r) {
+            var searchData = (r.getAttribute("data-search") || "").toLowerCase();
+            var rowStatus = r.getAttribute("data-status");
+
+            var matchSearch = !query || searchData.includes(query);
+            var matchStatus = (statusFilter === "all") || (rowStatus === statusFilter);
+
+            if (matchSearch && matchStatus) {
+                r.classList.remove("d-none");
+                visibleCount++;
+            } else {
+                r.classList.add("d-none");
+            }
+        });
+
+        var noFound = document.getElementById("noBookingsFound");
+        if (noFound) {
+            if (visibleCount === 0) noFound.classList.remove("d-none");
+            else noFound.classList.add("d-none");
+        }
+
+        var countText = document.getElementById("bookingCountText");
+        if (countText) countText.innerText = `แสดง ${visibleCount} จากทั้งหมด @(ViewBag.TotalBookingsCount ?? 4) รายการประวัติการจอง`;
+    }
+
+    // Dynamic Modal Openers for Newly Booked Machines
+    function openMachineControl(bookingId, machineName) {
+        var codeEl = document.getElementById("modalMachineCode");
+        var titleEl = document.getElementById("modalMachineTitle");
+        if (codeEl) codeEl.innerText = '#CPC-' + bookingId;
+        if (titleEl) titleEl.innerText = machineName;
+        var modalEl = document.getElementById('machineControlModal');
+        if (modalEl && typeof bootstrap !== "undefined") {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    function openRefundModal(bookingId, machineName, amount) {
+        var idInput = document.getElementById("refundModalBookingId");
+        var amtInput = document.getElementById("refundModalAmountInput");
+        var codeText = document.getElementById("refundModalBookingCode");
+        var nameText = document.getElementById("refundModalMachineName");
+        var amtText = document.getElementById("refundModalAmountText");
+
+        if (idInput) idInput.value = bookingId;
+        if (amtInput) amtInput.value = (amount !== undefined && amount !== null) ? Number(amount).toFixed(2) : '60.00';
+        if (codeText) codeText.innerText = '#CPC-' + bookingId;
+        if (nameText) nameText.innerText = machineName;
+        if (amtText) amtText.innerText = ((amount !== undefined && amount !== null) ? Number(amount).toFixed(2) : '60.00') + ' THB';
+
+        var modalEl = document.getElementById('requestRefundModal');
+        if (modalEl && typeof bootstrap !== "undefined") {
+            var modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modalInstance.show();
+        }
+    }
+
+    function openRefundStatusModal(bookingId, status, reason, note, amount) {
+        var codeText = document.getElementById("refundStatusBookingCode");
+        if (codeText) codeText.innerText = '#CPC-' + bookingId;
+
+        var amtText = document.getElementById("refundStatusAmount");
+        if (amtText) amtText.innerText = (amount ? parseFloat(amount).toFixed(2) : '60.00') + ' THB';
+
+        var reasonText = document.getElementById("refundStatusReason");
+        if (reasonText) reasonText.innerText = reason || "ขอยกเลิกการจองและขอคืนเงิน";
+
+        var noteText = document.getElementById("refundStatusNote");
+        var noteContainer = document.getElementById("refundStatusNoteContainer");
+        if (noteText) {
+            if (note && note.trim() !== "") {
+                noteText.innerText = note;
+                if (noteContainer) noteContainer.classList.remove("d-none");
+            } else {
+                if (noteContainer) noteContainer.classList.add("d-none");
+            }
+        }
+
+        var iconContainer = document.getElementById("refundStatusIconContainer");
+        var titleEl = document.getElementById("refundStatusTitle");
+        var descEl = document.getElementById("refundStatusDesc");
+        var badgeEl = document.getElementById("refundStatusBadge");
+
+        if (status === "Refunded") {
+            if (iconContainer) iconContainer.innerHTML = '<i class="bi bi-check-circle-fill text-success" style="font-size: 3.5rem;"></i>';
+            if (titleEl) {
+                titleEl.className = "fw-bold text-success mb-2";
+                titleEl.innerText = "อนุมัติคืนเงินเรียบร้อยแล้ว";
+            }
+            if (descEl) descEl.innerHTML = '<div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 mb-2"><i class="bi bi-wallet2 me-1"></i> โอนเครดิตเข้ากระเป๋าเงิน: <strong>+' + (amount ? parseFloat(amount).toFixed(2) : '60.00') + ' THB</strong></div><p class="text-muted small mb-0">ฝ่ายบัญชีได้ตรวจสอบเงื่อนไขและอนุมัติการคืนเงินตามคำขอของคุณเรียบร้อยแล้ว ยอดเงินได้ถูกโอนเข้า CloudPC Wallet พร้อมใช้งานทันที</p>';
+            if (badgeEl) badgeEl.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-check-circle-fill me-1"></i> อนุมัติคืนเงินสำเร็จ</span>';
+        } else if (status === "RefundRejected") {
+            if (iconContainer) iconContainer.innerHTML = '<i class="bi bi-x-circle-fill text-danger" style="font-size: 3.5rem;"></i>';
+            if (titleEl) {
+                titleEl.className = "fw-bold text-danger mb-2";
+                titleEl.innerText = "ปฏิเสธคำขอคืนเงิน";
+            }
+            if (descEl) descEl.innerHTML = '<p class="text-muted small">คำขอนี้ไม่ตรงตามเงื่อนไขการคืนเงินของบริษัท</p>';
+            if (badgeEl) badgeEl.innerHTML = '<span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-x-circle me-1"></i> ปฏิเสธคำขอ</span>';
+        } else {
+            // RefundRequested
+            if (iconContainer) iconContainer.innerHTML = '<i class="bi bi-hourglass-split text-warning" style="font-size: 3.5rem;"></i>';
+            if (titleEl) {
+                titleEl.className = "fw-bold text-dark mb-2";
+                titleEl.innerText = "อยู่ระหว่างการตรวจสอบข้อมูล";
+            }
+            if (descEl) descEl.innerHTML = '<p class="text-muted small">ฝ่ายบัญชีกำลังตรวจสอบเงื่อนไขตามนโยบายของระบบ เพื่ออนุมัติและโอนเงินคืนเข้ากระเป๋าเงินของคุณ</p>';
+            if (badgeEl) badgeEl.innerHTML = '<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1"><i class="bi bi-hourglass-split me-1"></i> รอฝ่ายบัญชีตรวจสอบ</span>';
+        }
+
+        var modalEl = document.getElementById('refundStatusModal');
+        if (modalEl && typeof bootstrap !== "undefined") {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    // Helpers
+    function showFeedback(msg, type) {
+        var box = document.getElementById("actionFeedback");
+        if (!box) return;
+        box.className = "alert alert-" + type + " mt-3 small py-2";
+        box.innerHTML = '<i class="bi bi-info-circle-fill me-1"></i> ' + msg;
+        box.classList.remove("d-none");
+    }
+
+    function showPageAlert(msg, type) {
+        var box = document.getElementById("pageAlertBox");
+        var text = document.getElementById("pageAlertText");
+        if (!box || !text) return;
+        box.className = "alert alert-" + type + " shadow-sm border-0 d-flex align-items-center mb-4 rounded-3";
+        text.innerText = msg;
+        box.classList.remove("d-none");
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function hidePageAlert() {
+        var box = document.getElementById("pageAlertBox");
+        if (box) box.classList.add("d-none");
+    }
+
+    function openCustomerSlipModal(bookingId, slipUrl, amount) {
+        var titleEl = document.getElementById('customerSlipModalTitle');
+        var subtitleEl = document.getElementById('customerSlipModalSubtitle');
+        var imgEl = document.getElementById('customerSlipModalImg');
+        if (titleEl) titleEl.innerText = "สลิปโอนเงินรายการ #CPC-" + bookingId;
+        if (subtitleEl) subtitleEl.innerText = "ยอดโอน: " + (amount ? parseFloat(amount).toFixed(2) : '0.00') + " THB (รอฝ่ายบัญชีตรวจสอบ)";
+        if (imgEl) imgEl.src = slipUrl || "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80";
+        var modalEl = document.getElementById('customerSlipModal');
+        if (modalEl && typeof bootstrap !== "undefined") {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    function openCustomerRejectReasonModal(bookingId, reason) {
+        var codeEl = document.getElementById('customerRejectCode');
+        var reasonEl = document.getElementById('customerRejectReasonText');
+        if (codeEl) codeEl.innerText = "#CPC-" + bookingId;
+        if (reasonEl) reasonEl.innerText = reason || "สลิปไม่ถูกต้อง หรือยอดเงินไม่ตรงกับรายการ";
+        var modalEl = document.getElementById('customerRejectModal');
+        if (modalEl && typeof bootstrap !== "undefined") {
+            new bootstrap.Modal(modalEl).show();
+        }
+    }
+
+    // ===== Countdown Timer & Real-time Status =====
+    function formatDuration(secs) {
+        if (secs <= 0) return "00:00:00";
+        var h = Math.floor(secs / 3600);
+        var m = Math.floor((secs % 3600) / 60);
+        var s = secs % 60;
+        return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    }
+
+    function parseDateSafe(dateStr) {
+        if (!dateStr) return null;
+        var d = new Date(dateStr);
+        if (isNaN(d.getTime())) return null;
+        // กรณีปีเป็น พ.ศ. (เกิน 2500) ให้แปลงเป็น ค.ศ.
+        if (d.getFullYear() > 2500) {
+            d.setFullYear(d.getFullYear() - 543);
+        }
+        return d;
+    }
+
+    function tickCountdowns() {
+        var now = new Date();
+
+        // Countdown สำหรับ "กำลังใช้งาน" — นับถอยหลังถึงเวลาสิ้นสุด
+        document.querySelectorAll('[id^="countdown"]').forEach(function(el) {
+            var endTime = parseDateSafe(el.dataset.end);
+            if (!endTime) return;
+            var diff = Math.floor((endTime - now) / 1000);
+            if (diff > 0) {
+                el.textContent = '(' + formatDuration(diff) + ')';
+            } else {
+                el.textContent = '(เสร็จสิ้น)';
+            }
+        });
+
+        // แสดง "เริ่มในอีก X" สำหรับ "จอง (พร้อมใช้งาน)"
+        document.querySelectorAll('[id^="startIn"]').forEach(function(el) {
+            var startTime = parseDateSafe(el.dataset.start);
+            if (!startTime) return;
+            var diff = Math.floor((startTime - now) / 1000);
+            if (diff > 0) {
+                var h = Math.floor(diff / 3600);
+                var m = Math.floor((diff % 3600) / 60);
+                if (h > 0) el.textContent = '(เริ่มในอีก ' + h + 'ชม. ' + m + 'น.)';
+                else if (m > 0) el.textContent = '(เริ่มในอีก ' + m + ' นาที)';
+                else el.textContent = '(กำลังจะเริ่ม...)';
+            } else {
+                el.textContent = '';
+            }
+        });
+    }
+
+    // เริ่ม tick ทันที แล้วทุก 1 วินาที
+    tickCountdowns();
+    setInterval(tickCountdowns, 1000);
+</script>
+}

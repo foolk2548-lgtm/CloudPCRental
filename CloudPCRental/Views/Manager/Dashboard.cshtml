@@ -1,0 +1,159 @@
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "แดชบอร์ดผู้จัดการ";
+}
+
+@{
+    var recentBookings = ViewBag.RecentBookings as List<CloudPCRental.Models.Booking> ?? new();
+    var machines = ViewBag.Machines as List<CloudPCRental.Models.Machine> ?? new();
+}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="text-muted small">สวัสดี, <strong>@ViewBag.ManagerName</strong> — ภาพรวมสถานะระบบวันนี้</div>
+        <h3 class="fw-bold text-dark mb-0">แดชบอร์ดผู้จัดการ</h3>
+    </div>
+    <div class="text-muted small d-flex align-items-center">
+        <i class="bi bi-clock text-primary me-1"></i>
+        <span id="managerClock"></span>
+    </div>
+</div>
+
+<!-- Stats Cards Row 1 -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card-cloudpc bg-white p-3 text-center">
+            <div class="fs-2 fw-bold text-primary">@ViewBag.TotalMachines</div>
+            <div class="small text-muted">เครื่องทั้งหมด</div>
+            <div class="mt-1">
+                <span class="badge bg-success-subtle text-success border border-success-subtle">ว่าง @ViewBag.AvailableMachines</span>
+                <span class="badge bg-warning-subtle text-warning border border-warning-subtle">เช่า @ViewBag.RentedMachines</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card-cloudpc bg-white p-3 text-center">
+            <div class="fs-2 fw-bold text-info">@ViewBag.TotalUsers</div>
+            <div class="small text-muted">ลูกค้าที่ลงทะเบียน</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card-cloudpc bg-white p-3 text-center">
+            <div class="fs-2 fw-bold text-success">@ViewBag.TodayBookings</div>
+            <div class="small text-muted">การจองวันนี้</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card-cloudpc bg-white p-3 text-center">
+            <div class="fs-2 fw-bold text-warning">@ViewBag.PendingCount</div>
+            <div class="small text-muted">รอตรวจสอบสลิป</div>
+            @if ((int)(ViewBag.PendingCount ?? 0) > 0)
+            {
+                <div class="mt-1"><span class="badge bg-warning text-dark">ต้องดำเนินการ</span></div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Revenue + Maintenance -->
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card-cloudpc bg-white p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-currency-dollar text-success me-1"></i>รายรับรวม (Approved)</h6>
+                <a href="/Manager/RevenueReport" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size:0.75rem;">ดูรายงาน</a>
+            </div>
+            <div class="fs-1 fw-bold text-success">฿@((((decimal)(ViewBag.TotalRevenue ?? 0m)).ToString("N2")))</div>
+            <div class="text-muted small mt-1">จากการจองที่ผ่านการอนุมัติทั้งหมด @ViewBag.TotalBookings รายการ</div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card-cloudpc bg-white p-4">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-tools text-warning me-1"></i>เครื่องแจ้งซ่อม</h6>
+                <a href="/Manager/MachineStatus" class="btn btn-outline-warning btn-sm py-0 px-2" style="font-size:0.75rem;">ดูสถานะ</a>
+            </div>
+            <div class="fs-1 fw-bold text-warning">@ViewBag.MaintenanceMachines</div>
+            <div class="text-muted small mt-1">เครื่องที่อยู่ในสถานะแจ้งซ่อม / ปิดให้บริการชั่วคราว</div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Bookings -->
+<div class="card-cloudpc bg-white p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-primary me-1"></i>การจองล่าสุด 5 รายการ</h6>
+        <a href="/Manager/BookingOverview" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size:0.75rem;">ดูทั้งหมด</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-2">เลขที่จอง</th>
+                    <th>ชื่อลูกค้า</th>
+                    <th>เครื่อง</th>
+                    <th>ยอด</th>
+                    <th>สถานะ</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var b in recentBookings)
+                {
+                    var statusBadge = b.PaymentStatus switch
+                    {
+                        "Approved"           => ("bg-success-subtle text-success border-success-subtle", "อนุมัติแล้ว"),
+                        "จอง (พร้อมใช้งาน)" => ("bg-success-subtle text-success border-success-subtle", "จองแล้ว"),
+                        "Pending"            => ("bg-warning-subtle text-warning border-warning-subtle", "รอตรวจสอบ"),
+                        "Rejected"           => ("bg-danger-subtle text-danger border-danger-subtle", "ปฏิเสธ"),
+                        "RefundRequested"    => ("bg-warning-subtle text-warning border-warning-subtle", "ขอคืนเงิน"),
+                        "Refunded"           => ("bg-info-subtle text-info border-info-subtle", "คืนเงินแล้ว"),
+                        _                    => ("bg-secondary-subtle text-secondary border-secondary-subtle", b.PaymentStatus)
+                    };
+                    <tr>
+                        <td class="ps-2 fw-semibold text-primary" style="font-size:0.82rem;">#CPC-@b.BookingId</td>
+                        <td style="font-size:0.82rem;">@(b.User?.Username ?? $"User #{b.UserId}")</td>
+                        <td style="font-size:0.82rem;">@(b.Machine?.MachineName ?? $"Machine #{b.MachineId}")</td>
+                        <td style="font-size:0.82rem;" class="fw-semibold">฿@b.TotalAmount.ToString("N2")</td>
+                        <td><span class="badge border @statusBadge.Item1" style="font-size:0.72rem;">@statusBadge.Item2</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Machine Quick Status Grid -->
+<div class="card-cloudpc bg-white p-4">
+    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-pc-display me-1 text-primary"></i>สถานะเครื่องแบบย่อ</h6>
+    <div class="row g-2">
+        @foreach (var m in machines)
+        {
+            var (bg, icon) = m.Status switch
+            {
+                "Rented"      or "ไม่ว่าง"  => ("bg-warning-subtle border-warning", "bi-lightning-charge-fill text-warning"),
+                "Maintenance"               => ("bg-danger-subtle border-danger", "bi-tools text-danger"),
+                _                           => ("bg-success-subtle border-success", "bi-check-circle-fill text-success")
+            };
+            <div class="col-6 col-md-4 col-lg-3">
+                <div class="border rounded-2 p-2 @bg d-flex align-items-center gap-2">
+                    <i class="bi @icon"></i>
+                    <div>
+                        <div class="fw-semibold" style="font-size:0.78rem;">@m.MachineName</div>
+                        <div class="text-muted" style="font-size:0.68rem;">@m.Status</div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<script>
+    function updateClock() {
+        var now = new Date();
+        document.getElementById('managerClock').textContent =
+            now.toLocaleTimeString('th-TH') + ' น.';
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+</script>

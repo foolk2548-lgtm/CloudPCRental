@@ -1,0 +1,331 @@
+@model List<CloudPCRental.Models.SupportTicket>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "ข้อความแจ้งปัญหาและศูนย์แชทลูกค้า (Support Center)";
+    var selectedTicket = ViewBag.SelectedTicket as CloudPCRental.Models.SupportTicket;
+    var allTickets = ViewBag.AllTickets as List<CloudPCRental.Models.SupportTicket> ?? Model;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold text-dark mb-1">
+            <i class="bi bi-chat-left-dots-fill text-primary me-2"></i> ศูนย์รับเรื่องแจ้งปัญหา &amp; แชทบริการลูกค้า
+        </h4>
+        <p class="text-muted small mb-0">ระบบตอบกลับข้อความและการสื่อสารแบบสองทางระหว่างผู้ดูแลระบบกับลูกค้าแบบเรียลไทม์</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a asp-action="SupportTickets" class="btn btn-sm btn-outline-secondary rounded-pill px-3 shadow-xs refresh-badge">
+            <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรชข้อความ
+        </a>
+    </div>
+</div>
+
+<div class="row g-3" style="min-height: 680px;">
+    <!-- Column 1: Ticket List -->
+    <div class="col-lg-4 col-xl-4">
+        <div class="card border-0 shadow-sm rounded-4 h-100 bg-white overflow-hidden d-flex flex-column">
+            <div class="p-3 border-bottom bg-light">
+                <div class="input-group input-group-sm mb-2">
+                    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="adminTicketSearch" class="form-control border-start-0" placeholder="ค้นหาชื่อลูกค้า, รหัสคำขอ, หัวข้อ..." oninput="filterAdminTickets()" />
+                </div>
+                <div class="d-flex gap-1 flex-wrap">
+                    <button class="btn btn-xs btn-primary rounded-pill px-2 py-1 ticket-filter-btn active" style="font-size: 0.75rem;" onclick="filterTicketStatus('all', this)">ทั้งหมด (@allTickets.Count)</button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-2 py-1 ticket-filter-btn bg-white" style="font-size: 0.75rem;" onclick="filterTicketStatus('WaitingAdmin', this)">
+                        รอตอบ (@allTickets.Count(t => t.Status == "WaitingAdmin"))
+                    </button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-2 py-1 ticket-filter-btn bg-white" style="font-size: 0.75rem;" onclick="filterTicketStatus('Answered', this)">
+                        ตอบแล้ว (@allTickets.Count(t => t.Status == "Answered"))
+                    </button>
+                    <button class="btn btn-xs btn-outline-secondary rounded-pill px-2 py-1 ticket-filter-btn bg-white" style="font-size: 0.75rem;" onclick="filterTicketStatus('Resolved', this)">
+                        แก้ไขแล้ว
+                    </button>
+                </div>
+            </div>
+
+            <div class="list-group list-group-flush flex-grow-1 overflow-auto" id="adminTicketList" style="max-height: 600px;">
+                @if (allTickets == null || !allTickets.Any())
+                {
+                    <div class="p-4 text-center text-muted small">
+                        <i class="bi bi-inbox fs-2 d-block mb-2 text-secondary"></i>
+                        ยังไม่มีข้อความแจ้งปัญหาในระบบ
+                    </div>
+                }
+                else
+                {
+                    @foreach (var ticket in allTickets)
+                    {
+                        var isSelected = selectedTicket != null && selectedTicket.TicketId == ticket.TicketId;
+                        var lastMsg = ticket.Messages.LastOrDefault();
+                        var statusBadgeClass = ticket.Status == "WaitingAdmin" ? "bg-danger text-white" :
+                                              ticket.Status == "Answered" ? "bg-success text-white" : "bg-secondary text-white";
+                        var statusText = ticket.Status == "WaitingAdmin" ? "รอแอดมินตอบ" :
+                                         ticket.Status == "Answered" ? "ตอบแล้ว" : "เสร็จสิ้น";
+
+                        <a asp-action="SupportTickets" asp-route-selectedTicketId="@ticket.TicketId" 
+                           class="list-group-item list-group-item-action p-3 ticket-card-item @(isSelected ? "bg-light border-start border-4 border-primary" : "")"
+                           data-status="@ticket.Status"
+                           data-search="@ticket.TicketCode.ToLower() @ticket.UserName.ToLower() @ticket.Subject.ToLower()">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold" style="width: 28px; height: 28px; font-size: 0.75rem;">
+                                        @(ticket.UserName.Length > 0 ? ticket.UserName.Substring(0, 1) : "U")
+                                    </div>
+                                    <span class="fw-bold text-dark small text-truncate" style="max-width: 140px;">@ticket.UserName</span>
+                                </div>
+                                <span class="badge @statusBadgeClass rounded-pill" style="font-size: 0.65rem;">@statusText</span>
+                            </div>
+                            <div class="fw-semibold text-dark small text-truncate mb-1">@ticket.Subject</div>
+                            <div class="text-muted small text-truncate mb-2" style="font-size: 0.78rem;">
+                                @(lastMsg != null ? lastMsg.Content : "ไม่มีข้อความ")
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center text-muted" style="font-size: 0.7rem;">
+                                <span><i class="bi bi-tag me-1"></i>@ticket.TicketCode</span>
+                                <span><i class="bi bi-clock me-1"></i>@ticket.UpdatedAt.ToString("HH:mm น.")</span>
+                            </div>
+                        </a>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Column 2: Active Chat Conversation -->
+    <div class="col-lg-8 col-xl-8">
+        @if (selectedTicket == null)
+        {
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white d-flex align-items-center justify-content-center p-5 text-center">
+                <i class="bi bi-chat-square-dots text-secondary fs-1 mb-3"></i>
+                <h5 class="fw-bold text-dark">เลือกคำขอหรือข้อความจากรายการด้านซ้าย</h5>
+                <p class="text-muted small">คลิกรายการคำขอเพื่อเปิดอ่านรายละเอียดและพิมพ์ข้อความตอบกลับลูกค้าแบบเรียลไทม์</p>
+            </div>
+        }
+        else
+        {
+            <div class="card border-0 shadow-sm rounded-4 h-100 bg-white overflow-hidden d-flex flex-column">
+                <!-- Chat Header -->
+                <div class="p-3 border-bottom bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-primary-subtle text-primary p-2 d-flex align-items-center justify-content-center" style="width: 44px; height: 44px;">
+                            <i class="bi bi-person-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h6 class="fw-bold text-dark mb-0">@selectedTicket.UserName</h6>
+                                <span class="badge badge-tier-platinum py-0 px-2" style="font-size: 0.68rem;">
+                                    <i class="bi bi-gem"></i> Platinum Member
+                                </span>
+                                <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.7rem;">@selectedTicket.TicketCode</span>
+                            </div>
+                            <div class="text-muted small" style="font-size: 0.78rem;">
+                                <span>หมวดหมู่: <strong class="text-dark">@selectedTicket.Category</strong></span>
+                                @if (selectedTicket.RelatedBookingId.HasValue)
+                                {
+                                    <span class="ms-2">| เครื่อง: <strong class="text-primary">@selectedTicket.RelatedMachineName (#CPC-@selectedTicket.RelatedBookingId)</strong></span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        @if (selectedTicket.Status != "Resolved")
+                        {
+                            <form asp-action="ResolveSupportTicket" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="ticketId" value="@selectedTicket.TicketId" />
+                                <button type="submit" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold">
+                                    <i class="bi bi-check-circle-fill me-1"></i> ปิดเคส (แก้ไขแล้ว)
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary rounded-pill px-3 py-2">
+                                <i class="bi bi-check-all me-1"></i> เคสนี้ปิดแล้ว
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                <!-- Chat History Messages Stream -->
+                <div class="p-4 flex-grow-1 overflow-auto bg-light" id="adminChatMessagesBox" style="max-height: 440px; min-height: 380px;">
+                    <div class="text-center my-2">
+                        <span class="badge bg-white text-muted border rounded-pill px-3 py-1 shadow-xs" style="font-size: 0.72rem;">
+                            เปิดคำขอเมื่อ @selectedTicket.CreatedAt.ToString("dd MMMM yyyy HH:mm น.")
+                        </span>
+                    </div>
+
+                    @foreach (var msg in selectedTicket.Messages)
+                    {
+                        @if (msg.IsAdminReply)
+                        {
+                            <!-- Staff / Admin / Manager Message (Right aligned) -->
+                            <div class="d-flex justify-content-end mb-3">
+                                <div style="max-width: 75%;">
+                                    <div class="d-flex justify-content-end align-items-center gap-1 mb-1">
+                                        @if (msg.SenderRole == "Manager" || (msg.SenderName != null && (msg.SenderName.Contains("manager") || msg.SenderName.Contains("ผู้จัดการ"))))
+                                        {
+                                            <span class="badge py-1 px-2 shadow-xs" style="background-color: #d97706; color: #fff; font-size: 0.7rem;">
+                                                <i class="bi bi-shield-shaded me-1"></i>ผู้จัดการสาขา: @(msg.SenderName?.Replace(" (แอดมิน)", ""))
+                                            </span>
+                                        }
+                                        else if (msg.SenderRole == "Staff" || (msg.SenderName != null && (msg.SenderName.Contains("staff") || msg.SenderName.Contains("พนักงาน"))))
+                                        {
+                                            <span class="badge py-1 px-2 shadow-xs" style="background-color: #0284c7; color: #fff; font-size: 0.7rem;">
+                                                <i class="bi bi-headset me-1"></i>พนักงานบริการ: @(msg.SenderName?.Replace(" (แอดมิน)", ""))
+                                            </span>
+                                        }
+                                        else if (msg.SenderRole == "Accountant" || (msg.SenderName != null && (msg.SenderName.Contains("account") || msg.SenderName.Contains("บัญชี"))))
+                                        {
+                                            <span class="badge py-1 px-2 shadow-xs" style="background-color: #16a34a; color: #fff; font-size: 0.7rem;">
+                                                <i class="bi bi-receipt me-1"></i>ฝ่ายบัญชี: @(msg.SenderName?.Replace(" (แอดมิน)", ""))
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge py-1 px-2 shadow-xs" style="background-color: #2563eb; color: #fff; font-size: 0.7rem;">
+                                                <i class="bi bi-shield-lock me-1"></i>ผู้ดูแลระบบ: @(msg.SenderName?.Replace(" (แอดมิน)", ""))
+                                            </span>
+                                        }
+                                        <small class="text-muted" style="font-size: 0.7rem;">@msg.SentAt.ToString("HH:mm น.")</small>
+                                    </div>
+                                    <div class="p-3 rounded-4 shadow-xs text-white" style="background-color: #2563eb; border-bottom-right-radius: 4px; font-size: 0.9rem; line-height: 1.5;">
+                                        @msg.Content
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Customer Message (Left aligned, White Bubble) -->
+                            <div class="d-flex justify-content-start mb-3">
+                                <div class="rounded-circle bg-white text-primary border shadow-xs d-flex align-items-center justify-content-center me-2 flex-shrink-0" style="width: 32px; height: 32px; font-size: 0.85rem;">
+                                    <i class="bi bi-person-fill"></i>
+                                </div>
+                                <div style="max-width: 75%;">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <strong class="text-dark small">@msg.SenderName</strong>
+                                        <small class="text-muted" style="font-size: 0.7rem;">@msg.SentAt.ToString("HH:mm น.")</small>
+                                    </div>
+                                    <div class="p-3 rounded-4 bg-white border shadow-xs text-dark" style="border-bottom-left-radius: 4px; font-size: 0.9rem; line-height: 1.5;">
+                                        @msg.Content
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                @if (selectedTicket.Status == "Resolved")
+                {
+                    <!-- ป้ายแจ้งเตือนเมื่อเคสถูกปิดแล้ว (ห้ามตอบ ยกเว้นลูกค้ารีเควสเข้ามาใหม่) -->
+                    <div class="p-4 border-top bg-light text-center">
+                        <div class="d-inline-flex align-items-center justify-content-center bg-success-subtle text-success rounded-circle p-2 mb-2 shadow-xs" style="width: 42px; height: 42px;">
+                            <i class="bi bi-check-circle-fill fs-5"></i>
+                        </div>
+                        <h6 class="fw-bold text-dark mb-1">เคสนี้ได้รับการแก้ไขและปิดแล้ว (Resolved)</h6>
+                        <p class="text-muted small mb-0" style="max-width: 480px; margin: 0 auto; line-height: 1.5; font-size: 0.8rem;">
+                            เจ้าหน้าที่ทำการปิดเคสเสร็จสมบูรณ์แล้ว ไม่สามารถส่งข้อความตอบกลับได้ชั่วคราว<br />
+                            <span class="text-secondary">(ระบบจะเปิดรับข้อความใหม่อัตโนมัติเมื่อลูกค้าพิมพ์ข้อความเพิ่มเติมเข้ามา)</span>
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <!-- Quick Canned Replies Bar -->
+                    <div class="px-3 py-2 bg-white border-top border-bottom d-flex align-items-center gap-2 overflow-auto text-nowrap" style="font-size: 0.75rem;">
+                        <span class="text-muted fw-semibold flex-shrink-0"><i class="bi bi-lightning-charge-fill text-warning me-1"></i>ตอบด่วน:</span>
+                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 py-1 bg-light" onclick="insertQuickReply('สวัสดีครับ ทางแอดมินกำลังตรวจสอบระบบเครื่องให้ทันทีครับ รอสักครู่นะครับ')">
+                            🔍 กำลังตรวจสอบให้
+                        </button>
+                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 py-1 bg-light" onclick="insertQuickReply('ทางทีมงานได้ทำการรีเซ็ตสัญญาณและปลดล็อกแบนด์วิดท์ 1Gbps ให้แล้วครับ รบกวนกด Reconnect เชื่อมต่อใหม่อีกครั้งครับผม')">
+                            🚀 รีเซ็ตสัญญาณ 1Gbps ให้แล้ว
+                        </button>
+                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 py-1 bg-light" onclick="insertQuickReply('ดำเนินการคืนเงินค่าเช่าเข้า CloudPC Wallet ให้เรียบร้อยแล้วครับ ตรวจสอบยอดเงินคงเหลือได้ทันทีครับ')">
+                            💰 คืนเงินเข้าวอลเล็ตแล้ว
+                        </button>
+                        <button type="button" class="btn btn-xs btn-outline-secondary rounded-pill px-2 py-1 bg-light" onclick="insertQuickReply('ยินดีให้บริการครับ หากต้องการความช่วยเหลือเพิ่มเติม แจ้งแอดมินในแชทนี้ได้ตลอด 24 ชั่วโมงนะครับ')">
+                            🙏 ยินดีให้บริการ
+                        </button>
+                    </div>
+
+                    <!-- Reply Input Area -->
+                    <div class="p-3 bg-white">
+                        <form asp-action="ReplySupportTicket" method="post" id="adminReplyForm">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="ticketId" value="@selectedTicket.TicketId" />
+                            <div class="mb-2">
+                                <textarea id="adminReplyTextarea" name="replyContent" class="form-control rounded-3" rows="3" placeholder="พิมพ์ข้อความตอบกลับลูกค้าที่นี่..." required></textarea>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="small text-muted mb-0">สถานะหลังตอบ:</label>
+                                    <select name="newStatus" class="form-select form-select-sm rounded-pill" style="width: auto; font-size: 0.78rem;">
+                                        <option value="Answered" selected>ตอบแล้ว (Answered)</option>
+                                        <option value="Resolved">ตอบและปิดเคสทันที (Resolved)</option>
+                                        <option value="WaitingAdmin">ยังรอข้อมูลเพิ่ม (Waiting)</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+                                    <i class="bi bi-send-fill me-1"></i> ส่งข้อความตอบกลับ
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function insertQuickReply(text) {
+        const textarea = document.getElementById('adminReplyTextarea');
+        if (textarea) {
+            textarea.value = text;
+            textarea.focus();
+        }
+    }
+
+    function filterAdminTickets() {
+        const q = document.getElementById('adminTicketSearch').value.toLowerCase().trim();
+        const cards = document.querySelectorAll('.ticket-card-item');
+        cards.forEach(card => {
+            const searchData = card.getAttribute('data-search') || '';
+            if (!q || searchData.includes(q)) {
+                card.classList.remove('d-none');
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+    }
+
+    function filterTicketStatus(status, btn) {
+        document.querySelectorAll('.ticket-filter-btn').forEach(b => {
+            b.classList.remove('btn-primary', 'active');
+            b.classList.add('btn-outline-secondary', 'bg-white');
+        });
+        btn.classList.remove('btn-outline-secondary', 'bg-white');
+        btn.classList.add('btn-primary', 'active');
+
+        const cards = document.querySelectorAll('.ticket-card-item');
+        cards.forEach(card => {
+            const cardStatus = card.getAttribute('data-status');
+            if (status === 'all' || cardStatus === status) {
+                card.classList.remove('d-none');
+            } else {
+                card.classList.add('d-none');
+            }
+        });
+    }
+
+    // เลื่อนลงไปล่างสุดของกล่องข้อความแชท
+    window.addEventListener('DOMContentLoaded', () => {
+        const msgBox = document.getElementById('adminChatMessagesBox');
+        if (msgBox) {
+            msgBox.scrollTop = msgBox.scrollHeight;
+        }
+    });
+</script>
+}

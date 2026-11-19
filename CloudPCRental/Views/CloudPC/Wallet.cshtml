@@ -1,0 +1,503 @@
+@model IEnumerable<CloudPCRental.Models.WalletTransaction>
+@{
+    Layout = "_CustomerLayout";
+    ViewData["Title"] = "กระเป๋าเงินของฉัน";
+    decimal balance = ViewBag.Balance ?? 540.00m;
+    string username = ViewBag.Username ?? "ธนพล ดีสมเกียรติ";
+}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <div class="text-muted small">แดชบอร์ดลูกค้า &bull; จัดการเครดิตและเติมเงินผ่านพร้อมเพย์</div>
+        <h3 class="fw-bold text-dark mb-0">กระเป๋าเงินของฉัน (CloudPC Wallet)</h3>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a asp-action="Machines" class="btn btn-outline-primary btn-sm rounded-3">
+            <i class="bi bi-pc-display me-1"></i> ไปหน้าเช่าเครื่องคอมพิวเตอร์
+        </a>
+    </div>
+</div>
+
+<!-- Balance & Wallet Overview Card -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-5">
+        <div class="card-cloudpc p-4 text-white position-relative overflow-hidden h-100" style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+                    <span class="opacity-75 small">ยอดเงินคงเหลือเรียลไทม์ (Real-time Balance)</span>
+                    <h1 class="fw-bold my-1 font-monospace" id="walletDisplayAmount">
+                        @balance.ToString("N2") <span class="fs-5 fw-normal">THB</span>
+                    </h1>
+                    <div class="opacity-75 small mt-1">
+                        <i class="bi bi-shield-check me-1"></i> เครดิตเข้ากระเป๋าทันทีเมื่อฝ่ายบัญชีอนุมัติสลิป
+                    </div>
+                </div>
+                <div class="p-3 bg-white bg-opacity-25 rounded-circle shadow-sm">
+                    <i class="bi bi-wallet2 fs-3"></i>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-end pt-3 border-top border-white border-opacity-25 small">
+                <div>
+                    <span class="opacity-75 d-block" style="font-size: 0.72rem;">เจ้าของบัญชีกระเป๋าเงิน</span>
+                    <span class="fw-semibold">@username</span>
+                </div>
+                <div class="text-end">
+                    <span class="opacity-75 d-block" style="font-size: 0.72rem;">รหัสกระเป๋าเงิน Wallet</span>
+                    <span class="font-monospace">WALLET-77491</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top-Up Form Card -->
+    <div class="col-lg-7">
+        <div class="card-cloudpc p-4 bg-white h-100 border rounded-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-plus-circle-fill text-primary me-2"></i> เติมเงินเข้ากระเป๋าเงิน (พร้อมเพย์ QR Code)</h6>
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle small">ฝ่ายบัญชีตรวจสอบสลิป</span>
+            </div>
+            
+            <form asp-action="TopUpWallet" method="post" id="topupForm" enctype="multipart/form-data">
+                @Html.AntiForgeryToken()
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-secondary">เลือกจำนวนเงินที่ต้องการเติม</label>
+                    <div class="row g-2 mb-2">
+                        <div class="col-3">
+                            <button type="button" class="btn btn-outline-primary w-100 py-2 small fw-semibold preset-btn active" onclick="setAmount(100, this)">
+                                +100 บาท
+                            </button>
+                        </div>
+                        <div class="col-3">
+                            <button type="button" class="btn btn-outline-primary w-100 py-2 small fw-semibold preset-btn" onclick="setAmount(300, this)">
+                                +300 บาท
+                            </button>
+                        </div>
+                        <div class="col-3">
+                            <button type="button" class="btn btn-outline-primary w-100 py-2 small fw-semibold preset-btn" onclick="setAmount(500, this)">
+                                +500 บาท
+                            </button>
+                        </div>
+                        <div class="col-3">
+                            <button type="button" class="btn btn-outline-primary w-100 py-2 small fw-semibold preset-btn" onclick="setAmount(1000, this)">
+                                +1,000 บาท
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light text-muted small">จำนวนเงินที่ต้องการเติม</span>
+                        <input type="number" id="topupAmount" name="amount" class="form-control fw-bold fs-6" value="100" min="10" max="50000" oninput="updateQrAmount(this.value)" required />
+                        <span class="input-group-text bg-light text-muted small">บาท</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold text-secondary">ช่องทางการชำระเงิน</label>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="border rounded-3 p-2 d-flex align-items-center cursor-pointer w-100 bg-light border-primary" id="lblMethodQr">
+                                <input type="radio" name="paymentMethod" value="พร้อมเพย์ QR Code" class="form-check-input me-2" checked onchange="togglePayMethod('pm-qr')" />
+                                <div>
+                                    <div class="fw-semibold small text-dark"><i class="bi bi-qr-code text-primary me-1"></i> พร้อมเพย์ QR Code</div>
+                                    <div class="text-muted" style="font-size: 0.72rem;">เบอร์ 061-201-3936 (แนบสลิป)</div>
+                                </div>
+                            </label>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="border rounded-3 p-2 d-flex align-items-center cursor-pointer w-100 bg-light" id="lblMethodCard">
+                                <input type="radio" name="paymentMethod" value="บัตรเครดิต / เดบิต" class="form-check-input me-2" onchange="togglePayMethod('pm-card')" />
+                                <div>
+                                    <div class="fw-semibold small text-dark"><i class="bi bi-credit-card text-success me-1"></i> บัตรเครดิต / เดบิต</div>
+                                    <div class="text-muted" style="font-size: 0.72rem;">Visa, Mastercard, JCB (ตัดเงินทันที)</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detail Panel: พร้อมเพย์ QR Code & แนบสลิป -->
+                <div id="panelWalletQr" class="mb-3 p-4 bg-light rounded-4 border text-center">
+                    <div class="mb-3">
+                        <div class="p-3 bg-white d-inline-block rounded-3 border shadow-sm mb-2">
+                            <img id="promptpayQrImg" 
+                                 src="https://promptpay.io/0612013936/100.png" 
+                                 onerror="this.onerror=null; this.src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PROMPTPAY-0612013936-100';"
+                                 alt="PromptPay QR Code 0612013936" 
+                                 class="img-fluid rounded" 
+                                 style="width: 190px; height: 190px; object-fit: contain;" />
+                        </div>
+                        <div class="text-muted small mb-1">
+                            <i class="bi bi-qr-code-scan me-1"></i> สแกนชำระเงินผ่านแอปธนาคาร
+                        </div>
+                        <div class="fs-4 fw-bold text-dark my-1">
+                            ยอดที่ต้องโอน: <span class="text-primary font-monospace" id="qrAmountDisplay">100.00</span> บาท
+                        </div>
+                        <div class="small text-muted">
+                            พร้อมเพย์: <strong class="text-dark font-monospace fs-6">061-201-3936</strong>
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill small ms-2" onclick="copyPromptPayNum()">
+                                <i class="bi bi-clipboard me-1"></i> คัดลอกเบอร์
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ส่วนแนบสลิปโอนเงิน -->
+                    <div class="pt-3 border-top text-start">
+                        <label class="form-label small fw-bold text-dark d-flex align-items-center justify-content-between mb-2">
+                            <span><i class="bi bi-receipt-cutoff text-primary me-1"></i> แนบหลักฐานสลิปโอนเงิน <span class="text-danger">*</span></span>
+                            <span class="badge bg-white text-muted border fw-normal" style="font-size: 0.7rem;">รองรับไฟล์รูปภาพ JPG, PNG</span>
+                        </label>
+                        <input type="file" name="slipFile" id="walletSlipInput" class="form-control" accept="image/*" onchange="previewWalletSlip(this)" required />
+
+                        <!-- พรีวิวเฉพาะเมื่อลูกค้าเลือกไฟล์รูปจริง -->
+                        <div id="walletSlipPreviewBox" class="mt-2 p-2 bg-white rounded border text-center d-none">
+                            <img id="walletSlipPreviewImg" src="" alt="Slip Preview" class="img-fluid rounded shadow-xs mb-1" style="max-height: 180px;" />
+                            <div class="small text-success fw-semibold" id="walletSlipPreviewText" style="font-size: 0.75rem;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detail Panel: บัตรเครดิต / เดบิต (Credit Card Input) -->
+                <div id="panelWalletCard" class="mb-3 p-4 bg-light rounded-4 border" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="fw-bold small text-dark"><i class="bi bi-credit-card-2-front text-primary me-1"></i> กรอกข้อมูลบัตรเครดิต / เดบิต</div>
+                        <div class="d-flex gap-2 text-muted" style="font-size: 1.2rem;">
+                            <i class="bi bi-credit-card text-primary" title="Visa"></i>
+                            <i class="bi bi-credit-card-2-back text-danger" title="Mastercard"></i>
+                            <i class="bi bi-shield-check text-success" title="Secure Payment"></i>
+                        </div>
+                    </div>
+
+                    <!-- Virtual Card Preview UI -->
+                    <div class="p-3 mb-3 rounded-3 text-white shadow-sm" style="background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="badge bg-warning text-dark fw-bold px-2 py-1" style="font-size: 0.65rem;">
+                                <i class="bi bi-cpu me-1"></i> EMV CHIP
+                            </span>
+                            <span class="text-white-50 small"><i class="bi bi-wifi fs-6"></i> CONTACTLESS</span>
+                        </div>
+                        <div class="font-monospace fs-5 fw-bold tracking-wider mb-2" id="cardPreviewNumber" style="letter-spacing: 2px;">
+                            •••• •••• •••• ••••
+                        </div>
+                        <div class="d-flex justify-content-between align-items-end text-uppercase" style="font-size: 0.72rem;">
+                            <div>
+                                <div class="text-white-50" style="font-size: 0.6rem;">CARD HOLDER</div>
+                                <div class="fw-bold text-white text-truncate" id="cardPreviewName" style="max-width: 170px;">CARD HOLDER</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="text-white-50" style="font-size: 0.6rem;">EXPIRES</div>
+                                <div class="fw-bold text-white" id="cardPreviewExpiry">MM/YY</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inputs -->
+                    <div class="row g-2 text-start">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold text-secondary mb-1">ชื่อผู้ถือบัตร (Name on Card)</label>
+                            <input type="text" name="cardHolderName" id="walletCardName" class="form-control text-uppercase" placeholder="เช่น SOMCHAI K หรือตามที่ระบุบนหน้าบัตร" value="" oninput="updateWalletCardPreview()" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold text-secondary mb-1">หมายเลขบัตร (Card Number)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-white"><i class="bi bi-credit-card text-primary"></i></span>
+                                <input type="text" name="cardNumber" id="walletCardNumber" class="form-control font-monospace" placeholder="4112 3456 7890 9876" maxlength="19" value="" oninput="formatWalletCardNumber(this)" />
+                                <button type="button" class="btn btn-outline-secondary border-start-0 bg-white" onclick="clearWalletCardNumber()" title="ล้างหมายเลขบัตร">
+                                    <i class="bi bi-x-circle text-muted"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold text-secondary mb-1">วันหมดอายุ (MM/YY)</label>
+                            <input type="text" name="cardExpiry" id="walletCardExpiry" class="form-control font-monospace" placeholder="MM/YY" maxlength="5" value="" oninput="formatWalletCardExpiry(this)" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold text-secondary mb-1">รหัสความปลอดภัย (CVV)</label>
+                            <div class="input-group">
+                                <input type="password" name="cardCvv" id="walletCardCvv" class="form-control font-monospace" placeholder="•••" maxlength="4" value="" />
+                                <span class="input-group-text bg-white text-muted" title="รหัส 3 หลักหลังบัตร"><i class="bi bi-shield-lock"></i></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center justify-content-center gap-2 mt-3 pt-2 border-top text-muted" style="font-size: 0.72rem;">
+                        <i class="bi bi-shield-fill-check text-success"></i>
+                        <span>เข้ารหัสความปลอดภัยระดับมาตรฐานสากล 256-Bit SSL ตัดเงินและยอดเข้ากระเป๋าทันที</span>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" id="btnSubmitTopup" class="btn btn-success rounded-3 px-4 py-2 fw-semibold flex-grow-1 shadow-sm">
+                        <i class="bi bi-cloud-arrow-up-fill me-1"></i> แจ้งโอนเงินและส่งสลิปให้ฝ่ายบัญชีตรวจสอบ (<span id="btnAmountDisplay">100.00</span> ฿)
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction History Section -->
+<div class="card-cloudpc bg-white p-4 mb-4 border rounded-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="fw-bold mb-0 text-dark"><i class="bi bi-clock-history text-secondary me-2"></i> ประวัติรายการในกระเป๋าเงิน (Transaction History)</h6>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-2 py-0" onclick="location.reload()" title="คลิกเพื่อรีเฟรชข้อมูลล่าสุด">
+                <i class="bi bi-arrow-clockwise me-1"></i> รีเฟรชสถานะ
+            </button>
+            <span class="badge bg-light text-secondary border small">อัปเดตเรียลไทม์</span>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small" id="walletTxnTable">
+            <thead class="table-light text-muted">
+                <tr>
+                    <th class="ps-3">วันที่ / เวลา</th>
+                    <th>รายการ</th>
+                    <th>ช่องทาง</th>
+                    <th>จำนวนเงิน</th>
+                    <th class="text-end pe-3">สถานะ</th>
+                </tr>
+            </thead>
+            <tbody id="walletTxnBody">
+                @if (Model != null && Model.Any())
+                {
+                    @foreach (var txn in Model)
+                    {
+                        <tr>
+                            <td class="ps-3 text-muted">@txn.CreatedAt.ToString("dd/MM/yyyy HH:mm น.")</td>
+                            <td>
+                                <div class="fw-semibold text-dark">@txn.Title</div>
+                                <div class="text-muted" style="font-size: 0.72rem;">เลขอ้างอิง @txn.ReferenceCode</div>
+                            </td>
+                            <td><span class="text-secondary"><i class="bi bi-wallet2 me-1"></i> @txn.Channel</span></td>
+                            <td class="fw-bold @(txn.Amount >= 0 ? "text-success" : "text-danger")">
+                                @(txn.Amount >= 0 ? "+" : "")@txn.Amount.ToString("N2") THB
+                            </td>
+                            <td class="text-end pe-3">
+                                @if (txn.Status == "รอตรวจสอบ")
+                                {
+                                    <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1">
+                                        <i class="bi bi-hourglass-split me-1"></i>รอฝ่ายบัญชีตรวจสอบ
+                                    </span>
+                                }
+                                else if (txn.Status != null && txn.Status.Contains("ปฏิเสธ"))
+                                {
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                                        <i class="bi bi-x-circle-fill me-1"></i>@txn.Status
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                        <i class="bi bi-check-circle-fill me-1"></i>@txn.Status
+                                    </span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr id="emptyTxnRow">
+                        <td colspan="5" class="text-center py-4 text-muted">ยังไม่มีประวัติการทำรายการในกระเป๋าเงิน</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function setAmount(val, btn) {
+        document.getElementById('topupAmount').value = val;
+        document.querySelectorAll('.preset-btn').forEach(function(b) {
+            b.classList.remove('active');
+        });
+        if (btn) btn.classList.add('active');
+        updateQrAmount(val);
+    }
+
+    function updateQrAmount(val) {
+        var num = parseFloat(val) || 100;
+        var formatted = num.toFixed(2);
+        
+        document.getElementById('qrAmountDisplay').innerText = formatted;
+        document.getElementById('btnAmountDisplay').innerText = formatted;
+        
+        // อัปเดตรูป QR Code ให้ตรงกับยอดเงินที่เลือก
+        var qrImg = document.getElementById('promptpayQrImg');
+        if (qrImg) {
+            qrImg.src = 'https://promptpay.io/0612013936/' + num + '.png';
+        }
+    }
+
+    function copyPromptPayNum() {
+        var num = '0612013936';
+        navigator.clipboard.writeText(num).then(function() {
+            alert('คัดลอกหมายเลขพร้อมเพย์ ' + num + ' เรียบร้อยแล้ว!');
+        }).catch(function() {
+            prompt('คัดลอกหมายเลขพร้อมเพย์:', num);
+        });
+    }
+
+    function togglePayMethod(method) {
+        var panelQr = document.getElementById('panelWalletQr');
+        var panelCard = document.getElementById('panelWalletCard');
+        var btnSubmit = document.getElementById('btnSubmitTopup');
+        var lblQr = document.getElementById('lblMethodQr');
+        var lblCard = document.getElementById('lblMethodCard');
+        var slipInput = document.getElementById('walletSlipInput');
+        var amountVal = parseFloat(document.getElementById('topupAmount').value || 100).toFixed(2);
+
+        if (method === 'pm-qr') {
+            panelQr.style.display = 'block';
+            if (panelCard) panelCard.style.display = 'none';
+            lblQr.classList.add('border-primary');
+            lblCard.classList.remove('border-primary');
+            if (slipInput) slipInput.setAttribute('required', 'required');
+            btnSubmit.className = 'btn btn-success rounded-3 px-4 py-2 fw-semibold flex-grow-1 shadow-sm';
+            btnSubmit.innerHTML = '<i class="bi bi-cloud-arrow-up-fill me-1"></i> แจ้งโอนเงินและส่งสลิปให้ฝ่ายบัญชีตรวจสอบ (<span id="btnAmountDisplay">' + amountVal + '</span> ฿)';
+        } else {
+            panelQr.style.display = 'none';
+            if (panelCard) panelCard.style.display = 'block';
+            lblCard.classList.add('border-primary');
+            lblQr.classList.remove('border-primary');
+            if (slipInput) slipInput.removeAttribute('required');
+            btnSubmit.className = 'btn btn-primary rounded-3 px-4 py-2 fw-semibold flex-grow-1 shadow-sm';
+            btnSubmit.innerHTML = '<i class="bi bi-credit-card me-1"></i> เติมเงินผ่านบัตรทันที (<span id="btnAmountDisplay">' + amountVal + '</span> ฿)';
+        }
+    }
+
+    function clearWalletCardNumber() {
+        var el = document.getElementById('walletCardNumber');
+        if (el) {
+            el.value = '';
+            updateWalletCardPreview();
+            el.focus();
+        }
+    }
+
+    function formatWalletCardNumber(input) {
+        var v = input.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+        var matches = v.match(/\d{4,16}/g);
+        var match = matches && matches[0] || '';
+        var parts = [];
+        for (var i = 0, len = match.length; i < len; i += 4) {
+            parts.push(match.substring(i, i + 4));
+        }
+        if (parts.length) {
+            input.value = parts.join(' ');
+        } else {
+            input.value = v;
+        }
+        updateWalletCardPreview();
+    }
+
+    function formatWalletCardExpiry(input) {
+        var v = input.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+        if (v.length >= 2) {
+            input.value = v.substring(0, 2) + '/' + v.substring(2, 4);
+        } else {
+            input.value = v;
+        }
+        updateWalletCardPreview();
+    }
+
+    function updateWalletCardPreview() {
+        var num = document.getElementById('walletCardNumber')?.value;
+        var name = document.getElementById('walletCardName')?.value;
+        var expiry = document.getElementById('walletCardExpiry')?.value;
+
+        var elNum = document.getElementById('cardPreviewNumber');
+        var elName = document.getElementById('cardPreviewName');
+        var elExpiry = document.getElementById('cardPreviewExpiry');
+
+        if (elNum) elNum.innerText = num || '•••• •••• •••• ••••';
+        if (elName) elName.innerText = (name ? name.toUpperCase() : 'CARD HOLDER');
+        if (elExpiry) elExpiry.innerText = expiry || 'MM/YY';
+    }
+
+    function previewWalletSlip(input) {
+        var box = document.getElementById('walletSlipPreviewBox');
+        var previewImg = document.getElementById('walletSlipPreviewImg');
+        var previewText = document.getElementById('walletSlipPreviewText');
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                previewText.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> แนบสลิปเรียบร้อย: ' + input.files[0].name;
+                box.classList.remove('d-none');
+            };
+            reader.readAsDataURL(input.files[0]);
+        } else {
+            box.classList.add('d-none');
+        }
+    }
+
+    function updateBalanceUI(newBal, formatted0, formatted2, isAdd, amount, title) {
+        var cardDisplay = document.getElementById('walletDisplayAmount');
+        if (cardDisplay) {
+            cardDisplay.innerHTML = formatted2.replace(' THB', '') + ' <span class="fs-5 fw-normal">THB</span>';
+            cardDisplay.style.transition = 'transform 0.2s ease, color 0.2s ease';
+            cardDisplay.style.transform = 'scale(1.08)';
+            cardDisplay.style.color = isAdd ? '#86efac' : '#fca5a5';
+            setTimeout(function() {
+                cardDisplay.style.transform = 'scale(1)';
+                cardDisplay.style.color = '#ffffff';
+            }, 300);
+        }
+
+        var navDisplay = document.getElementById('customerNavBalance');
+        if (navDisplay) {
+            navDisplay.innerText = formatted0;
+            navDisplay.style.transition = 'color 0.2s ease';
+            navDisplay.style.color = isAdd ? '#16a34a' : '#dc2626';
+            setTimeout(function() {
+                navDisplay.style.color = '';
+            }, 600);
+        }
+
+        var tbody = document.getElementById('walletTxnBody');
+        var emptyRow = document.getElementById('emptyTxnRow');
+        if (emptyRow) emptyRow.remove();
+
+        if (tbody) {
+            var tr = document.createElement('tr');
+            tr.className = 'table-warning';
+            var nowStr = new Date().toLocaleDateString('th-TH') + ' ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) + ' น.';
+            var sign = isAdd ? '+' : '-';
+            var colorClass = isAdd ? 'text-success' : 'text-danger';
+
+            tr.innerHTML = '<td class="ps-3 text-muted">' + nowStr + '</td>' +
+                '<td><div class="fw-semibold text-dark">' + title + '</div><div class="text-muted" style="font-size: 0.72rem;">เลขอ้างอิง #REALTIME-' + Math.floor(1000 + Math.random() * 9000) + '</div></td>' +
+                '<td><span class="text-secondary"><i class="bi bi-wallet2 me-1"></i> กระเป๋าเงิน CloudPC</span></td>' +
+                '<td class="fw-bold ' + colorClass + '">' + sign + parseFloat(amount).toFixed(2) + ' THB</td>' +
+                '<td class="text-end pe-3"><span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">สำเร็จทันที</span></td>';
+
+            tbody.insertBefore(tr, tbody.firstChild);
+            setTimeout(function() {
+                tr.classList.remove('table-warning');
+            }, 1200);
+        }
+    }
+
+    // Auto-polling: หากมีรายการที่รอฝ่ายบัญชีตรวจสอบ ให้เช็คสถานะทุก 4 วินาที และอัปเดตหน้าจออัตโนมัติเมื่อฝ่ายบัญชีอนุมัติเสร็จ
+    document.addEventListener("DOMContentLoaded", function() {
+        var hasPendingTxn = document.getElementById('walletTxnBody') && document.getElementById('walletTxnBody').innerText.includes('รอฝ่ายบัญชีตรวจสอบ');
+        if (hasPendingTxn) {
+            var checkInterval = setInterval(function() {
+                fetch('/CloudPC/GetWalletBalance')
+                    .then(function(res) { return res.json(); })
+                    .then(function(data) {
+                        if (data && data.success && data.hasPending === false) {
+                            clearInterval(checkInterval);
+                            location.reload();
+                        }
+                    })
+                    .catch(function() {});
+            }, 4000);
+        }
+    });
+</script>

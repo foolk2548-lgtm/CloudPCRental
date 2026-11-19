@@ -1,0 +1,504 @@
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
+@{
+    var username = HttpContextAccessor.HttpContext?.Session.GetString("Username") ?? "Admin Somchai";
+    var role = HttpContextAccessor.HttpContext?.Session.GetString("Role") ?? "Admin";
+    var roleTitle = role switch
+    {
+        "Admin" => "ผู้ดูแลระบบหลัก (Admin)",
+        "Manager" => "ผู้จัดการสาขา (Manager)",
+        "Staff" => "พนักงานหน้าร้าน (Staff)",
+        "Accountant" => "เจ้าหน้าที่บัญชี (Accountant)",
+        _ => "เจ้าหน้าที่"
+    };
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    var sidebarWaitingTicketsCount = CloudPCRental.Models.MockDataStore.GetSupportTickets().Count(t => t.Status == "WaitingAdmin");
+}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - CloudPC ผู้ดูแลระบบ</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="bg-light">
+    <div class="layout-with-sidebar">
+        <!-- Sidebar แอดมิน (Wireframe Page 26-30) -->
+        <aside class="sidebar-panel">
+            @{
+                var adminBrandCtrl = role == "Accountant" ? "Accountant" : role == "Manager" ? "Manager" : "Admin";
+                var adminBrandAct = role == "Accountant" ? "RevenueDashboard" : role == "Manager" ? "Dashboard" : "AdminDashboard";
+            }
+            <div class="mb-4 ps-2">
+                <a asp-controller="@adminBrandCtrl" asp-action="@adminBrandAct" class="navbar-brand-logo text-decoration-none">
+                    <span class="bg-primary text-white p-1 px-2 rounded-2"><i class="bi bi-cpu-fill"></i></span>
+                    <span class="fw-bold text-dark">CloudPC</span>
+                </a>
+            </div>
+
+            <div class="heading">@(role == "Admin" ? "เมนูผู้ดูแลระบบ" : role == "Manager" ? "เมนูผู้จัดการ" : role == "Staff" ? "เมนูพนักงานหน้าร้าน" : "เมนูฝ่ายบัญชีและการเงิน")</div>
+            <nav class="nav flex-column mb-auto">
+                @if (role == "Manager")
+                {
+                    <a asp-controller="Manager" asp-action="Dashboard" class="nav-item-link @(currentController == "Manager" && currentAction == "Dashboard" ? "active" : "")">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>แดชบอร์ดผู้จัดการ</span>
+                    </a>
+                    <a asp-controller="Manager" asp-action="BookingOverview" class="nav-item-link @(currentController == "Manager" && currentAction == "BookingOverview" ? "active" : "")">
+                        <i class="bi bi-calendar-check-fill"></i>
+                        <span>ภาพรวมการจอง</span>
+                    </a>
+                    <a asp-controller="Manager" asp-action="MachineStatus" class="nav-item-link @(currentController == "Manager" && currentAction == "MachineStatus" ? "active" : "")">
+                        <i class="bi bi-pc-display-horizontal"></i>
+                        <span>สถานะเครื่อง</span>
+                    </a>
+                    <a asp-controller="Manager" asp-action="RevenueReport" class="nav-item-link @(currentController == "Manager" && currentAction == "RevenueReport" ? "active" : "")">
+                        <i class="bi bi-graph-up-arrow"></i>
+                        <span>รายงานรายรับ</span>
+                    </a>
+                    <a asp-controller="Admin" asp-action="SupportTickets" class="nav-item-link @(currentController == "Admin" && currentAction == "SupportTickets" ? "active" : "")">
+                        <i class="bi bi-chat-left-dots-fill"></i>
+                        <span>ข้อความแจ้งปัญหา & แชทลูกค้า</span>
+                        @if (sidebarWaitingTicketsCount > 0)
+                        {
+                            <span class="badge bg-danger rounded-pill ms-auto" style="font-size: 0.65rem;">@sidebarWaitingTicketsCount</span>
+                        }
+                    </a>
+                }
+                else if (role == "Accountant")
+                {
+                    <a asp-controller="Accountant" asp-action="RevenueDashboard" class="nav-item-link @(currentAction == "RevenueDashboard" ? "active" : "")">
+                        <i class="bi bi-graph-up-arrow"></i>
+                        <span>แดชบอร์ดดูกราฟรายได้</span>
+                    </a>
+                    <a asp-controller="Accountant" asp-action="PendingPayments" class="nav-item-link @(currentAction == "PendingPayments" ? "active" : "")">
+                        <i class="bi bi-receipt-cutoff"></i>
+                        <span>ตรวจสอบสลิปโอนเงิน</span>
+                    </a>
+                    <a asp-controller="Accountant" asp-action="Refunds" class="nav-item-link @(currentAction == "Refunds" ? "active" : "")">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                        <span>จัดการการคืนเงิน</span>
+                    </a>
+                }
+                else
+                {
+                    @* Admin หรือ Staff *@
+                    <a asp-controller="Admin" asp-action="AdminDashboard" class="nav-item-link @(currentController == "Admin" && currentAction == "AdminDashboard" ? "active" : "")">
+                        <i class="bi bi-grid-fill"></i>
+                        <span>แดชบอร์ดหลัก</span>
+                    </a>
+
+                    @if (role == "Admin")
+                    {
+                        <a asp-controller="Admin" asp-action="ManageUsers" class="nav-item-link @(currentAction == "ManageUsers" || currentAction == "CreateUser" || currentAction == "EditUser" ? "active" : "")">
+                            <i class="bi bi-people-fill"></i>
+                            <span>จัดการผู้ใช้งานและสิทธิ์</span>
+                        </a>
+                    }
+
+                    <a asp-controller="Admin" asp-action="ManageMachines" class="nav-item-link @(currentAction == "ManageMachines" || currentAction == "CreateMachine" || currentAction == "EditMachine" ? "active" : "")">
+                        <i class="bi bi-pc-display"></i>
+                        <span>จัดการข้อมูลเครื่อง</span>
+                    </a>
+
+                    <a asp-controller="Admin" asp-action="SupportTickets" class="nav-item-link @(currentAction == "SupportTickets" ? "active" : "")">
+                        <i class="bi bi-chat-left-dots-fill"></i>
+                        <span>ข้อความแจ้งปัญหา & แชทลูกค้า</span>
+                        @if (sidebarWaitingTicketsCount > 0)
+                        {
+                            <span class="badge bg-danger rounded-pill ms-auto" style="font-size: 0.65rem;">@sidebarWaitingTicketsCount</span>
+                        }
+                    </a>
+
+                    @if (role == "Admin")
+                    {
+                        <a asp-controller="Admin" asp-action="SystemLogs" class="nav-item-link @(currentAction == "SystemLogs" ? "active" : "")">
+                            <i class="bi bi-journal-text"></i>
+                            <span>บันทึกระบบ</span>
+                        </a>
+                        <a asp-controller="Admin" asp-action="GeneralSettings" class="nav-item-link @(currentAction == "GeneralSettings" ? "active" : "")">
+                            <i class="bi bi-gear-fill"></i>
+                            <span>ตั้งค่าทั่วไป</span>
+                        </a>
+                    }
+                }
+            </nav>
+        </aside>
+
+        <!-- Main Content Panel -->
+        <main class="main-content-panel">
+            <!-- Top bar in Admin Panel (Notification Bell & Profile Badge) -->
+            <div class="d-flex justify-content-end align-items-center mb-4 gap-3">
+                <div class="bg-white px-3 py-1 rounded-pill border small fw-semibold text-secondary shadow-xs d-flex align-items-center gap-2" title="เวลาปัจจุบันของระบบ">
+                    <i class="bi bi-clock-history text-primary"></i>
+                    <span class="text-dark fw-bold font-monospace realtime-live-clock" id="adminLiveClock">--:--:--</span>
+                </div>
+
+                <span class="badge bg-white text-secondary border px-3 py-2 rounded-pill shadow-xs small d-flex align-items-center gap-1">
+                    <i class="bi bi-person-badge-fill text-primary"></i>
+                    <span>@roleTitle</span>
+                </span>
+
+                <div class="vr my-1 text-secondary opacity-25"></div>
+
+                <!-- กล่องแจ้งเตือนผู้ดูแลระบบ (Admin Notification Dropdown - เชื่อมต่อข้อมูลจริง 100%) -->
+                @{
+                    // ดึงข้อมูลจริงจาก MockDataStore
+                    var realTickets = CloudPCRental.Models.MockDataStore.GetSupportTickets();
+                    var waitingCustomerTickets = realTickets.Where(t => t.Status == "WaitingAdmin").ToList();
+                    var allMachines = CloudPCRental.Models.MockDataStore.GetMachines();
+                    var pendingRepairMachines = allMachines.Where(m => m.Status == "PendingRepair").ToList();
+                    var maintenanceMachines = allMachines.Where(m => m.Status == "Maintenance").ToList();
+                    var allBookings = CloudPCRental.Models.MockDataStore.GetBookings();
+                    var pendingRefunds = allBookings.Where(b => b.PaymentStatus == "RefundPending").ToList();
+                    var pendingPayments = allBookings.Where(b => b.PaymentStatus == "Pending" && !string.IsNullOrEmpty(b.SlipImageUrl)).ToList();
+
+                    // คำนวณจำนวนแจ้งเตือนตามบทบาทที่กำลังล็อกอินอยู่
+                    int realUnreadCount = 0;
+                    if (role == "Accountant")
+                    {
+                        realUnreadCount = pendingRefunds.Count + pendingPayments.Count;
+                    }
+                    else if (role == "Manager")
+                    {
+                        realUnreadCount = waitingCustomerTickets.Count + pendingRepairMachines.Count;
+                    }
+                    else if (role == "Staff")
+                    {
+                        realUnreadCount = waitingCustomerTickets.Count + pendingRepairMachines.Count;
+                    }
+                    else // Admin
+                    {
+                        realUnreadCount = waitingCustomerTickets.Count + pendingRepairMachines.Count;
+                    }
+                }
+
+                <div class="dropdown" id="adminNotificationDropdown">
+                    <button class="btn btn-white bg-white border rounded-circle p-0 position-relative text-secondary shadow-xs d-flex align-items-center justify-content-center" 
+                            type="button" 
+                            id="adminNotificationBtn" 
+                            data-bs-toggle="dropdown" 
+                            aria-expanded="false" 
+                            title="การแจ้งเตือนระบบ"
+                            onclick="markAdminNotificationsAsRead()"
+                            style="width: 38px; height: 38px;">
+                        <i class="bi bi-bell fs-5 text-dark"></i>
+                        @if (realUnreadCount > 0)
+                        {
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white" 
+                                  id="adminNotifyBadge" 
+                                  style="font-size: 0.65rem; padding: 0.25em 0.5em;">
+                                @realUnreadCount
+                                <span class="visually-hidden">รายการใหม่</span>
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white d-none" 
+                                  id="adminNotifyBadge" 
+                                  style="font-size: 0.65rem; padding: 0.25em 0.5em;">
+                                0
+                            </span>
+                        }
+                    </button>
+                    <div class="dropdown-menu dropdown-menu-end shadow-lg border-0 p-0 rounded-3 mt-2" 
+                         aria-labelledby="adminNotificationBtn" 
+                         style="width: 380px; max-width: 92vw; z-index: 1055;">
+                        <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light rounded-top-3">
+                            <div class="fw-bold text-dark d-flex align-items-center gap-2">
+                                <i class="bi bi-bell-fill text-warning"></i>
+                                <span>การแจ้งเตือนระบบ</span>
+                                @if (realUnreadCount > 0)
+                                {
+                                    <span class="badge bg-danger text-white rounded-pill" 
+                                          id="adminNotifyHeaderBadge" 
+                                          style="font-size: 0.7rem;">@realUnreadCount ใหม่</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary border rounded-pill" 
+                                          id="adminNotifyHeaderBadge" 
+                                          style="font-size: 0.7rem;">0 ใหม่</span>
+                                }
+                            </div>
+                            <button type="button" class="btn btn-link text-decoration-none p-0 text-primary small fw-semibold" 
+                                    id="adminMarkAllReadBtn" 
+                                    onclick="markAdminNotificationsAsRead(event)"
+                                    style="font-size: 0.75rem;">
+                                อ่านทั้งหมด
+                            </button>
+                        </div>
+
+                        <div class="list-group list-group-flush small" id="adminNotifyList" style="max-height: 400px; overflow-y: auto;">
+                            <!-- 1. แจ้งเตือนข้อความแชท/ตั๋วปัญหาจากลูกค้าจริง (WaitingAdmin) -->
+                            @if (role != "Accountant")
+                            {
+                                @foreach (var ticket in waitingCustomerTickets)
+                                {
+                                    var lastMsg = ticket.Messages.LastOrDefault();
+                                    <a asp-controller="Admin" asp-action="SupportTickets" asp-route-selectedTicketId="@ticket.TicketId" 
+                                       class="list-group-item list-group-item-action p-3 d-flex gap-3 align-items-start unread-admin-item" 
+                                       style="background-color: #fef2f2; transition: all 0.2s ease;">
+                                        <div class="p-2 rounded-circle text-danger bg-danger-subtle flex-shrink-0 mt-1">
+                                            <i class="bi bi-chat-left-dots-fill fs-6"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="fw-bold text-danger">ข้อความแจ้งปัญหาใหม่ (@ticket.TicketCode)</div>
+                                                <span class="badge bg-danger rounded-pill" style="font-size: 0.6rem;">รอตอบ</span>
+                                            </div>
+                                            <div class="text-dark small fw-semibold mb-1">
+                                                <span>@ticket.UserName:</span> @ticket.Subject
+                                            </div>
+                                            <div class="text-muted small text-truncate mb-1" style="max-width: 250px; font-size: 0.78rem;">
+                                                "@(lastMsg != null ? lastMsg.Content : ticket.Subject)"
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">
+                                                <i class="bi bi-clock me-1"></i>@ticket.UpdatedAt.ToString("HH:mm น.")
+                                            </div>
+                                        </div>
+                                        <span class="p-1 bg-danger rounded-circle mt-2 flex-shrink-0 admin-notify-dot"></span>
+                                    </a>
+                                }
+                            }
+
+                            <!-- 2. แจ้งเตือนเครื่องรออนุมัติซ่อมจริง (PendingRepair) -->
+                            @if (role != "Accountant")
+                            {
+                                @foreach (var m in pendingRepairMachines)
+                                {
+                                    <a asp-controller="Admin" asp-action="ManageMachines" 
+                                       class="list-group-item list-group-item-action p-3 d-flex gap-3 align-items-start unread-admin-item" 
+                                       style="background-color: #fffbeb; transition: all 0.2s ease;">
+                                        <div class="p-2 rounded-circle text-warning bg-warning-subtle flex-shrink-0 mt-1">
+                                            <i class="bi bi-tools fs-6"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="fw-bold text-dark">มีเครื่องรอผู้จัดการอนุมัติซ่อม</div>
+                                                <span class="badge bg-warning text-dark rounded-pill" style="font-size: 0.6rem;">รออนุมัติ</span>
+                                            </div>
+                                            <div class="text-secondary small mb-1" style="line-height: 1.4;">
+                                                <strong>@m.MachineName (#@m.MachineId)</strong> - @(string.IsNullOrWhiteSpace(m.RepairNote) ? "เครื่องมีอาการขัดข้อง" : m.RepairNote)
+                                                <div class="text-muted" style="font-size: 0.72rem;">แจ้งโดย: @(m.ReportedBy ?? "พนักงานหน้าร้าน")</div>
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">
+                                                <i class="bi bi-clock me-1"></i>@(m.ReportedAt?.ToString("HH:mm น.") ?? "วันนี้")
+                                            </div>
+                                        </div>
+                                        <span class="p-1 bg-warning rounded-circle mt-2 flex-shrink-0 admin-notify-dot"></span>
+                                    </a>
+                                }
+                            }
+
+                            <!-- 3. แจ้งเตือนคำขอคืนเงินจริง (RefundPending) - เฉพาะฝ่ายบัญชี -->
+                            @if (role == "Accountant")
+                            {
+                                @foreach (var refReq in pendingRefunds)
+                                {
+                                    <a asp-controller="Accountant" asp-action="Refunds" 
+                                       class="list-group-item list-group-item-action p-3 d-flex gap-3 align-items-start unread-admin-item" 
+                                       style="background-color: #fef2f2; transition: all 0.2s ease;">
+                                        <div class="p-2 rounded-circle text-danger bg-danger-subtle flex-shrink-0 mt-1">
+                                            <i class="bi bi-arrow-counterclockwise fs-6"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="fw-bold text-danger">มีคำขอยกเลิกและคืนเงิน</div>
+                                                <span class="badge bg-danger rounded-pill" style="font-size: 0.6rem;">รอตรวจ</span>
+                                            </div>
+                                            <div class="text-secondary small mb-1" style="line-height: 1.4;">
+                                                รายการจอง <strong>#CPC-@refReq.BookingId</strong> ขอคืนเงิน <strong>@refReq.TotalAmount.ToString("N0") THB</strong>
+                                                <div class="text-muted" style="font-size: 0.72rem;">เหตุผล: @(refReq.RefundReason ?? "ขอยกเลิกการจอง")</div>
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">
+                                                <i class="bi bi-clock me-1"></i>@(refReq.RefundDate?.ToString("HH:mm น.") ?? "วันนี้")
+                                            </div>
+                                        </div>
+                                        <span class="p-1 bg-danger rounded-circle mt-2 flex-shrink-0 admin-notify-dot"></span>
+                                    </a>
+                                }
+                            }
+
+                            <!-- 4. แจ้งเตือนสลิปรอตรวจสอบจริง (Pending Payments) - เฉพาะฝ่ายบัญชี -->
+                            @if (role == "Accountant")
+                            {
+                                @foreach (var slip in pendingPayments)
+                                {
+                                    <a asp-controller="Accountant" asp-action="PendingPayments" 
+                                       class="list-group-item list-group-item-action p-3 d-flex gap-3 align-items-start unread-admin-item" 
+                                       style="background-color: #f0fdf4; transition: all 0.2s ease;">
+                                        <div class="p-2 rounded-circle text-success bg-success-subtle flex-shrink-0 mt-1">
+                                            <i class="bi bi-receipt fs-6"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div class="fw-bold text-success">มีสลิปโอนเงินใหม่รอตรวจสอบ</div>
+                                                <span class="badge bg-success rounded-pill" style="font-size: 0.6rem;">สลิปใหม่</span>
+                                            </div>
+                                            <div class="text-secondary small mb-1" style="line-height: 1.4;">
+                                                รายการ <strong>#CPC-@slip.BookingId</strong> ยอด <strong>@slip.TotalAmount.ToString("N0") THB</strong>
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">
+                                                <i class="bi bi-clock me-1"></i>@slip.PaymentDate.ToString("HH:mm น.")
+                                            </div>
+                                        </div>
+                                        <span class="p-1 bg-success rounded-circle mt-2 flex-shrink-0 admin-notify-dot"></span>
+                                    </a>
+                                }
+                            }
+
+                            <!-- 5. เครื่องที่กำลังซ่อมบำรุงจริง (Maintenance) -->
+                            @if (role != "Accountant")
+                            {
+                                @foreach (var m in maintenanceMachines.Take(2))
+                                {
+                                    <a asp-controller="Admin" asp-action="ManageMachines" 
+                                       class="list-group-item list-group-item-action p-3 d-flex gap-3 align-items-start">
+                                        <div class="p-2 rounded-circle text-primary bg-primary-subtle flex-shrink-0 mt-1">
+                                            <i class="bi bi-wrench-adjustable fs-6"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-bold text-dark mb-1">ช่างเทคนิคกำลังเข้าซ่อมบำรุง</div>
+                                            <div class="text-secondary small mb-1" style="line-height: 1.4;">
+                                                <strong>@m.MachineName (#@m.MachineId)</strong> - @(string.IsNullOrWhiteSpace(m.RepairNote) ? "ช่างเข้าตรวจเช็คระบบ" : m.RepairNote)
+                                            </div>
+                                            <div class="text-muted" style="font-size: 0.7rem;">
+                                                <i class="bi bi-clock me-1"></i>@(m.ReportedAt?.ToString("HH:mm น.") ?? "วันนี้")
+                                            </div>
+                                        </div>
+                                    </a>
+                                }
+                            }
+
+                            <!-- 6. กรณีไม่มีการแจ้งเตือนใดๆ -->
+                            @if (realUnreadCount == 0 && !maintenanceMachines.Any())
+                            {
+                                <div class="p-4 text-center text-muted small">
+                                    <i class="bi bi-check2-circle text-success fs-1 d-block mb-2"></i>
+                                    <strong class="text-dark">ไม่มีการแจ้งเตือนค้างอยู่</strong>
+                                    <div class="text-muted mt-1" style="font-size: 0.78rem;">ระบบทำงานปกติ ไม่มีข้อความหรือรายการที่ต้องอนุมัติค้างอยู่ครับ</div>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="p-2 text-center border-top bg-light rounded-bottom-3">
+                            @if (role == "Accountant")
+                            {
+                                <a asp-controller="Accountant" asp-action="Refunds" class="text-primary text-decoration-none small fw-semibold">
+                                    ไปยังหน้ารายการคืนเงินและสลิป <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
+                            }
+                            else if (waitingCustomerTickets.Any())
+                            {
+                                <a asp-controller="Admin" asp-action="SupportTickets" class="text-primary text-decoration-none small fw-semibold">
+                                    ไปยังศูนย์แชทและข้อความแจ้งปัญหา (@waitingCustomerTickets.Count รอตอบ) <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
+                            }
+                            else
+                            {
+                                <a asp-controller="Admin" asp-action="ManageMachines" class="text-primary text-decoration-none small fw-semibold">
+                                    ไปยังหน้าจัดการเครื่องคอมพิวเตอร์ <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vr my-1 text-secondary opacity-25"></div>
+
+                <!-- Admin Profile Dropdown & Direct Logout on Top-Right (ขวาสุด) -->
+                <div class="dropdown">
+                    <button class="btn btn-white bg-white border rounded-pill px-3 py-1 d-flex align-items-center gap-2 shadow-xs dropdown-toggle text-nowrap fw-semibold text-dark" type="button" id="adminTopUserDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 28px; height: 28px; font-size: 0.8rem;">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                        <div class="text-start d-none d-sm-block">
+                            <div class="small fw-bold text-dark lh-1">@username</div>
+                            <div class="text-muted" style="font-size: 0.68rem;">@roleTitle</div>
+                        </div>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 mt-2 p-2" aria-labelledby="adminTopUserDropdown" style="min-width: 200px; z-index: 1060;">
+                        <li class="px-3 py-2 border-bottom mb-1 bg-light rounded-2">
+                            <div class="fw-bold text-dark">@username</div>
+                            <div class="text-muted small" style="font-size: 0.75rem;">ตำแหน่ง: @roleTitle</div>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2 rounded-2 d-flex align-items-center gap-2 text-danger small fw-semibold" asp-controller="Account" asp-action="Logout">
+                                <i class="bi bi-box-arrow-right text-danger"></i> ออกจากระบบ
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            @if (TempData["SuccessMessage"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 d-flex align-items-center mb-4" role="alert">
+                    <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+                    <div>@TempData["SuccessMessage"]</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (TempData["ErrorMessage"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 d-flex align-items-center mb-4" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                    <div>@TempData["ErrorMessage"]</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+
+            @RenderBody()
+        </main>
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        window.markAdminNotificationsAsRead = function(e) {
+            try {
+                localStorage.setItem('cloudpc_admin_notifications_read', 'true');
+            } catch (err) { }
+
+            var badge = document.getElementById("adminNotifyBadge");
+            if (badge) badge.style.display = "none";
+
+            var headerBadge = document.getElementById("adminNotifyHeaderBadge");
+            if (headerBadge) {
+                headerBadge.innerText = "0 ใหม่";
+                headerBadge.className = "badge bg-secondary-subtle text-secondary border rounded-pill";
+            }
+
+            var unreadItems = document.querySelectorAll("#adminNotifyList .unread-admin-item");
+            unreadItems.forEach(function(item) {
+                item.style.backgroundColor = "#ffffff";
+            });
+
+            var notifyDots = document.querySelectorAll("#adminNotifyList .admin-notify-dot");
+            notifyDots.forEach(function(dot) {
+                dot.style.display = "none";
+            });
+        };
+
+        document.addEventListener("DOMContentLoaded", function () {
+            if (localStorage.getItem('cloudpc_admin_notifications_read') === 'true') {
+                window.markAdminNotificationsAsRead();
+            }
+
+            var notifWrapper = document.getElementById("adminNotificationDropdown");
+            if (notifWrapper) {
+                notifWrapper.addEventListener("show.bs.dropdown", function () {
+                    window.markAdminNotificationsAsRead();
+                });
+            }
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+

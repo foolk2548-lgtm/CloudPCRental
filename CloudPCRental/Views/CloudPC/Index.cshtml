@@ -1,0 +1,170 @@
+@model IEnumerable<CloudPCRental.Models.Machine>
+@{
+    ViewData["Title"] = "เช่าคอมพิวเตอร์ออนไลน์ - CloudPC";
+}
+
+<!-- Hero Section (Wireframe Page 2) -->
+<section class="pt-2 pb-5">
+    <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+            <h1 class="fw-bold text-dark mb-3" style="font-size: 2.75rem; letter-spacing: -0.5px; line-height: 1.2;">
+                เช่าคอมพิวเตอร์ออนไลน์
+            </h1>
+            <p class="text-secondary mb-4" style="font-size: 1.05rem; line-height: 1.7; max-width: 580px;">
+                เข้าถึงคอมพิวเตอร์สเปกสูงสำหรับงานประมวลผล สตรีมเกม หรือทำงานกราฟิกได้จากทุกอุปกรณ์ ทำงานผ่านคลาวด์ได้อย่างไร้รอยต่อ ตลอด 24 ชั่วโมง
+            </p>
+
+            <!-- 3 Features as clean text columns without boxed cards (Wireframe Page 2) -->
+            <div class="d-flex flex-wrap gap-4 gap-md-5 mb-4 pb-2">
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">24 ชั่วโมง</h5>
+                    <div class="text-muted small">พร้อมออนไลน์ตลอดเวลา</div>
+                </div>
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">เริ่มต้น 5 บาท</h5>
+                    <div class="text-muted small">ต่อชั่วโมง ราคาคุ้มค่าที่สุด</div>
+                </div>
+                <div>
+                    <h5 class="fw-bold text-dark mb-1">ไม่มีสัญญา</h5>
+                    <div class="text-muted small">ยกเลิกเมื่อไหร่ก็ได้ตามต้องการ</div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-flex gap-3">
+                <a asp-action="Machines" class="btn btn-primary px-4 py-2 rounded-3 fw-semibold shadow-sm">
+                    เริ่มต้นจองเครื่องเลย
+                </a>
+                <a asp-action="HowToUse" class="btn btn-outline-secondary px-4 py-2 rounded-3 fw-semibold bg-white text-secondary">
+                    ดูวิธีใช้ระบบเช่า
+                </a>
+            </div>
+        </div>
+
+        <!-- Right Side: Cloud PC Hero Image Showcase -->
+        <div class="col-lg-5 d-none d-lg-block">
+            <div class="position-relative text-center p-3 rounded-4 bg-white shadow-sm border overflow-hidden" 
+                 style="background: linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%); min-height: 270px;">
+                <img src="~/images/machines/hero-pc.png" 
+                     alt="Cloud Gaming & Workstation PC" 
+                     class="img-fluid rounded-3 shadow-xs" 
+                     style="max-height: 230px; object-fit: contain;" 
+                     onerror="this.onerror=null; this.src='/images/machines/pc-gaming.png';" />
+                <div class="mt-2">
+                    <span class="badge bg-dark bg-opacity-75 text-white px-3 py-1 rounded-pill shadow-xs" style="font-size: 0.75rem; backdrop-filter: blur(4px);">
+                        <i class="bi bi-lightning-charge-fill text-warning me-1"></i> เชื่อมต่อคลาวด์ความเร็วสูง Ultra-Low Latency 24 ชม.
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Popular Machines Section (Wireframe Page 2) -->
+<section class="py-4">
+    <div class="d-flex justify-content-between align-items-end mb-4">
+        <div>
+            <h3 class="fw-bold mb-1 text-dark">เครื่องยอดนิยม</h3>
+            <p class="text-muted small mb-0">คอมพิวเตอร์ที่ได้รับการจองและได้รับความนิยมสูงสุดประจำสัปดาห์</p>
+        </div>
+        <div>
+            <a asp-action="Machines" class="text-primary text-decoration-none fw-semibold small">
+                ดูคอมพิวเตอร์ทั้งหมด &gt;
+            </a>
+        </div>
+    </div>
+
+    <!-- 4 Popular Cards Linked Dynamically to Real Machines -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-4 g-3">
+        @if (Model != null && Model.Any())
+        {
+            @foreach (var machine in Model)
+            {
+                <div class="col">
+                    <div class="card-cloudpc p-3 h-100 d-flex flex-column bg-white">
+                        <div class="text-center p-2 rounded-3 mb-3 d-flex align-items-center justify-content-center overflow-hidden position-relative" style="background-color: #f1f5f9; height: 140px;">
+                            <img src="@machine.DisplayImageUrl" 
+                                 alt="@machine.MachineName" 
+                                 class="img-fluid" 
+                                 style="max-height: 125px; object-fit: contain; transition: transform 0.3s ease;" 
+                                 onerror="this.onerror=null; this.src='/images/machines/pc-gaming.png';" />
+                            <span class="position-absolute top-0 start-0 m-2 badge bg-dark bg-opacity-75 text-white rounded-pill px-2 py-1 font-monospace" style="font-size: 0.65rem;">
+                                PC-@machine.MachineId.ToString("D3")
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-start mb-2" style="min-height: 48px;">
+                            <h6 class="fw-bold mb-0 text-dark pe-1 text-truncate" title="@machine.MachineName" style="font-size: 0.95rem; line-height: 1.4;">
+                                @machine.MachineName
+                            </h6>
+                            @if (machine.Status == "PendingRepair" || (!string.IsNullOrEmpty(machine.RepairNote) && string.IsNullOrEmpty(machine.ApprovedBy)))
+                            {
+                                <span class="badge text-nowrap" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-size: 0.72rem;"><i class="bi bi-hourglass-split me-1"></i> รออนุมัติซ่อม</span>
+                            }
+                            else if (machine.Status == "Maintenance" || (!string.IsNullOrEmpty(machine.RepairNote) && !string.IsNullOrEmpty(machine.ApprovedBy)))
+                            {
+                                <span class="badge-status-maintenance text-nowrap"><i class="bi bi-tools me-1"></i> ซ่อมบำรุง</span>
+                            }
+                            else if (machine.Status == "Available")
+                            {
+                                <span class="badge-status-available text-nowrap">ว่าง</span>
+                            }
+                            else if (machine.Status == "Rented")
+                            {
+                                <span class="badge text-nowrap" style="background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.72rem;"><i class="bi bi-clock-history me-1"></i> มีคิวบางช่วง</span>
+                            }
+                            else
+                            {
+                                <span class="badge-status-maintenance text-nowrap">ซ่อมบำรุง</span>
+                            }
+                        </div>
+                        <div class="small text-muted mb-3 flex-grow-1" style="font-size: 0.8rem; line-height: 1.6;">
+                            <div><strong class="text-secondary">CPU:</strong> @machine.CPU</div>
+                            <div><strong class="text-secondary">RAM:</strong> @machine.RAM</div>
+                            <div><strong class="text-secondary">GPU:</strong> @machine.GPU</div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                            <div>
+                                <span class="text-muted d-block" style="font-size: 0.7rem;">ราคาเช่า</span>
+                                <span class="fw-bold text-dark fs-6">@machine.PricePerHour.ToString("N0")</span>
+                                <span class="text-muted small" style="font-size: 0.75rem;">บาท/ชั่วโมง</span>
+                            </div>
+                            <div>
+                                @if (machine.Status == "PendingRepair" || (!string.IsNullOrEmpty(machine.RepairNote) && string.IsNullOrEmpty(machine.ApprovedBy)))
+                                {
+                                    <button class="btn btn-light text-warning btn-sm px-2 rounded-2 border fw-semibold" disabled title="เครื่องมีปัญหา รอผู้จัดการอนุมัติการซ่อมบำรุง">
+                                        <i class="bi bi-tools me-1"></i> รอซ่อม
+                                    </button>
+                                }
+                                else if (machine.Status == "Maintenance" || (!string.IsNullOrEmpty(machine.RepairNote) && !string.IsNullOrEmpty(machine.ApprovedBy)))
+                                {
+                                    <button class="btn btn-light text-muted btn-sm px-2 rounded-2 border fw-semibold" disabled title="เครื่องอยู่ระหว่างการปิดซ่อมบำรุง ไม่อนุญาตให้จอง">
+                                        <i class="bi bi-wrench-adjustable me-1"></i> ซ่อมบำรุง
+                                    </button>
+                                }
+                                else if (machine.Status == "Available")
+                                {
+                                    <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-primary btn-sm px-3 rounded-2 fw-semibold shadow-xs">
+                                        จองเลย
+                                    </a>
+                                }
+                                else if (machine.Status == "Rented")
+                                {
+                                    <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-outline-primary btn-sm px-2 rounded-2 fw-semibold shadow-xs" title="เครื่องนี้มีผู้จองบางช่วงเวลา แต่ยังมีเวลาอื่นว่างอยู่ คลิกเพื่อเลือกช่วงเวลาที่ต้องการได้">
+                                        <i class="bi bi-calendar-check me-1"></i> จองเวลาว่าง
+                                    </a>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-light text-muted btn-sm px-2 rounded-2 border fw-semibold" disabled>
+                                        ไม่พร้อมใช้งาน
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+    </div>
+</section>

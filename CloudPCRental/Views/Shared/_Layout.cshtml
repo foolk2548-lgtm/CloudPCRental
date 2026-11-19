@@ -1,0 +1,234 @@
+@inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
+@{
+    var username = HttpContextAccessor.HttpContext?.Session.GetString("Username");
+    var role = HttpContextAccessor.HttpContext?.Session.GetString("Role");
+    var isLoggedIn = !string.IsNullOrEmpty(username);
+    var isStaffOrAdmin = role == "Admin" || role == "Manager" || role == "Staff" || role == "Accountant";
+    var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
+}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - CloudPCRental</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <!-- 1. Navbar (Wireframe Page 2-6) -->
+    <header class="bg-white border-bottom shadow-xs sticky-top">
+        <nav class="navbar navbar-expand-lg navbar-light py-2">
+            <div class="container-fluid px-3 px-lg-4 px-xl-5">
+                <a class="navbar-brand-logo text-decoration-none me-3 me-xl-4" asp-controller="CloudPC" asp-action="Index">
+                    <span class="bg-primary text-white p-1 px-2 rounded-2 shadow-xs"><i class="bi bi-cpu-fill"></i></span>
+                    <span class="fw-bold text-dark">CloudPC</span>
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCloudPC" aria-controls="navbarCloudPC" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <div class="collapse navbar-collapse" id="navbarCloudPC">
+                    <!-- Left Navigation Menu -->
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0 align-items-lg-center">
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-item @(currentAction == "Index" ? "active" : "")" asp-controller="CloudPC" asp-action="Index">หน้าแรก</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-item @(currentAction == "Machines" ? "active" : "")" asp-controller="CloudPC" asp-action="Machines">ค้นหาเครื่อง</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-item @(currentAction == "Membership" ? "active" : "")" asp-controller="CloudPC" asp-action="Membership">โปรโมชั่น & สิทธิพิเศษ</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-item @(currentAction == "HowToUse" ? "active" : "")" asp-controller="CloudPC" asp-action="HowToUse">วิธีใช้งาน</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link nav-link-item @(currentAction == "Help" ? "active" : "")" asp-controller="CloudPC" asp-action="Help">ช่วยเหลือ</a>
+                        </li>
+                    </ul>
+
+                    <!-- Right Navigation Menu -->
+                    <div class="d-flex flex-wrap align-items-center gap-2 gap-xl-3 my-2 my-lg-0">
+                        <!-- Clock Widget (Clean, responsive) -->
+                        <div class="navbar-clock-pill d-none d-xxl-flex align-items-center gap-2 px-3 py-1 bg-light rounded-pill border small fw-semibold text-secondary shadow-xs" style="font-size: 0.8rem;" title="เวลาปัจจุบันของระบบ">
+                            <i class="bi bi-clock-history text-primary"></i>
+                            <span class="text-dark fw-bold font-monospace realtime-live-clock" id="liveRealtimeClock">--:--:--</span>
+                        </div>
+
+                        @if (isLoggedIn)
+                        {
+                            var navUserId = HttpContextAccessor.HttpContext?.Session.GetInt32("UserId") ?? 0;
+                            var navBal = navUserId > 0 ? CloudPCRental.Models.MockDataStore.GetUserBalance(navUserId) : 0m;
+                            var userMembership = navUserId > 0 ? CloudPCRental.Models.MockDataStore.GetUserMembershipInfo(navUserId, username) : null;
+                            var userTier = userMembership?.TierName ?? "Bronze";
+                            var memberCode = userMembership?.MemberNumber ?? (navUserId > 0 ? $"CPC-{navUserId * 15498 % 90000 + 10000}" : "CPC-77491");
+
+                            @if (isStaffOrAdmin)
+                            {
+                                var badgeLabel = role == "Admin" ? "แดชบอร์ดแอดมิน" : 
+                                                 role == "Manager" ? "แดชบอร์ดผู้จัดการ" : 
+                                                 role == "Staff" ? "ระบบงานพนักงาน" : "ระบบงานบัญชี";
+                                var targetCtrl = role == "Accountant" ? "Accountant" : "Admin";
+                                var targetAct = role == "Accountant" ? "RevenueDashboard" : "AdminDashboard";
+                                <div>
+                                    <a asp-controller="@targetCtrl" asp-action="@targetAct" class="btn btn-sm btn-outline-primary rounded-pill px-3 text-nowrap fw-semibold shadow-xs">
+                                        <i class="bi bi-speedometer2 me-1"></i> @badgeLabel
+                                    </a>
+                                </div>
+                            }
+                            else
+                            {
+                                <div>
+                                    <a asp-controller="CloudPC" asp-action="Wallet" class="navbar-balance-pill text-decoration-none shadow-xs d-flex align-items-center gap-2 px-3 py-1 bg-white border rounded-pill text-nowrap hover-shadow" title="คลิกเพื่อดูกระเป๋าเงินและเติมเงิน">
+                                        <i class="bi bi-wallet2 text-primary"></i>
+                                        <span class="text-muted small">คงเหลือ:</span>
+                                        <span class="text-dark fw-bold" id="mainNavBalance">@navBal.ToString("N0") <small class="text-muted fw-normal" style="font-size: 0.72rem;">THB</small></span>
+                                    </a>
+                                </div>
+                                <div>
+                                    <a asp-controller="CloudPC" asp-action="MyBookings" class="btn btn-sm btn-outline-primary rounded-pill px-3 text-nowrap fw-semibold shadow-xs d-flex align-items-center gap-1">
+                                        <i class="bi bi-calendar-check"></i>
+                                        <span>การจองของฉัน</span>
+                                    </a>
+                                </div>
+                            }
+
+                            <!-- User Profile Dropdown Menu -->
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-light border rounded-pill px-3 py-1 d-flex align-items-center gap-2 shadow-xs dropdown-toggle text-nowrap fw-semibold text-dark" type="button" id="userMenuDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 24px; height: 24px; font-size: 0.75rem;">
+                                        <i class="bi bi-person-fill"></i>
+                                    </div>
+                                    <span class="small">@username</span>
+                                    @if (!string.IsNullOrEmpty(role) && role != "User" && role != "customer")
+                                    {
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle py-0 px-2" style="font-size: 0.65rem;">@role</span>
+                                    }
+                                    else
+                                    {
+                                        var tierBadgeClass = userTier switch
+                                        {
+                                            "Bronze" => "badge-tier-bronze",
+                                            "Silver" => "badge-tier-silver",
+                                            "Gold" => "badge-tier-gold",
+                                            "Diamond" => "badge-tier-diamond",
+                                            _ => "badge-tier-platinum"
+                                        };
+                                        <span class="@tierBadgeClass py-0 px-2" style="font-size: 0.65rem;">@userTier</span>
+                                    }
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-3 mt-2 p-2" aria-labelledby="userMenuDropdown" style="min-width: 220px; z-index: 1060;">
+                                    <li class="px-3 py-2 border-bottom mb-1 bg-light rounded-2">
+                                        <div class="fw-bold text-dark">@username</div>
+                                        <div class="text-muted small" style="font-size: 0.75rem;">รหัสสมาชิก: ID: @memberCode</div>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item py-2 rounded-2 d-flex align-items-center gap-2 text-dark small" asp-controller="CloudPC" asp-action="MyBookings">
+                                            <i class="bi bi-calendar-check text-primary"></i> ประวัติการจองของฉัน
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item py-2 rounded-2 d-flex align-items-center gap-2 text-dark small" asp-controller="CloudPC" asp-action="Wallet">
+                                            <i class="bi bi-wallet2 text-success"></i> กระเป๋าเงิน
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item py-2 rounded-2 d-flex align-items-center gap-2 text-dark small" asp-controller="CloudPC" asp-action="Membership">
+                                            <i class="bi bi-award text-warning"></i> สิทธิพิเศษสมาชิก
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item py-2 rounded-2 d-flex align-items-center gap-2 text-dark small" asp-controller="CloudPC" asp-action="AccountSettings">
+                                            <i class="bi bi-gear text-secondary"></i> ตั้งค่าบัญชี
+                                        </a>
+                                    </li>
+                                    @if (isStaffOrAdmin)
+                                    {
+                                        var targetCtrl = role == "Accountant" ? "Accountant" : "Admin";
+                                        var targetAct = role == "Accountant" ? "RevenueDashboard" : "AdminDashboard";
+                                        <li><hr class="dropdown-divider my-1"></li>
+                                        <li>
+                                            <a class="dropdown-item py-2 rounded-2 d-flex align-items-center gap-2 text-primary small fw-semibold" asp-controller="@targetCtrl" asp-action="@targetAct">
+                                                <i class="bi bi-speedometer2"></i> แดชบอร์ดจัดการระบบ
+                                            </a>
+                                        </li>
+                                    }
+                                    <li><hr class="dropdown-divider my-1"></li>
+                                    <li>
+                                        <a class="dropdown-item py-2 rounded-2 d-flex align-items-center gap-2 text-danger small fw-semibold" asp-controller="Account" asp-action="Logout">
+                                            <i class="bi bi-box-arrow-right"></i> ออกจากระบบ
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="d-flex align-items-center gap-2">
+                                <a class="btn btn-sm btn-link text-dark fw-semibold text-decoration-none px-3" asp-controller="Account" asp-action="Login">เข้าสู่ระบบ</a>
+                                <a class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold shadow-sm text-nowrap" asp-controller="Account" asp-action="Register">
+                                    สมัครสมาชิกใหม่
+                                </a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    @if (currentAction == "Index" || string.IsNullOrEmpty(currentAction))
+    {
+        <!-- Announcement Bar below Navbar (Wireframe Page 2) -->
+        <div class="py-2 text-center" style="background-color: #eff6ff; border-bottom: 1px solid #bfdbfe; font-size: 0.85rem; color: #1e40af;">
+            <span class="badge bg-primary text-white me-2 px-2 py-1" style="font-size: 0.72rem; font-weight: 600;">ข้อเสนอพิเศษ</span>
+            <span>ฉลองเปิดบริการใหม่! สำหรับ สมาชิกใหม่ลด 10% เมื่อสมัครวันนี้และจองเครื่องครั้งแรก</span>
+        </div>
+    }
+
+    <!-- 3. Main Content Container -->
+    <div class="container my-4 flex-grow-1">
+        @if (TempData["SuccessMessage"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show shadow-sm border-0 d-flex align-items-center mb-4" role="alert">
+                <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+                <div>@TempData["SuccessMessage"]</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+        @if (TempData["ErrorMessage"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 d-flex align-items-center mb-4" role="alert">
+                <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                <div>@TempData["ErrorMessage"]</div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
+        <main role="main">
+            @RenderBody()
+        </main>
+    </div>
+
+    <!-- 4. Footer -->
+    <footer class="bg-white border-top py-3 mt-auto">
+        <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center small text-muted">
+            <div>&copy; 2026 - <strong>CloudPC</strong> ระบบเช่าคอมพิวเตอร์ออนไลน์ประสิทธิภาพสูง</div>
+            <div class="mt-2 mt-md-0">
+                <a asp-controller="CloudPC" asp-action="HowToUse" class="text-muted text-decoration-none me-3">วิธีใช้งาน</a>
+                <a asp-controller="CloudPC" asp-action="Help" class="text-muted text-decoration-none me-3">ศูนย์ช่วยเหลือ / ติดต่อเรา</a>
+                <a href="#" class="text-muted text-decoration-none me-3">เงื่อนไขการบริการ</a>
+                <a href="#" class="text-muted text-decoration-none">นโยบายความเป็นส่วนตัว</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <partial name="_LiveChatWidget" />
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

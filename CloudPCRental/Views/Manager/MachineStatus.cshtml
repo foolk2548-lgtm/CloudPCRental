@@ -1,0 +1,77 @@
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "สถานะเครื่อง";
+    var machines     = ViewBag.Machines      as List<CloudPCRental.Models.Machine> ?? new();
+    var activeRentals= ViewBag.ActiveRentals as List<CloudPCRental.Models.Booking> ?? new();
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <div class="text-muted small">ตรวจสอบสถานะเครื่องแบบ real-time</div>
+        <h3 class="fw-bold text-dark mb-0">สถานะเครื่อง</h3>
+    </div>
+</div>
+
+<!-- Status Summary -->
+<div class="row g-3 mb-4">
+    <div class="col-4">
+        <div class="card-cloudpc bg-white p-3 text-center border-start border-4 border-success">
+            <div class="fs-2 fw-bold text-success">@ViewBag.Available</div>
+            <div class="small text-muted">ว่าง</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card-cloudpc bg-white p-3 text-center border-start border-4 border-warning">
+            <div class="fs-2 fw-bold text-warning">@ViewBag.Rented</div>
+            <div class="small text-muted">กำลังเช่า</div>
+        </div>
+    </div>
+    <div class="col-4">
+        <div class="card-cloudpc bg-white p-3 text-center border-start border-4 border-danger">
+            <div class="fs-2 fw-bold text-danger">@ViewBag.Maintenance</div>
+            <div class="small text-muted">แจ้งซ่อม</div>
+        </div>
+    </div>
+</div>
+
+<!-- Machine Cards -->
+<div class="row g-3">
+    @foreach (var m in machines)
+    {
+        var activeBooking = activeRentals.FirstOrDefault(b => b.MachineId == m.MachineId);
+        var (borderCls, badgeCls, statusIcon, statusTh) = m.Status switch
+        {
+            "Rented"  or "ไม่ว่าง"  => ("border-warning", "bg-warning-subtle text-warning border-warning-subtle", "bi-lightning-charge-fill", "กำลังเช่า"),
+            "Maintenance"           => ("border-danger",  "bg-danger-subtle text-danger border-danger-subtle",   "bi-tools",                "แจ้งซ่อม"),
+            _                       => ("border-success", "bg-success-subtle text-success border-success-subtle","bi-check-circle-fill",    "ว่าง")
+        };
+        <div class="col-md-6 col-lg-4">
+            <div class="card-cloudpc bg-white p-3 border-start border-4 @borderCls">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="fw-bold text-dark" style="font-size:0.9rem;">@m.MachineName</div>
+                        <div class="text-muted" style="font-size:0.72rem;">@m.CPU | @m.RAM | @m.GPU</div>
+                    </div>
+                    <span class="badge border @badgeCls ms-2" style="font-size:0.72rem; white-space:nowrap;">
+                        <i class="bi @statusIcon me-1"></i>@statusTh
+                    </span>
+                </div>
+                @if (activeBooking != null)
+                {
+                    <div class="mt-2 p-2 rounded-2 bg-warning-subtle">
+                        <div class="small fw-semibold text-warning-emphasis">
+                            <i class="bi bi-person-fill me-1"></i>
+                            @(activeBooking.User?.Username ?? $"User #{activeBooking.UserId}")
+                        </div>
+                        <div class="text-muted" style="font-size:0.72rem;">
+                            #CPC-@activeBooking.BookingId · ฿@activeBooking.TotalAmount.ToString("N2")
+                        </div>
+                    </div>
+                }
+                <div class="mt-2 text-muted" style="font-size:0.72rem;">
+                    ราคา: <strong>@m.PricePerHour ฿/ชม.</strong>
+                </div>
+            </div>
+        </div>
+    }
+</div>

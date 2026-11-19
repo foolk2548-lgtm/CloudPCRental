@@ -1,0 +1,288 @@
+@model IEnumerable<CloudPCRental.Models.Booking>
+@{
+    Layout = "_AdminLayout";
+    ViewData["Title"] = "ตรวจสอบสลิปโอนเงิน";
+    int countPending = Model?.Count() ?? 0;
+    decimal totalPendingAmount = Model?.Sum(b => b.TotalAmount) ?? 0;
+}
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+        <div class="text-muted small">ตรวจสอบความถูกต้องของสลิปหลักฐานการโอนเงินก่อนอนุมัติเปิดสิทธิ์เครื่อง</div>
+        <h3 class="fw-bold text-dark mb-0">ตรวจสอบสลิปโอนเงิน (Payment Verification)</h3>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <div class="text-muted small cursor-pointer refresh-badge d-flex align-items-center" onclick="refreshPageData(this)" title="คลิกเพื่อรีเฟรชข้อมูลล่าสุด">
+            <span>อัปเดตข้อมูลล่าสุด: เรียลไทม์</span>
+            <i class="bi bi-arrow-clockwise text-primary ms-1 fs-6"></i>
+        </div>
+        <a asp-action="RevenueDashboard" class="btn btn-outline-secondary rounded-3 btn-sm">
+            <i class="bi bi-arrow-left me-1"></i> กลับแดชบอร์ดรายได้
+        </a>
+    </div>
+</div>
+
+<!-- Stats / Alert Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-md-4">
+        <div class="card-cloudpc p-3 bg-white border rounded-3 shadow-sm" style="border-left: 4px solid #f59e0b !important;">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small">สลิปรอตรวจสอบ</span>
+                    <h3 class="fw-bold my-1 text-warning">@countPending <small class="fs-6 text-muted">รายการ</small></h3>
+                    <div class="text-muted small" style="font-size: 0.72rem;">ต้องการตรวจสอบโดยฝ่ายบัญชี</div>
+                </div>
+                <div class="text-warning fs-3"><i class="bi bi-hourglass-split"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-md-4">
+        <div class="card-cloudpc p-3 bg-white border rounded-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small">ยอดเงินรวมที่รอตรวจสอบ</span>
+                    <h3 class="fw-bold text-dark my-1">@totalPendingAmount.ToString("N2") <small class="fs-6 text-muted">บาท</small></h3>
+                    <div class="text-muted small" style="font-size: 0.72rem;">ยอดเงินรอเข้าบัญชีบริษัท</div>
+                </div>
+                <div class="text-primary fs-3"><i class="bi bi-cash-stack"></i></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-12 col-md-4">
+        <div class="card-cloudpc p-3 bg-white border rounded-3 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="text-muted small">ขั้นตอนการทำงาน</span>
+                    <div class="fw-semibold text-dark mt-1" style="font-size: 0.85rem;">
+                        <i class="bi bi-check2 text-success me-1"></i>อนุมัติ = เปิดสถานะเครื่อง<br />
+                        <i class="bi bi-x text-danger me-1"></i>ปฏิเสธ = แจ้งเหตุผลให้ลูกค้า
+                    </div>
+                </div>
+                <div class="text-secondary fs-3"><i class="bi bi-shield-check"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Table Card -->
+<div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h6 class="fw-bold text-dark mb-0">รายการสลิปที่รอการตรวจสอบ (@countPending รายการ)</h6>
+        <div class="text-muted small">
+            <i class="bi bi-info-circle me-1"></i> กรุณาตรวจสอบยอดเงินและเวลาในสลิปให้ตรงกับรายการ
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 small">
+            <thead class="table-light text-muted">
+                <tr>
+                    <th class="ps-3">รหัสการจอง</th>
+                    <th>วันที่ - เวลาโอน</th>
+                    <th>ลูกค้า</th>
+                    <th>เครื่องคอมพิวเตอร์</th>
+                    <th>จำนวนชั่วโมง</th>
+                    <th>ยอดเงินโอน</th>
+                    <th class="text-center">หลักฐานสลิป</th>
+                    <th class="text-end pe-3">การตรวจสอบ</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (Model != null && Model.Any())
+                {
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td class="ps-3 fw-bold text-primary">#BK-@item.BookingId.ToString("D4")</td>
+                            <td class="text-muted">@item.PaymentDate.ToString("dd/MM/yyyy HH:mm น.")</td>
+                            <td>
+                                <div class="fw-semibold text-dark">@(item.User?.Username ?? $"User #{item.UserId}")</div>
+                                <div class="text-muted" style="font-size: 0.72rem;">@(item.User?.Email ?? "-")</div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">PC-@item.MachineId.ToString("D3")</span>
+                                <span class="text-secondary ms-1 fw-medium">@(item.Machine?.MachineName ?? "Cloud PC")</span>
+                            </td>
+                            <td>@item.RentalHours ชม.</td>
+                            <td><strong class="text-dark fs-6">@item.TotalAmount.ToString("N2") ฿</strong></td>
+                            <td class="text-center">
+                                @if (!string.IsNullOrEmpty(item.SlipImageUrl))
+                                {
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-primary px-3 rounded-pill btn-view-slip shadow-xs" 
+                                            data-slip="@item.SlipImageUrl" 
+                                            data-id="@item.BookingId"
+                                            data-amount="@item.TotalAmount.ToString("N2")"
+                                            data-user="@(item.User?.Username ?? "ลูกค้า")">
+                                        <i class="bi bi-image me-1"></i> ดูสลิป
+                                    </button>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-light text-muted border">ไม่มีไฟล์สลิป</span>
+                                }
+                            </td>
+                            <td class="text-end pe-3">
+                                <div class="d-inline-flex gap-2">
+                                    <!-- ปุ่มอนุมัติ -->
+                                    <form asp-action="ApprovePayment" method="post" class="d-inline" onsubmit="return confirm('ยืนยันว่าได้ตรวจสอบสลิปและต้องการอนุมัติรายการ #BK-@item.BookingId.ToString("D4") ใช่หรือไม่?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="bookingId" value="@item.BookingId" />
+                                        <button type="submit" class="btn btn-sm btn-success fw-semibold shadow-xs px-3" title="อนุมัติสลิป">
+                                            <i class="bi bi-check-lg me-1"></i> อนุมัติ
+                                        </button>
+                                    </form>
+
+                                    <!-- ปุ่มปฏิเสธ -->
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger px-2 btn-open-reject" 
+                                            data-id="@item.BookingId" 
+                                            data-code="#BK-@item.BookingId.ToString("D4")"
+                                            title="ปฏิเสธสลิป">
+                                        <i class="bi bi-x-lg me-1"></i> ปฏิเสธ
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-check2-circle fs-1 text-success d-block mb-2"></i>
+                            <h6 class="fw-bold text-dark">ไม่มีสลิปที่รอการตรวจสอบในขณะนี้</h6>
+                            <p class="small mb-0">ระบบได้ตรวจสอบและอนุมัติสลิปทั้งหมดเรียบร้อยแล้ว</p>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal 1: ดูรูปภาพสลิปขนาดเต็ม -->
+<div class="modal fade" id="slipModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <div>
+                    <h6 class="modal-title fw-bold text-dark mb-0" id="slipModalTitle">ตรวจสอบหลักฐานสลิป</h6>
+                    <small class="text-muted" id="slipModalSubtitle">ยอดเงิน:</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center p-3 bg-dark bg-opacity-10">
+                <img id="slipModalImage" src="" alt="Slip Full Preview" class="img-fluid rounded shadow" style="max-height: 520px;" />
+            </div>
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary btn-sm rounded-3 px-3" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal 2: ปฏิเสธสลิปพร้อมระบุเหตุผล -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h6 class="modal-title fw-bold mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>ปฏิเสธสลิปการโอนเงิน
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="RejectPayment" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="rejectBookingId" name="bookingId" value="" />
+
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold text-secondary">รายการที่ต้องการปฏิเสธ</label>
+                        <input type="text" id="rejectBookingCode" class="form-control bg-light fw-bold" readonly value="" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="rejectNote" class="form-label small fw-semibold text-secondary">เหตุผลในการปฏิเสธ <span class="text-danger">*</span></label>
+                        <select class="form-select form-select-sm mb-2" id="quickRejectReason">
+                            <option value="">-- เลือกเหตุผลด่วน หรือพิมพ์ด้านล่าง --</option>
+                            <option value="ยอดเงินในสลิปไม่ตรงกับยอดที่ต้องชำระ">ยอดเงินในสลิปไม่ตรงกับยอดที่ต้องชำระ</option>
+                            <option value="รูปสลิปไม่ชัดเจน ไม่สามารถตรวจสอบ QR Code หรือเวลาได้">รูปสลิปไม่ชัดเจน / มัว</option>
+                            <option value="สลิปซ้ำซ้อน มีการใช้สลิปนี้ไปแล้ว">สลิปซ้ำซ้อน</option>
+                            <option value="เวลาในการโอนเงินไม่ตรงกับรายการสั่งซื้อ">เวลาการโอนไม่ตรงกับรายการ</option>
+                        </select>
+                        <textarea id="rejectNote" name="note" class="form-control" rows="3" required placeholder="ระบุเหตุผลที่จะแจ้งกลับไปยังลูกค้า..."></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-light rounded-3 px-3" data-bs-dismiss="modal">ยกเลิก</button>
+                    <button type="submit" class="btn btn-danger rounded-3 px-4 fw-semibold shadow-xs">
+                        <i class="bi bi-x-circle me-1"></i> ยืนยันการปฏิเสธ
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // จัดการ Modal ดูสลิป
+        const slipModalEl = document.getElementById("slipModal");
+        let slipModal = null;
+        if (slipModalEl && typeof bootstrap !== "undefined") {
+            slipModal = new bootstrap.Modal(slipModalEl);
+        }
+
+        document.querySelectorAll(".btn-view-slip").forEach(btn => {
+            btn.addEventListener("click", function () {
+                const url = this.getAttribute("data-slip");
+                const id = this.getAttribute("data-id");
+                const amount = this.getAttribute("data-amount");
+                const user = this.getAttribute("data-user");
+
+                document.getElementById("slipModalImage").src = url;
+                document.getElementById("slipModalTitle").innerText = "ตรวจสอบสลิป #BK-" + String(id).padStart(4, '0');
+                document.getElementById("slipModalSubtitle").innerText = "ลูกค้า: " + user + " | ยอดที่ต้องชำระ: " + amount + " บาท";
+
+                if (slipModal) slipModal.show();
+            });
+        });
+
+        // จัดการ Modal ปฏิเสธสลิป
+        const rejectModalEl = document.getElementById("rejectModal");
+        let rejectModal = null;
+        if (rejectModalEl && typeof bootstrap !== "undefined") {
+            rejectModal = new bootstrap.Modal(rejectModalEl);
+        }
+
+        document.querySelectorAll(".btn-open-reject").forEach(btn => {
+            btn.addEventListener("click", function () {
+                const id = this.getAttribute("data-id");
+                const code = this.getAttribute("data-code");
+
+                document.getElementById("rejectBookingId").value = id;
+                document.getElementById("rejectBookingCode").value = code;
+                document.getElementById("rejectNote").value = "";
+
+                if (rejectModal) rejectModal.show();
+            });
+        });
+
+        // เหตุผลด่วน
+        const quickSelect = document.getElementById("quickRejectReason");
+        if (quickSelect) {
+            quickSelect.addEventListener("change", function () {
+                if (this.value) {
+                    document.getElementById("rejectNote").value = this.value;
+                }
+            });
+        }
+    });
+</script>
+}
