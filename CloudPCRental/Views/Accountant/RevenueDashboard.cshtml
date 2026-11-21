@@ -81,6 +81,54 @@
     </div>
 </div>
 
+<!-- Month-over-Month Comparison Section (เปรียบเทียบยอดขายระหว่างเดือน อิงตามความจริง) -->
+<div class="card-cloudpc bg-white p-4 mb-4 border rounded-4 shadow-sm">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div>
+            <h6 class="fw-bold text-dark mb-0">
+                <i class="bi bi-arrow-left-right text-primary me-2"></i>เปรียบเทียบยอดขายระหว่างเดือน (Month-over-Month Comparison)
+            </h6>
+            <small class="text-muted">เปรียบเทียบรายได้จริงของเดือนปัจจุบันกับเดือนก่อนหน้า (คำนวณจากสลิปที่อนุมัติแล้วตามจริง 100%)</small>
+        </div>
+        <span class="badge @Model.ComparisonBadgeClass border px-3 py-2 fs-6 rounded-pill">
+            <i class="bi @Model.ComparisonIcon me-1"></i> @Model.ComparisonStatus
+            @if (Model.LastMonthRevenue > 0)
+            {
+                <span>(@(Model.GrowthRate >= 0 ? "+" : "")@Model.GrowthRate.ToString("N1")%)</span>
+            }
+        </span>
+    </div>
+
+    <div class="row g-3 text-center align-items-center">
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 bg-light border">
+                <div class="text-muted small mb-1">
+                    <i class="bi bi-calendar3 me-1"></i>ยอดขายเดือนที่แล้ว (@(string.IsNullOrEmpty(Model.LastMonthName) ? "เดือนก่อนหน้า" : Model.LastMonthName))
+                </div>
+                <h4 class="fw-bold text-secondary mb-0">@Model.LastMonthRevenue.ToString("N2") ฿</h4>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 border" style="background-color: #eff6ff; border-color: #bfdbfe !important;">
+                <div class="text-primary small fw-semibold mb-1">
+                    <i class="bi bi-calendar-check-fill me-1"></i>ยอดขายเดือนนี้ (@(string.IsNullOrEmpty(Model.ThisMonthName) ? "เดือนปัจจุบัน" : Model.ThisMonthName))
+                </div>
+                <h4 class="fw-bold text-primary mb-0">@Model.ThisMonthRevenue.ToString("N2") ฿</h4>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="p-3 rounded-3 border @(Model.MonthDifference >= 0 ? "bg-success-subtle border-success-subtle" : "bg-danger-subtle border-danger-subtle")">
+                <div class="text-muted small mb-1">
+                    <i class="bi bi-graph-up me-1"></i>ผลต่างยอดขาย (เทียบกับเดือนที่แล้ว)
+                </div>
+                <h4 class="fw-bold @(Model.MonthDifference >= 0 ? "text-success" : "text-danger") mb-0">
+                    @(Model.MonthDifference >= 0 ? "+" : "")@Model.MonthDifference.ToString("N2") ฿
+                </h4>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Charts Section (Chart.js) -->
 <div class="row g-4 mb-4">
     <!-- Chart 1: Line Chart (รายวัน & รายสัปดาห์) -->
@@ -139,8 +187,32 @@
         </div>
     </div>
 
+    <!-- Quick Filter & Search Bar -->
+    <div class="row g-2 mb-3 align-items-center bg-light p-2 rounded-3 border">
+        <div class="col-md-5">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="transactionSearchInput" class="form-control border-start-0" placeholder="ค้นหาด้วยรหัส #BK-, ชื่อลูกค้า, อีเมล, รหัสเครื่อง..." />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select id="transactionStatusFilter" class="form-select form-select-sm">
+                <option value="">สถานะทั้งหมด</option>
+                <option value="Approved">อนุมัติแล้ว (Approved)</option>
+                <option value="Pending">รอตรวจสลิป (Pending)</option>
+                <option value="RefundRequested">ขอคืนเงิน (RefundRequested)</option>
+                <option value="Refunded">คืนเงินแล้ว (Refunded)</option>
+                <option value="RefundRejected">ปฏิเสธคืนเงิน (RefundRejected)</option>
+                <option value="Rejected">ปฏิเสธสลิป (Rejected)</option>
+            </select>
+        </div>
+        <div class="col-md-4 text-md-end text-muted small" id="transactionFilteredCount">
+            แสดงทั้งหมด @(Model.RecentTransactions?.Count ?? 0) รายการ
+        </div>
+    </div>
+
     <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 small">
+        <table class="table table-hover align-middle mb-0 small" id="transactionsTable">
             <thead class="table-light text-muted">
                 <tr>
                     <th class="ps-3">รหัสธุรกรรม</th>
@@ -157,7 +229,7 @@
                 {
                     @foreach (var item in Model.RecentTransactions)
                     {
-                        <tr>
+                        <tr class="transaction-row" data-status="@item.PaymentStatus" data-search="#BK-@item.BookingId.ToString("D4") @item.User?.Username @item.User?.Email PC-@item.MachineId @item.Machine?.MachineName @item.Note">
                             <td class="ps-3 fw-bold text-primary">#BK-@item.BookingId.ToString("D4")</td>
                             <td class="text-muted">@item.PaymentDate.ToString("dd/MM/yyyy HH:mm น.")</td>
                             <td>
@@ -403,6 +475,40 @@
                 if (modal) modal.show();
             });
         });
+
+        // 5. ตัวกรองค้นหาประวัติธุรกรรม (Client-side Search & Status Filter)
+        const searchInput = document.getElementById('transactionSearchInput');
+        const statusFilter = document.getElementById('transactionStatusFilter');
+        const countDisplay = document.getElementById('transactionFilteredCount');
+        const rows = document.querySelectorAll('.transaction-row');
+
+        function filterTransactions() {
+            const query = (searchInput?.value || '').toLowerCase().trim();
+            const selectedStatus = statusFilter?.value || '';
+            let visibleCount = 0;
+
+            rows.forEach(row => {
+                const searchData = (row.getAttribute('data-search') || '').toLowerCase();
+                const rowStatus = row.getAttribute('data-status') || '';
+
+                const matchesQuery = !query || searchData.includes(query);
+                const matchesStatus = !selectedStatus || rowStatus === selectedStatus;
+
+                if (matchesQuery && matchesStatus) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            if (countDisplay) {
+                countDisplay.innerText = `แสดง ${visibleCount} จาก ${rows.length} รายการ`;
+            }
+        }
+
+        searchInput?.addEventListener('input', filterTransactions);
+        statusFilter?.addEventListener('change', filterTransactions);
     });
 </script>
 }

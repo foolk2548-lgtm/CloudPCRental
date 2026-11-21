@@ -26,142 +26,110 @@ namespace CloudPCRental.Models
                 // ตรวจสอบและสร้างตารางหากยังไม่มีใน MySQL Database
                 await context.Database.EnsureCreatedAsync();
 
-                // 1. ตรวจสอบและเพิ่มข้อมูลผู้ใช้งานเริ่มต้น (Admin, Manager, Staff, Accountant, Thanapol)
-                var defaultUsers = new List<User>
-                {
-                    new User { Username = "admin", Email = "admin@cloudpc.com", Password = "admin123", Role = "Admin" },
-                    new User { Username = "manager", Email = "manager@cloudpc.com", Password = "manager123", Role = "Manager" },
-                    new User { Username = "staff", Email = "staff@cloudpc.com", Password = "staff123", Role = "Staff" },
-                    new User { Username = "accountant", Email = "account@cloudpc.com", Password = "account123", Role = "Accountant" },
-                    new User { Username = "thanapol", Email = "thanapol@example.com", Password = "user123", Role = "User" },
-                    new User { Username = "user1", Email = "user1@example.com", Password = "user123", Role = "User" }
-                };
+                // 1. ตรวจสอบและซิงค์ข้อมูลผู้ใช้งานให้สอดคล้องกับระบบจริง (MockDataStore)
+                var mockUsers = MockDataStore.GetUsers();
+                var dbUsers = await context.Users.ToListAsync();
 
-                foreach (var du in defaultUsers)
+                // ลบบัญชีผู้ใช้ที่ถูกแอดมินลบออกไปแล้วในระบบ (เช่น thanapol, user1) เพื่อความสอดคล้อง 100%
+                var mockUsernames = mockUsers.Select(u => u.Username.ToLower()).ToHashSet();
+                var obsoleteUsers = dbUsers.Where(u => !mockUsernames.Contains(u.Username.ToLower())).ToList();
+                if (obsoleteUsers.Any())
                 {
-                    if (!await context.Users.AnyAsync(u => u.Username == du.Username || u.Email == du.Email))
+                    context.Users.RemoveRange(obsoleteUsers);
+                    await context.SaveChangesAsync();
+                    dbUsers = await context.Users.ToListAsync();
+                }
+
+                // ซิงค์บัญชีผู้ใช้ปัจจุบันเข้า Database หากยังไม่มี
+                foreach (var mu in mockUsers)
+                {
+                    if (!dbUsers.Any(u => u.Username.Equals(mu.Username, StringComparison.OrdinalIgnoreCase) || u.Email.Equals(mu.Email, StringComparison.OrdinalIgnoreCase)))
                     {
-                        context.Users.Add(du);
+                        context.Users.Add(new User
+                        {
+                            Username = mu.Username,
+                            Email = mu.Email,
+                            Password = mu.Password,
+                            Role = mu.Role
+                        });
                     }
                 }
                 await context.SaveChangesAsync();
 
-                // 2. ตรวจสอบและเพิ่มข้อมูลเครื่อง Cloud PC ตัวอย่างตาม Wireframe
-                if (!await context.Machines.AnyAsync())
+                // 2. ตรวจสอบและซิงค์ข้อมูลเครื่อง Cloud PC ให้ครบทั้ง 22 เครื่องตรงตาม Wireframe หน้า 3
+                var mockMachines = MockDataStore.GetMachines();
+                var dbMachines = await context.Machines.ToListAsync();
+
+                foreach (var mm in mockMachines)
                 {
-                    context.Machines.AddRange(
-                        new Machine
+                    var exist = dbMachines.FirstOrDefault(m => m.MachineId == mm.MachineId || m.MachineName.Equals(mm.MachineName, StringComparison.OrdinalIgnoreCase));
+                    if (exist == null)
+                    {
+                        context.Machines.Add(new Machine
                         {
-                            MachineName = "เครื่องเล่นเกมสเปกแรง PRO 01",
-                            CPU = "AMD Ryzen 9 7900X",
-                            RAM = "32GB DDR5",
-                            GPU = "RTX 4080 (16GB GDDR6X)",
-                            PricePerHour = 15.00m,
-                            Status = "Available"
-                        },
-                        new Machine
-                        {
-                            MachineName = "เครื่องทำงานตัดต่อ Render 02",
-                            CPU = "Intel Core i9-13900K",
-                            RAM = "64GB DDR5",
-                            GPU = "RTX 4090 (24GB GDDR6X)",
-                            PricePerHour = 25.00m,
-                            Status = "Rented"
-                        },
-                        new Machine
-                        {
-                            MachineName = "เครื่องประมวลผล AI/Data 03",
-                            CPU = "AMD EPYC 9354",
-                            RAM = "128GB DDR5",
-                            GPU = "A100 (80GB HBM2e)",
-                            PricePerHour = 40.00m,
-                            Status = "Available"
-                        },
-                        new Machine
-                        {
-                            MachineName = "เครื่องสเปกเริ่มต้นทั่วไป Work 04",
-                            CPU = "Intel Core i5-13400",
-                            RAM = "16GB DDR4",
-                            GPU = "RTX 3060 (12GB GDDR6)",
-                            PricePerHour = 6.00m,
-                            Status = "Available"
-                        },
-                        new Machine
-                        {
-                            MachineName = "เครื่องดีไซเนอร์สเปกทำงาน 05",
-                            CPU = "Intel Core i7-13700",
-                            RAM = "32GB DDR5",
-                            GPU = "RTX 4070 (12GB)",
-                            PricePerHour = 12.00m,
-                            Status = "Maintenance"
-                        },
-                        new Machine
-                        {
-                            MachineName = "เซิร์ฟเวอร์จำลองโปรแกรม Dev 06",
-                            CPU = "Intel Xeon W-2245",
-                            RAM = "64GB DDR4 ECC",
-                            GPU = "RTX 3080 (10GB)",
-                            PricePerHour = 18.00m,
-                            Status = "Available"
-                        }
-                    );
+                            MachineName = mm.MachineName,
+                            CPU = mm.CPU,
+                            RAM = mm.RAM,
+                            GPU = mm.GPU,
+                            PricePerHour = mm.PricePerHour,
+                            Status = mm.Status
+                        });
+                    }
+                    else
+                    {
+                        exist.MachineName = mm.MachineName;
+                        exist.CPU = mm.CPU;
+                        exist.RAM = mm.RAM;
+                        exist.GPU = mm.GPU;
+                        exist.PricePerHour = mm.PricePerHour;
+                    }
+                }
+                await context.SaveChangesAsync();
+
+                // 3. ทำความสะอาดข้อมูลประวัติการจอง: ลบรายการจำลอง/ยอด 0 บาท/ภาพ Unsplash และกำจัดรายการซ้ำซ้อน
+                var dummyBookings = await context.Bookings.Where(b => 
+                    b.TotalAmount <= 0 ||
+                    (b.BookingId >= 8000 && b.BookingId <= 8025) ||
+                    (b.BookingId >= 100 && b.BookingId <= 115) ||
+                    b.BookingId == 94812 ||
+                    (b.SlipImageUrl != null && b.SlipImageUrl.Contains("unsplash")) ||
+                    (b.Note != null && b.Note.Contains("ยอดสะสมค่าเช่าคลาวด์คอมพิวเตอร์")) ||
+                    (b.Note != null && b.Note.Contains("K-Bank ยอด 60")) ||
+                    (b.Note != null && b.Note.Contains("SCB พร้อมเพย์"))
+                ).ToListAsync();
+                if (dummyBookings.Any())
+                {
+                    context.Bookings.RemoveRange(dummyBookings);
                     await context.SaveChangesAsync();
                 }
 
-                // 3. ตรวจสอบและเพิ่มข้อมูลการจองและการทำธุรกรรมเริ่มต้น (สำหรับแสดงในระบบบัญชี)
-                if (!await context.Bookings.AnyAsync())
+                var allDbBookings = await context.Bookings.OrderBy(b => b.BookingId).ToListAsync();
+                var seenKeys = new HashSet<string>();
+                var dups = new List<Booking>();
+                foreach (var b in allDbBookings)
                 {
-                    var users = await context.Users.ToListAsync();
-                    var machines = await context.Machines.ToListAsync();
+                    string key;
+                    if (!string.IsNullOrEmpty(b.SlipImageUrl))
+                    {
+                        key = "slip:" + b.SlipImageUrl.Trim();
+                    }
+                    else
+                    {
+                        key = $"txn:{b.MachineId}_{b.TotalAmount:F2}_{b.PaymentDate:yyyyMMddHHmm}_{b.PaymentStatus}";
+                    }
 
-                    int userThanapolId = users.FirstOrDefault(u => u.Username.Contains("thanapol"))?.UserId ?? 1;
-                    int user1Id = users.FirstOrDefault(u => u.Username.Contains("user1"))?.UserId ?? 2;
-                    int m1Id = machines.FirstOrDefault()?.MachineId ?? 1;
-                    int m2Id = machines.Skip(1).FirstOrDefault()?.MachineId ?? 1;
-                    int m3Id = machines.Skip(2).FirstOrDefault()?.MachineId ?? 1;
-
-                    context.Bookings.AddRange(
-                        new Booking
-                        {
-                            UserId = userThanapolId,
-                            MachineId = m1Id,
-                            TotalAmount = 30.00m,
-                            PaymentDate = DateTime.Now.AddDays(-1),
-                            PaymentStatus = "Approved",
-                            RentalHours = 2,
-                            Note = "ชำระเงินและอนุมัติเรียบร้อย"
-                        },
-                        new Booking
-                        {
-                            UserId = user1Id,
-                            MachineId = m2Id,
-                            TotalAmount = 50.00m,
-                            PaymentDate = DateTime.Now.AddDays(-2),
-                            PaymentStatus = "Approved",
-                            RentalHours = 2,
-                            Note = "ชำระเงินและอนุมัติเรียบร้อย"
-                        },
-                        new Booking
-                        {
-                            UserId = userThanapolId,
-                            MachineId = m3Id,
-                            TotalAmount = 40.00m,
-                            PaymentDate = DateTime.Now.AddHours(-3),
-                            PaymentStatus = "Pending",
-                            RentalHours = 1,
-                            SlipImageUrl = "https://placehold.co/400x600/e2e8f0/1e293b?text=PromptPay+Slip+Sample"
-                        },
-                        new Booking
-                        {
-                            UserId = user1Id,
-                            MachineId = m1Id,
-                            TotalAmount = 15.00m,
-                            PaymentDate = DateTime.Now.AddHours(-1),
-                            PaymentStatus = "RefundRequested",
-                            RentalHours = 1,
-                            RefundReason = "เครื่องมีปัญหาการเชื่อมต่อ ขอยกเลิกและคืนเงิน"
-                        }
-                    );
+                    if (seenKeys.Contains(key))
+                    {
+                        dups.Add(b);
+                    }
+                    else
+                    {
+                        seenKeys.Add(key);
+                    }
+                }
+                if (dups.Any())
+                {
+                    context.Bookings.RemoveRange(dups);
                     await context.SaveChangesAsync();
                 }
 

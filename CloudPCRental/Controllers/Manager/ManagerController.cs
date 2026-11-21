@@ -38,6 +38,7 @@ namespace CloudPCRental.Controllers
                         .Include(b => b.Machine)
                         .OrderByDescending(b => b.BookingId)
                         .ToListAsync();
+
                     if (list.Any()) return list;
                 }
             }

@@ -23,6 +23,17 @@ namespace CloudPCRental.Models
 
         // รายการธุรกรรมล่าสุด
         public List<Booking> RecentTransactions { get; set; } = new();
+
+        // ส่วนเปรียบเทียบยอดขายระหว่างเดือน (Month-over-Month Comparison) อิงตามข้อมูลจริง
+        public decimal ThisMonthRevenue { get; set; }
+        public decimal LastMonthRevenue { get; set; }
+        public decimal MonthDifference { get; set; }
+        public double GrowthRate { get; set; }
+        public string ComparisonStatus { get; set; } = "เท่ากับเดือนที่แล้ว";
+        public string ComparisonBadgeClass { get; set; } = "text-secondary bg-secondary-subtle border-secondary-subtle";
+        public string ComparisonIcon { get; set; } = "bi-dash-lg";
+        public string ThisMonthName { get; set; } = "";
+        public string LastMonthName { get; set; } = "";
     }
 }
 

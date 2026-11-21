@@ -358,6 +358,10 @@ namespace CloudPCRental.Controllers
                 earnedPoints = MockDataStore.AwardBookingPoints(userId, priceToPay, machine?.MachineName ?? "Cloud PC", hours, newBooking.BookingId);
             }
 
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            string username = HttpContext.Session.GetString("Username") ?? "ลูกค้า";
+            MockDataStore.LogActivity(username, "Booking", $"สร้างรายการจอง #{newBooking.BookingId} สำหรับเครื่อง {machine?.MachineName ?? $"PC-{machineId:D3}"} ({hours} ชม. {priceToPay:N2} บาท, สถานะ: {paymentStatus})", "ข้อมูลทั่วไป", clientIp);
+
             if (paymentStatus == "Pending")
             {
                 TempData["SuccessMessage"] = $"ส่งสลิปโอนเงินรายการ #{newBooking.BookingId} (ยอด {priceToPay:N2} ฿) ให้ฝ่ายบัญชีเรียบร้อยแล้ว! ฝ่ายบัญชีกำลังตรวจสอบความถูกต้อง เมื่ออนุมัติแล้วคุณจะสามารถใช้งานเครื่องและได้รับคะแนนสะสมทันทีครับ";

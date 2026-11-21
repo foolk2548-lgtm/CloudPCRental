@@ -39,6 +39,7 @@ namespace CloudPCRental.Controllers
                     var dbBookings = await _context.Bookings
                         .Include(b => b.User)
                         .Include(b => b.Machine)
+                        .OrderByDescending(b => b.PaymentDate)
                         .ToListAsync();
 
                     if (dbBookings.Any()) return dbBookings;
@@ -90,11 +91,67 @@ namespace CloudPCRental.Controllers
                 PendingPaymentsCount = allBookings.Count(b => b.PaymentStatus == "Pending"),
                 PendingRefundsCount = allBookings.Count(b => b.PaymentStatus == "RefundRequested"),
                 TotalTransactionsCount = allBookings.Count,
-                RecentTransactions = allBookings.OrderByDescending(b => b.PaymentDate).Take(10).ToList()
+                RecentTransactions = allBookings.OrderByDescending(b => b.PaymentDate).Take(100).ToList()
             };
 
-            // 1.1 กราฟรายได้รายวัน (Line Chart: ย้อนหลัง 7 วัน)
             var thaiCulture = new CultureInfo("th-TH");
+
+            // คำนวณเปรียบเทียบยอดขายระหว่างเดือน (Month-over-Month Comparison อิงตามข้อมูลจริง 100%)
+            var firstDayThisMonth = new DateTime(currentYear, currentMonth, 1);
+            var lastMonthDate = firstDayThisMonth.AddMonths(-1);
+            int lastMonth = lastMonthDate.Month;
+            int lastMonthYear = lastMonthDate.Year;
+
+            decimal thisMonthRev = approvedBookings.Where(b => b.PaymentDate.Month == currentMonth && b.PaymentDate.Year == currentYear).Sum(b => b.TotalAmount);
+            decimal lastMonthRev = approvedBookings.Where(b => b.PaymentDate.Month == lastMonth && b.PaymentDate.Year == lastMonthYear).Sum(b => b.TotalAmount);
+            decimal diff = thisMonthRev - lastMonthRev;
+            double growth = 0;
+            string status = "เท่ากับเดือนที่แล้ว";
+            string badgeClass = "text-secondary bg-secondary-subtle border-secondary-subtle";
+            string icon = "bi-dash-lg";
+
+            if (lastMonthRev > 0)
+            {
+                growth = (double)((diff / lastMonthRev) * 100);
+                if (diff > 0)
+                {
+                    status = "ดีกว่าเดือนที่แล้ว";
+                    badgeClass = "text-success bg-success-subtle border-success-subtle";
+                    icon = "bi-graph-up-arrow";
+                }
+                else if (diff < 0)
+                {
+                    status = "น้อยกว่าเดือนที่แล้ว";
+                    badgeClass = "text-danger bg-danger-subtle border-danger-subtle";
+                    icon = "bi-graph-down-arrow";
+                }
+            }
+            else
+            {
+                if (thisMonthRev > 0)
+                {
+                    growth = 100;
+                    status = "ดีกว่าเดือนที่แล้ว (เริ่มมีรายได้เดือนแรก)";
+                    badgeClass = "text-success bg-success-subtle border-success-subtle";
+                    icon = "bi-graph-up-arrow";
+                }
+                else
+                {
+                    status = "ไม่มียอดขายทั้งสองเดือน";
+                }
+            }
+
+            model.ThisMonthRevenue = thisMonthRev;
+            model.LastMonthRevenue = lastMonthRev;
+            model.MonthDifference = diff;
+            model.GrowthRate = growth;
+            model.ComparisonStatus = status;
+            model.ComparisonBadgeClass = badgeClass;
+            model.ComparisonIcon = icon;
+            model.ThisMonthName = firstDayThisMonth.ToString("MMMM yyyy", thaiCulture);
+            model.LastMonthName = lastMonthDate.ToString("MMMM yyyy", thaiCulture);
+
+            // 1.1 กราฟรายได้รายวัน (Line Chart: ย้อนหลัง 7 วัน)
             for (int i = 6; i >= 0; i--)
             {
                 var targetDate = today.AddDays(-i);
@@ -157,6 +214,9 @@ namespace CloudPCRental.Controllers
             if (!IsLoggedIn() || !IsAccountant()) return RedirectToAction("Login", "Account");
 
             MockDataStore.ApproveBooking(bookingId);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            string accountant = HttpContext.Session.GetString("Username") ?? "accountant";
+            MockDataStore.LogActivity(accountant, "Payment", $"อนุมัติรายการชำระเงิน #{bookingId}", "ข้อมูลทั่วไป", clientIp);
 
             try
             {

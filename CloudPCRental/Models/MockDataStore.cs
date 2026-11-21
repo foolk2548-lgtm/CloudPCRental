@@ -32,6 +32,7 @@ namespace CloudPCRental.Models
         public List<WalletTransaction> WalletTransactions { get; set; } = new();
         public List<BookedSlotInfo> BookedSlotsRegistry { get; set; } = new();
         public List<SupportTicket> SupportTickets { get; set; } = new();
+        public List<SystemLog> SystemLogs { get; set; } = new();
         public Dictionary<int, int> UserPoints { get; set; } = new();
         public Dictionary<int, string> UserPhoneNumbers { get; set; } = new();
         public List<PointTransaction> PointTransactions { get; set; } = new();
@@ -40,6 +41,7 @@ namespace CloudPCRental.Models
         public int NextPointTxnId { get; set; } = 500;
         public int NextTicketId { get; set; } = 1003;
         public int NextMessageId { get; set; } = 5010;
+        public int NextLogId { get; set; } = 100;
     }
 
     public class BookingSnapshotDto
@@ -69,6 +71,7 @@ namespace CloudPCRental.Models
         private static readonly List<WalletTransaction> _walletTransactions = new();
         private static readonly List<BookedSlotInfo> _bookedSlotsRegistry = new();
         private static readonly List<SupportTicket> _supportTickets = new();
+        private static readonly List<SystemLog> _systemLogs = new();
         private static readonly ConcurrentDictionary<int, int> _userPoints = new();
         private static readonly ConcurrentDictionary<int, string> _userPhoneNumbers = new();
         private static readonly List<PointTransaction> _pointTransactions = new();
@@ -76,6 +79,7 @@ namespace CloudPCRental.Models
         private static int _nextPointTxnId = 500;
         private static int _nextTicketId = 1003;
         private static int _nextMessageId = 5010;
+        private static int _nextLogId = 100;
         private static readonly object _lock = new();
 
         public static string GetDataFilePath()
@@ -139,6 +143,7 @@ namespace CloudPCRental.Models
                         WalletTransactions = _walletTransactions.ToList(),
                         BookedSlotsRegistry = _bookedSlotsRegistry.ToList(),
                         SupportTickets = _supportTickets.ToList(),
+                        SystemLogs = _systemLogs.ToList(),
                         UserPoints = _userPoints.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
                         PointTransactions = _pointTransactions.ToList(),
                         UserPhoneNumbers = _userPhoneNumbers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
@@ -146,7 +151,8 @@ namespace CloudPCRental.Models
                         NextTxnId = _nextTxnId,
                         NextPointTxnId = _nextPointTxnId,
                         NextTicketId = _nextTicketId,
-                        NextMessageId = _nextMessageId
+                        NextMessageId = _nextMessageId,
+                        NextLogId = _nextLogId
                     };
 
                     var options = new System.Text.Json.JsonSerializerOptions
@@ -276,6 +282,17 @@ namespace CloudPCRental.Models
                     }
 
                     EnsureUserPointsAndHistory();
+
+                    _systemLogs.Clear();
+                    if (snapshot.SystemLogs != null && snapshot.SystemLogs.Any())
+                    {
+                        _systemLogs.AddRange(snapshot.SystemLogs);
+                    }
+                    else
+                    {
+                        EnsureDefaultLogs();
+                    }
+                    _nextLogId = snapshot.NextLogId > 100 ? snapshot.NextLogId : 100;
 
                     return true;
                 }
@@ -457,104 +474,6 @@ namespace CloudPCRental.Models
                     new User { UserId = 6, Username = "user1", Email = "user1@example.com", Password = "user123", Role = "User" },
                     new User { UserId = 7, Username = "somchai", Email = "somchai@cloudpc.com", Password = "password123", Role = "Staff" },
                     new User { UserId = 8, Username = "somjet", Email = "somjet.game@gmail.com", Password = "password123", Role = "User" }
-                });
-
-                // 3. ข้อมูลจำลองรายการจองและการชำระเงิน (สำหรับทดสอบฝ่ายบัญชี)
-                _bookings.AddRange(new List<Booking>
-                {
-                    // รอตรวจสอบสลิป (Pending)
-                    new Booking
-                    {
-                        BookingId = 101,
-                        UserId = 5,
-                        MachineId = 1,
-                        RentalHours = 4,
-                        TotalAmount = 60.00m,
-                        PaymentDate = DateTime.Now.AddMinutes(-25),
-                        PaymentStatus = "Pending",
-                        SlipImageUrl = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80",
-                        Note = "ลูกค้าแจ้งโอนผ่าน Mobile Banking K-Bank ยอด 60 บาท"
-                    },
-                    new Booking
-                    {
-                        BookingId = 102,
-                        UserId = 6,
-                        MachineId = 2,
-                        RentalHours = 2,
-                        TotalAmount = 50.00m,
-                        PaymentDate = DateTime.Now.AddMinutes(-50),
-                        PaymentStatus = "Pending",
-                        SlipImageUrl = "https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=600&auto=format&fit=crop&q=80",
-                        Note = "ลูกค้าโอนผ่าน SCB พร้อมเพย์"
-                    },
-                    // คืนเงินสำเร็จแล้ว (Refunded) สำหรับลูกค้า thanapol (เชื่อมโยงกับ #CPC-94812)
-                    new Booking
-                    {
-                        BookingId = 103,
-                        UserId = 5,
-                        MachineId = 1,
-                        RentalHours = 4,
-                        TotalAmount = 60.00m,
-                        PaymentDate = DateTime.Now.AddDays(-1),
-                        PaymentStatus = "Refunded",
-                        RefundDate = DateTime.Now.AddMinutes(-5),
-                        SlipImageUrl = "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80",
-                        RefundReason = "เครื่องมีปัญหาจอฟ้าและกระตุก ไม่สามารถเรนเดอร์งานกราฟิกต่อได้",
-                        Note = "ตรวจสอบเงื่อนไขตรงตามนโยบาย: เครื่องขัดข้องจริง อนุมัติคืนเงินเต็มจำนวนเรียบร้อย (+60.00 ฿ เข้ากระเป๋าเงิน)"
-                    },
-                    new Booking
-                    {
-                        BookingId = 104,
-                        UserId = 5,
-                        MachineId = 7,
-                        RentalHours = 3,
-                        TotalAmount = 60.00m,
-                        PaymentDate = DateTime.Now.AddDays(-2),
-                        PaymentStatus = "Refunded",
-                        RefundDate = DateTime.Now.AddMinutes(-5),
-                        SlipImageUrl = "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80",
-                        RefundReason = "กดจองผิดวัน ต้องการเปลี่ยนวันใช้งาน",
-                        Note = "ตรวจสอบเงื่อนไขตรงตามนโยบาย อนุมัติคืนเงินเต็มจำนวนเรียบร้อย (+60.00 ฿ เข้ากระเป๋าเงิน)"
-                    },
-                    // คืนเงินแล้ว (Refunded)
-                    new Booking
-                    {
-                        BookingId = 105,
-                        UserId = 6,
-                        MachineId = 4,
-                        RentalHours = 2,
-                        TotalAmount = 12.00m,
-                        PaymentDate = DateTime.Now.AddDays(-3),
-                        PaymentStatus = "Refunded",
-                        SlipImageUrl = "https://images.unsplash.com/photo-1554224154-26032ffc0d07?w=600&auto=format&fit=crop&q=80",
-                        RefundSlipImageUrl = "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80",
-                        RefundReason = "ไฟตกที่บ้านลูกค้า",
-                        RefundDate = DateTime.Now.AddDays(-2),
-                        Note = "ฝ่ายบัญชีโอนคืนเข้าบัญชีพร้อมเพย์เรียบร้อยแล้ว"
-                    },
-                    // อนุมัติสำเร็จ (Approved) สำหรับพล็อตกราฟรายได้
-                    new Booking { BookingId = 106, UserId = 5, MachineId = 3, RentalHours = 5, TotalAmount = 200.00m, PaymentDate = DateTime.Now.Date.AddHours(9), PaymentStatus = "Approved" },
-                    new Booking { BookingId = 107, UserId = 6, MachineId = 7, RentalHours = 4, TotalAmount = 80.00m, PaymentDate = DateTime.Now.Date.AddHours(11), PaymentStatus = "Approved" },
-                    new Booking { BookingId = 108, UserId = 8, MachineId = 9, RentalHours = 3, TotalAmount = 150.00m, PaymentDate = DateTime.Now.AddDays(-1).AddHours(14), PaymentStatus = "Approved" },
-                    new Booking { BookingId = 109, UserId = 5, MachineId = 12, RentalHours = 6, TotalAmount = 168.00m, PaymentDate = DateTime.Now.AddDays(-2).AddHours(10), PaymentStatus = "Approved" },
-                    new Booking { BookingId = 110, UserId = 6, MachineId = 15, RentalHours = 4, TotalAmount = 120.00m, PaymentDate = DateTime.Now.AddDays(-3).AddHours(15), PaymentStatus = "Approved" },
-                    new Booking { BookingId = 111, UserId = 8, MachineId = 21, RentalHours = 4, TotalAmount = 320.00m, PaymentDate = DateTime.Now.AddDays(-4).AddHours(16), PaymentStatus = "Approved" },
-                    new Booking { BookingId = 112, UserId = 5, MachineId = 16, RentalHours = 5, TotalAmount = 160.00m, PaymentDate = DateTime.Now.AddDays(-5).AddHours(12), PaymentStatus = "Approved" },
-                    new Booking { BookingId = 113, UserId = 6, MachineId = 8, RentalHours = 8, TotalAmount = 176.00m, PaymentDate = DateTime.Now.AddDays(-6).AddHours(17), PaymentStatus = "Approved" },
-                    // รายการจอง #CPC-94812 ของ thanapol (อนุมัติคืนเงินสำเร็จแล้ว)
-                    new Booking 
-                    { 
-                        BookingId = 94812, 
-                        UserId = 5, 
-                        MachineId = 1, 
-                        RentalHours = 4, 
-                        TotalAmount = 60.00m, 
-                        PaymentDate = DateTime.Now.Date.AddHours(14), 
-                        PaymentStatus = "Refunded",
-                        RefundDate = DateTime.Now.AddMinutes(-5),
-                        RefundReason = "เครื่องมีปัญหาจอฟ้าและกระตุก ไม่สามารถเรนเดอร์งานกราฟิกต่อได้",
-                        Note = "ตรวจสอบเงื่อนไขตรงตามนโยบาย: เครื่องขัดข้องจริง อนุมัติคืนเงินเต็มจำนวนเรียบร้อย (+60.00 ฿ เข้ากระเป๋าเงิน)"
-                    }
                 });
 
                 SaveToFile();
@@ -1374,6 +1293,53 @@ namespace CloudPCRental.Models
             }
         }
 
+        public static List<BookedSlotInfo> GetBookedSlotsRegistry()
+        {
+            lock (_lock)
+            {
+                return _bookedSlotsRegistry.Select(s => new BookedSlotInfo
+                {
+                    MachineId = s.MachineId,
+                    Date = s.Date,
+                    Slot = s.Slot,
+                    BookingId = s.BookingId,
+                    UserId = s.UserId
+                }).ToList();
+            }
+        }
+
+        public static string GetMachineCategory(Machine? machine)
+        {
+            if (machine == null) return "Gaming Pro (RTX 4080 / RTX 4090)";
+            var name = (machine.MachineName ?? "").ToLower();
+            var gpu = (machine.GPU ?? "").ToLower();
+
+            if (name.Contains("ai") || name.Contains("data") || gpu.Contains("a100") || gpu.Contains("h100") || 
+                name.Contains("server") || name.Contains("เซิร์ฟเวอร์") || name.Contains("dev") || 
+                name.Contains("cluster") || name.Contains("train") || name.Contains("ดีพเลิร์นนิง") || 
+                name.Contains("ปัญญาประดิษฐ์") || name.Contains("epyc") || name.Contains("xeon"))
+            {
+                return "AI Cluster (EPYC / A100)";
+            }
+
+            if (name.Contains("render") || name.Contains("ตัดต่อ") || name.Contains("studio") || 
+                name.Contains("ดีไซเนอร์") || name.Contains("graphic") || name.Contains("workstation") || 
+                name.Contains("เวิร์กสเตชัน") || name.Contains("3d") || name.Contains("โมชันกราฟิก") || 
+                name.Contains("วิดีโอโปรดักชัน"))
+            {
+                return "Graphic Studio (Render / 3D)";
+            }
+
+            if (name.Contains("office") || name.Contains("work") || name.Contains("สำนักงาน") || 
+                name.Contains("เริ่มต้น") || name.Contains("ทั่วไป") || name.Contains("เอกสาร") || 
+                name.Contains("พิมพ์งาน"))
+            {
+                return "Standard Office (Core i5 / Work)";
+            }
+
+            return "Gaming Pro (RTX 4080 / RTX 4090)";
+        }
+
         public static void ApproveBooking(int id)
         {
             lock (_lock)
@@ -1596,6 +1562,7 @@ namespace CloudPCRental.Models
                             tb.RefundDate = DateTime.Now;
                         }
                     }
+
                     SaveToFile();
                     return true;
                 }
@@ -2234,6 +2201,154 @@ namespace CloudPCRental.Models
 
             _supportTickets.Add(ticket1);
             _supportTickets.Add(ticket2);
+        }
+
+        // ==========================================
+        // System Logs & Audit Logging System
+        // ==========================================
+        public static void EnsureDefaultLogs()
+        {
+            if (_systemLogs.Any()) return;
+
+            DateTime now = DateTime.Now;
+            _systemLogs.AddRange(new List<SystemLog>
+            {
+                new SystemLog
+                {
+                    LogId = 1,
+                    Timestamp = now.AddMinutes(-12),
+                    PerformedBy = "admin (ผู้ดูแลระบบหลัก)",
+                    Category = "Security",
+                    Detail = "ตรวจสอบและปรับปรุงนโยบายรหัสผ่านและความปลอดภัยของระบบ",
+                    Severity = "สำคัญ",
+                    IpAddress = "192.168.1.50"
+                },
+                new SystemLog
+                {
+                    LogId = 2,
+                    Timestamp = now.AddMinutes(-35),
+                    PerformedBy = "admin",
+                    Category = "Login",
+                    Detail = "ผู้ดูแลระบบหลัก (admin) เข้าสู่ระบบสำเร็จ",
+                    Severity = "ข้อมูลทั่วไป",
+                    IpAddress = "192.168.1.50"
+                },
+                new SystemLog
+                {
+                    LogId = 3,
+                    Timestamp = now.AddHours(-1).AddMinutes(-10),
+                    PerformedBy = "System Monitor",
+                    Category = "Hardware",
+                    Detail = "ตรวจพบเครื่อง PC-001 มีการใช้งานทรัพยากร GPU สูงต่อเนื่อง อุณหภูมิปกติ",
+                    Severity = "ข้อมูลทั่วไป",
+                    IpAddress = "10.0.0.1"
+                },
+                new SystemLog
+                {
+                    LogId = 4,
+                    Timestamp = now.AddHours(-2).AddMinutes(-5),
+                    PerformedBy = "accountant",
+                    Category = "Payment",
+                    Detail = "ตรวจสอบและยืนยันการคืนเงินค่าเช่าเครื่องเข้า CloudPC Wallet เรียบร้อย",
+                    Severity = "สำคัญ",
+                    IpAddress = "192.168.1.104"
+                },
+                new SystemLog
+                {
+                    LogId = 5,
+                    Timestamp = now.AddHours(-3).AddMinutes(-20),
+                    PerformedBy = "manager",
+                    Category = "Security",
+                    Detail = "ผู้จัดการสาขา (manager) ตรวจสอบรายงานประสิทธิภาพและสถิติการใช้งานประจำวัน",
+                    Severity = "ข้อมูลทั่วไป",
+                    IpAddress = "192.168.1.102"
+                },
+                new SystemLog
+                {
+                    LogId = 6,
+                    Timestamp = now.AddHours(-4).AddMinutes(-30),
+                    PerformedBy = "Database AutoBackup",
+                    Category = "System",
+                    Detail = "สำรองข้อมูลฐานข้อมูล CloudPC (csi402db / MockDataStore) สำเร็จเรียบร้อย",
+                    Severity = "ข้อมูลทั่วไป",
+                    IpAddress = "127.0.0.1"
+                },
+                new SystemLog
+                {
+                    LogId = 7,
+                    Timestamp = now.AddDays(-1).Date.AddHours(16).AddMinutes(15),
+                    PerformedBy = "staff",
+                    Category = "Hardware",
+                    Detail = "พนักงานหน้าร้านตรวจสอบสภาพเครื่อง PC-001 ถึง PC-022 พร้อมให้บริการ",
+                    Severity = "ข้อมูลทั่วไป",
+                    IpAddress = "192.168.1.103"
+                },
+                new SystemLog
+                {
+                    LogId = 8,
+                    Timestamp = now.AddDays(-1).Date.AddHours(14).AddMinutes(20),
+                    PerformedBy = "System Monitor",
+                    Category = "Hardware",
+                    Detail = "เครื่อง PC-005 ถูกตั้งค่าเข้าสู่โหมดซ่อมบำรุงตามการแจ้งของช่างเทคนิค",
+                    Severity = "วิกฤต",
+                    IpAddress = "10.0.0.5"
+                }
+            });
+            _nextLogId = 100;
+        }
+
+        public static void LogActivity(string performedBy, string category, string detail, string severity = "ข้อมูลทั่วไป", string? ipAddress = null)
+        {
+            lock (_lock)
+            {
+                EnsureDefaultLogs();
+                var log = new SystemLog
+                {
+                    LogId = _nextLogId++,
+                    Timestamp = DateTime.Now,
+                    PerformedBy = string.IsNullOrWhiteSpace(performedBy) ? "System" : performedBy.Trim(),
+                    Category = string.IsNullOrWhiteSpace(category) ? "System" : category.Trim(),
+                    Detail = detail ?? string.Empty,
+                    Severity = string.IsNullOrWhiteSpace(severity) ? "ข้อมูลทั่วไป" : severity.Trim(),
+                    IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim()
+                };
+                _systemLogs.Insert(0, log);
+                SaveToFile();
+            }
+        }
+
+        public static List<SystemLog> GetSystemLogs(DateTime? date = null, string? search = null, string? category = null, string? severity = null)
+        {
+            lock (_lock)
+            {
+                EnsureDefaultLogs();
+                var query = _systemLogs.AsEnumerable();
+
+                if (date.HasValue)
+                {
+                    query = query.Where(l => l.Timestamp.Date == date.Value.Date);
+                }
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    string kw = search.Trim().ToLower();
+                    query = query.Where(l => (l.PerformedBy != null && l.PerformedBy.ToLower().Contains(kw)) ||
+                                             (l.Detail != null && l.Detail.ToLower().Contains(kw)) ||
+                                             (l.IpAddress != null && l.IpAddress.ToLower().Contains(kw)));
+                }
+
+                if (!string.IsNullOrWhiteSpace(category) && !category.Equals("ประเภททั้งหมด", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(l => l.Category.Equals(category.Trim(), StringComparison.OrdinalIgnoreCase));
+                }
+
+                if (!string.IsNullOrWhiteSpace(severity) && !severity.Equals("ระดับความรุนแรงทั้งหมด", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(l => l.Severity.Equals(severity.Trim(), StringComparison.OrdinalIgnoreCase));
+                }
+
+                return query.OrderByDescending(l => l.Timestamp).ToList();
+            }
         }
     }
 }

@@ -54,6 +54,9 @@ namespace CloudPCRental.Controllers
             if (!ModelState.IsValid) return View(user);
 
             MockDataStore.AddUser(user);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            string adminName = HttpContext.Session.GetString("Username") ?? "admin";
+            MockDataStore.LogActivity(adminName, "Security", $"เพิ่มผู้ใช้งานใหม่: {user.Username} (บทบาท: {user.Role})", "สำคัญ", clientIp);
             try
             {
                 if (await _context.Database.CanConnectAsync())
@@ -109,6 +112,8 @@ namespace CloudPCRental.Controllers
             }
 
             MockDataStore.UpdateUser(user);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            MockDataStore.LogActivity(currentUsername, "Security", $"แก้ไขข้อมูลและปรับสิทธิ์ของ {user.Username} เป็น {user.Role}", "สำคัญ", clientIp);
             try
             {
                 if (await _context.Database.CanConnectAsync())
@@ -144,7 +149,12 @@ namespace CloudPCRental.Controllers
                 return RedirectToAction("ManageUsers");
             }
 
+            var targetUser = MockDataStore.GetUserById(id);
+            string targetUsername = targetUser?.Username ?? $"User#{id}";
+
             MockDataStore.DeleteUser(id);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            MockDataStore.LogActivity(currentUsername, "Security", $"ลบบัญชีผู้ใช้งาน {targetUsername} (ID: {id}) ออกจากระบบ", "วิกฤต", clientIp);
             try
             {
                 if (await _context.Database.CanConnectAsync())

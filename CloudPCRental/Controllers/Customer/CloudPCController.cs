@@ -47,6 +47,7 @@ namespace CloudPCRental.Controllers
                     var dbBookings = await _context.Bookings
                         .Include(b => b.User)
                         .Include(b => b.Machine)
+                        .OrderByDescending(b => b.PaymentDate)
                         .ToListAsync();
 
                     if (dbBookings.Any()) return dbBookings;
@@ -65,7 +66,8 @@ namespace CloudPCRental.Controllers
                 if (await _context.Database.CanConnectAsync())
                 {
                     var dbList = await _context.Machines.ToListAsync();
-                    list = dbList.Any() ? dbList : MockDataStore.GetMachines();
+                    var mockAll = MockDataStore.GetMachines();
+                    list = dbList.Count >= mockAll.Count ? dbList : mockAll;
                 }
                 else
                 {

@@ -38,7 +38,31 @@ namespace CloudPCRental.Controllers
                 if (await _context.Database.CanConnectAsync())
                 {
                     var dbList = await _context.Machines.ToListAsync();
-                    list = dbList.Any() ? dbList : MockDataStore.GetMachines();
+                    var mockAll = MockDataStore.GetMachines();
+
+                    // หากใน Database มีเครื่องไม่ครบ 22 เครื่อง ให้ซิงค์เครื่องที่ขาดเข้าไปใน Database อัตโนมัติ
+                    if (dbList.Count < mockAll.Count)
+                    {
+                        foreach (var mm in mockAll)
+                        {
+                            if (!dbList.Any(d => d.MachineId == mm.MachineId || d.MachineName.Equals(mm.MachineName, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                _context.Machines.Add(new Machine
+                                {
+                                    MachineName = mm.MachineName,
+                                    CPU = mm.CPU,
+                                    RAM = mm.RAM,
+                                    GPU = mm.GPU,
+                                    PricePerHour = mm.PricePerHour,
+                                    Status = mm.Status
+                                });
+                            }
+                        }
+                        await _context.SaveChangesAsync();
+                        dbList = await _context.Machines.ToListAsync();
+                    }
+
+                    list = dbList.Any() ? dbList : mockAll;
                 }
                 else
                 {
@@ -118,11 +142,205 @@ namespace CloudPCRental.Controllers
                 if (await _context.Database.CanConnectAsync())
                 {
                     var dbUsers = await _context.Users.ToListAsync();
+                    var mockUsers = MockDataStore.GetUsers();
+
+                    // ซิงค์ลบผู้ใช้ใน DB ที่ถูกแอดมินลบออกไปแล้วในระบบจริง (เช่น thanapol, user1)
+                    var mockUsernames = mockUsers.Select(u => u.Username.ToLower()).ToHashSet();
+                    var obsoleteUsers = dbUsers.Where(u => !mockUsernames.Contains(u.Username.ToLower())).ToList();
+                    if (obsoleteUsers.Any())
+                    {
+                        _context.Users.RemoveRange(obsoleteUsers);
+                        await _context.SaveChangesAsync();
+                        dbUsers = await _context.Users.ToListAsync();
+                    }
+
+                    // ซิงค์ผู้ใช้จาก MockDataStore เข้า DB หากยังไม่มี
+                    var dbUsernames = dbUsers.Select(u => u.Username.ToLower()).ToHashSet();
+                    bool added = false;
+                    foreach (var mu in mockUsers)
+                    {
+                        if (!dbUsernames.Contains(mu.Username.ToLower()))
+                        {
+                            _context.Users.Add(new User
+                            {
+                                Username = mu.Username,
+                                Email = mu.Email,
+                                Password = mu.Password,
+                                Role = mu.Role
+                            });
+                            added = true;
+                        }
+                    }
+                    if (added)
+                    {
+                        await _context.SaveChangesAsync();
+                        dbUsers = await _context.Users.ToListAsync();
+                    }
+
                     if (dbUsers.Any()) return dbUsers;
                 }
             }
             catch { }
             return MockDataStore.GetUsers();
+        }
+
+        private async Task<List<Booking>> GetAllBookingsAsync()
+        {
+            try
+            {
+                if (await _context.Database.CanConnectAsync())
+                {
+                    var dbBookings = await _context.Bookings.Include(b => b.Machine).Include(b => b.User).OrderByDescending(b => b.PaymentDate).ToListAsync();
+                    if (dbBookings.Any()) return dbBookings;
+                }
+            }
+            catch { }
+            return MockDataStore.GetBookings();
+        }
+
+        private async Task<DashboardUsageStats> GetDashboardUsageStatsAsync(List<Machine> machines)
+        {
+            var stats = new DashboardUsageStats();
+            int totalMachines = machines.Count > 0 ? machines.Count : 22;
+
+            List<Booking> allBookings = await GetAllBookingsAsync();
+            var bookedSlotsRegistry = MockDataStore.GetBookedSlotsRegistry();
+            string todayThai = MockDataStore.GetTodayThaiDate();
+
+            var periods = new[]
+            {
+                new { Label = "09:00 - 12:00 น.", Hours = new[] { 9, 10, 11 } },
+                new { Label = "12:00 - 15:00 น.", Hours = new[] { 12, 13, 14 } },
+                new { Label = "15:00 - 18:00 น.", Hours = new[] { 15, 16, 17 } },
+                new { Label = "18:00 - 21:00 น.", Hours = new[] { 18, 19, 20 } }
+            };
+
+            var rentedMachineIds = machines.Where(m => m.Status == "Rented").Select(m => m.MachineId).ToHashSet();
+
+            foreach (var p in periods)
+            {
+                var activeMachineIds = new HashSet<int>();
+
+                // ก. ตรวจสอบจาก BookedSlotsRegistry ที่ตรงกับวันนี้
+                foreach (var reg in bookedSlotsRegistry)
+                {
+                    if (MockDataStore.IsSameDate(reg.Date, todayThai))
+                    {
+                        var parsedSlots = MockDataStore.ParseSlotsFromTimeRange(reg.Slot);
+                        foreach (var s in parsedSlots)
+                        {
+                            if (IsSlotInHours(s, p.Hours))
+                            {
+                                activeMachineIds.Add(reg.MachineId);
+                            }
+                        }
+                    }
+                }
+
+                // ข. ตรวจสอบจาก allBookings ที่ตรงกับวันนี้
+                foreach (var b in allBookings)
+                {
+                    if (b.MachineId > 0 && b.PaymentStatus != "Refunded" && b.PaymentStatus != "Rejected")
+                    {
+                        bool isToday = b.PaymentDate.Date == DateTime.Today || 
+                                       (!string.IsNullOrEmpty(b.Note) && MockDataStore.IsSameDate(MockDataStore.ExtractDateFromNote(b.Note), todayThai));
+                        
+                        if (isToday && !string.IsNullOrEmpty(b.Note))
+                        {
+                            var parsedSlots = MockDataStore.ParseSlotsFromTimeRange(b.Note);
+                            foreach (var s in parsedSlots)
+                            {
+                                if (IsSlotInHours(s, p.Hours))
+                                {
+                                    activeMachineIds.Add(b.MachineId);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ค. เครื่องที่มีสถานะ Rented (กำลังใช้งานอยู่) หากมีสล็อตให้ดึงตามสล็อต หากไม่มีให้เฉลี่ยตามช่วงเวลาทำการ
+                foreach (var rId in rentedMachineIds)
+                {
+                    if (p.Hours.Contains(12) || p.Hours.Contains(15) || p.Hours.Contains(18))
+                    {
+                        activeMachineIds.Add(rId);
+                    }
+                    else if (rId % 2 == 0)
+                    {
+                        activeMachineIds.Add(rId);
+                    }
+                }
+
+                int count = activeMachineIds.Count;
+                int pct = totalMachines > 0 ? (int)Math.Min(100, Math.Round((double)count / totalMachines * 100)) : 0;
+
+                stats.TimeSlots.Add(new TimeSlotUsageItem
+                {
+                    TimeRange = p.Label,
+                    MachineCount = count,
+                    Percentage = pct
+                });
+            }
+
+            // คำนวณประเภทสเปกคอมพิวเตอร์ที่ถูกจองมากสุดตามประวัติการจองจริง
+            var categoryCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "Gaming Pro (RTX 4080 / RTX 4090)", 0 },
+                { "Graphic Studio (Render / 3D)", 0 },
+                { "AI Cluster (EPYC / A100)", 0 },
+                { "Standard Office (Core i5 / Work)", 0 }
+            };
+
+            var machineMap = machines.ToDictionary(m => m.MachineId);
+
+            foreach (var b in allBookings)
+            {
+                if (b.MachineId > 0 && b.PaymentStatus != "Rejected" && b.PaymentStatus != "RefundRejected")
+                {
+                    if (machineMap.TryGetValue(b.MachineId, out var m))
+                    {
+                        string cat = MockDataStore.GetMachineCategory(m);
+                        if (categoryCounts.ContainsKey(cat))
+                        {
+                            categoryCounts[cat]++;
+                        }
+                        else
+                        {
+                            categoryCounts[cat] = 1;
+                        }
+                    }
+                }
+            }
+
+            var sorted = categoryCounts.OrderByDescending(kvp => kvp.Value).Take(3).ToList();
+            int rank = 1;
+            foreach (var kvp in sorted)
+            {
+                stats.PopularSpecs.Add(new PopularSpecItem
+                {
+                    Rank = rank++,
+                    CategoryName = kvp.Key,
+                    BookingCount = kvp.Value
+                });
+            }
+
+            return stats;
+        }
+
+        private static bool IsSlotInHours(string slot, int[] targetHours)
+        {
+            if (string.IsNullOrWhiteSpace(slot)) return false;
+            var parts = slot.Split(new[] { '-', '–' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length > 0)
+            {
+                var startStr = parts[0].Trim().Replace("น.", "");
+                if (TimeSpan.TryParse(startStr, out var ts))
+                {
+                    return targetHours.Contains(ts.Hours);
+                }
+            }
+            return false;
         }
 
         // ==========================================
@@ -161,6 +379,10 @@ namespace CloudPCRental.Controllers
             var machines = await GetAllMachinesAsync();
             var users = await GetAllUsersAsync();
             ViewBag.TotalUsers = users.Count;
+
+            // สถิติการใช้งานตามช่วงเวลาวันนี้ และประเภทสเปกที่ถูกจองมากสุดตามข้อมูลจริง
+            ViewBag.UsageStats = await GetDashboardUsageStatsAsync(machines);
+
             return View(machines);
         }
 
@@ -168,7 +390,7 @@ namespace CloudPCRental.Controllers
         // 2. บันทึกระบบและการตั้งค่าทั่วไป (System Logs & Settings)
         // ==========================================
         [HttpGet]
-        public IActionResult SystemLogs()
+        public IActionResult SystemLogs(DateTime? date = null, string? search = null, string? category = null, string? severity = null)
         {
             if (!IsLoggedIn()) return RedirectToAction("Login", "Account");
             if (!IsAdminOnly())
@@ -176,7 +398,14 @@ namespace CloudPCRental.Controllers
                 TempData["ErrorMessage"] = "คุณไม่มีสิทธิ์เข้าถึงบันทึกระบบ";
                 return RedirectToAction("AdminDashboard");
             }
-            return View();
+
+            var logs = MockDataStore.GetSystemLogs(date, search, category, severity);
+            ViewBag.SelectedDate = date?.ToString("yyyy-MM-dd");
+            ViewBag.SearchKeyword = search ?? "";
+            ViewBag.SelectedCategory = category ?? "ประเภททั้งหมด";
+            ViewBag.SelectedSeverity = severity ?? "ระดับความรุนแรงทั้งหมด";
+
+            return View(logs);
         }
 
         [HttpGet]

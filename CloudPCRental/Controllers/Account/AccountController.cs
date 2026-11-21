@@ -84,11 +84,16 @@ namespace CloudPCRental.Controllers
 
             var user = await AuthenticateUserAsync(model.UsernameOrEmail, model.Password);
 
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
             if (user == null)
             {
+                MockDataStore.LogActivity(model.UsernameOrEmail, "Login", $"พยายามเข้าสู่ระบบไม่สำเร็จสำหรับบัญชี '{model.UsernameOrEmail}'", "สำคัญ", clientIp);
                 ModelState.AddModelError(string.Empty, "ชื่อผู้ใช้ / อีเมล หรือรหัสผ่านไม่ถูกต้อง (หากบัญชีถูกลบออกจากระบบ กรุณาสมัครสมาชิกใหม่)");
                 return View(model);
             }
+
+            MockDataStore.LogActivity(user.Username, "Login", $"ผู้ใช้งาน {user.Username} (บทบาท: {user.Role}) เข้าสู่ระบบสำเร็จ", "ข้อมูลทั่วไป", clientIp);
 
             // ล้างค่า Session เก่าที่อาจตกค้างก่อนบันทึกค่าใหม่
             HttpContext.Session.Clear();

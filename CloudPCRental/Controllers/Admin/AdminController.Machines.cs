@@ -60,6 +60,9 @@ namespace CloudPCRental.Controllers
             if (!ModelState.IsValid) return View(machine);
 
             MockDataStore.AddMachine(machine);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            string adminUser = HttpContext.Session.GetString("Username") ?? "admin";
+            MockDataStore.LogActivity(adminUser, "Hardware", $"เพิ่มเครื่องคอมพิวเตอร์ใหม่ {machine.MachineName} เข้าสู่ระบบ", "ข้อมูลทั่วไป", clientIp);
             try
             {
                 if (await _context.Database.CanConnectAsync())
@@ -128,6 +131,9 @@ namespace CloudPCRental.Controllers
             }
 
             MockDataStore.DeleteMachine(id);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            string adminUser = HttpContext.Session.GetString("Username") ?? "admin";
+            MockDataStore.LogActivity(adminUser, "Hardware", $"ลบเครื่องคอมพิวเตอร์รหัส PC-{id:D3} ออกจากระบบ", "วิกฤต", clientIp);
             try
             {
                 if (await _context.Database.CanConnectAsync())
@@ -171,6 +177,8 @@ namespace CloudPCRental.Controllers
             var reporterWithRole = $"{reporter} ({role})";
 
             MockDataStore.RequestMachineRepair(machineId, issueType, note, reporterWithRole);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            MockDataStore.LogActivity(reporterWithRole, "Hardware", $"แจ้งซ่อมเครื่อง PC-{machineId:D3} ({issueType}): {note}", "สำคัญ", clientIp);
             try
             {
                 if (await _context.Database.CanConnectAsync())
@@ -205,6 +213,8 @@ namespace CloudPCRental.Controllers
             var approverWithRole = $"{approver} ({role})";
 
             MockDataStore.ApproveMachineRepair(machineId, approverWithRole);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            MockDataStore.LogActivity(approverWithRole, "Hardware", $"อนุมัติการแจ้งซ่อมเครื่อง PC-{machineId:D3} และส่งมอบช่างเทคนิค", "สำคัญ", clientIp);
             try
             {
                 if (await _context.Database.CanConnectAsync())
@@ -265,6 +275,9 @@ namespace CloudPCRental.Controllers
             }
 
             MockDataStore.FinishMachineRepair(machineId);
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            string approver = HttpContext.Session.GetString("Username") ?? "ผู้จัดการ";
+            MockDataStore.LogActivity(approver, "Hardware", $"บันทึกช่างซ่อมเครื่อง PC-{machineId:D3} เสร็จสมบูรณ์แล้ว", "ข้อมูลทั่วไป", clientIp);
             try
             {
                 if (await _context.Database.CanConnectAsync())

@@ -208,6 +208,9 @@ namespace CloudPCRental.Controllers
             HttpContext.Session.SetString("WalletBalance", newBal.ToString("F2"));
 
             TempData["SuccessMessage"] = $"ยกเลิกการจอง {bookingCode} สำเร็จ! คืนเงินจำนวน +{refundAmount:N2} THB เข้ากระเป๋าเงินเรียบร้อยแล้ว (ยอดคงเหลือปัจจุบัน: {newBal:N2} THB)";
+            string clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+            string username = HttpContext.Session.GetString("Username") ?? "ลูกค้า";
+            MockDataStore.LogActivity(username, "Payment", $"ยกเลิกการจอง {bookingCode} และรับเงินคืน {refundAmount:N2} บาทเข้ากระเป๋าเงิน", "สำคัญ", clientIp);
             return RedirectToAction("MyBookings");
         }
 

@@ -11,6 +11,7 @@ namespace CloudPCRental.Models
         public DbSet<User> Users { get; set; }
         public DbSet<Machine> Machines { get; set; }
         public DbSet<Booking> Bookings { get; set; }
+        public DbSet<SystemLog> SystemLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
