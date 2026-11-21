@@ -286,7 +286,7 @@ namespace CloudPCRental.Controllers
             if (!IsLoggedIn()) return RedirectToAction("Login", "Account");
             if (!IsAccountant())
             {
-                TempData["ErrorMessage"] = "คุณไม่มีสิทธิ์ตรวจสอบสลิปโอนเงิน (สงวนสิทธิ์เฉพาะพนักงานฝ่ายบัญชีเท่านั้น)";
+                TempData["ErrorMessage"] = "คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการคำขอคืนเงิน (สงวนสิทธิ์เฉพาะพนักงานฝ่ายบัญชีเท่านั้น)";
                 return RedirectToAction("AdminDashboard", "Admin");
             }
 
@@ -314,9 +314,15 @@ namespace CloudPCRental.Controllers
             var targetBooking = allBookings.FirstOrDefault(b => b.BookingId == bookingId) 
                              ?? MockDataStore.GetBookings().FirstOrDefault(b => b.BookingId == bookingId);
 
-            int targetUserId = targetBooking?.UserId ?? 5;
-            decimal refundAmount = targetBooking?.TotalAmount ?? 60.00m;
-            string machineName = targetBooking?.Machine?.MachineName ?? "Cloud PC";
+            if (targetBooking == null)
+            {
+                TempData["ErrorMessage"] = $"ไม่พบรายการคำขอคืนเงิน #{bookingId} ในระบบ";
+                return RedirectToAction("Refunds");
+            }
+
+            int targetUserId = targetBooking.UserId;
+            decimal refundAmount = targetBooking.TotalAmount;
+            string machineName = targetBooking.Machine?.MachineName ?? "Cloud PC";
 
             string finalNote = string.IsNullOrWhiteSpace(note) 
                 ? "ตรวจสอบเงื่อนไขตรงตามนโยบาย อนุมัติคืนเงินเต็มจำนวนเรียบร้อย (+60.00 ฿ เข้ากระเป๋าเงิน)" 
@@ -416,11 +422,16 @@ namespace CloudPCRental.Controllers
             bool isDb = false;
             try { isDb = await _context.Database.CanConnectAsync(); } catch { }
             ViewBag.IsDbConnected = isDb;
-            var targetBooking = allBookings.FirstOrDefault(b => b.BookingId == bookingId);
-            if (targetBooking != null)
+            var targetBooking = allBookings.FirstOrDefault(b => b.BookingId == bookingId)
+                             ?? MockDataStore.GetBookings().FirstOrDefault(b => b.BookingId == bookingId);
+
+            if (targetBooking == null)
             {
-                MockDataStore.RefundBalance(targetBooking.UserId, targetBooking.TotalAmount, $"ฝ่ายบัญชีโอนคืนเงินคำขอ #{bookingId:D4} ({targetBooking.Machine?.MachineName ?? "Cloud PC"})", $"#REFUND-{bookingId:D4}");
+                TempData["ErrorMessage"] = $"ไม่พบรายการคำขอคืนเงิน #{bookingId} ในระบบ";
+                return RedirectToAction("Refunds");
             }
+
+            MockDataStore.RefundBalance(targetBooking.UserId, targetBooking.TotalAmount, $"ฝ่ายบัญชีโอนคืนเงินคำขอ #{bookingId:D4} ({targetBooking.Machine?.MachineName ?? "Cloud PC"})", $"#REFUND-{bookingId:D4}");
 
             string? uploadedPath = null;
 

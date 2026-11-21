@@ -390,7 +390,7 @@ namespace CloudPCRental.Controllers
         // 2. บันทึกระบบและการตั้งค่าทั่วไป (System Logs & Settings)
         // ==========================================
         [HttpGet]
-        public IActionResult SystemLogs(DateTime? date = null, string? search = null, string? category = null, string? severity = null)
+        public async Task<IActionResult> SystemLogs(DateTime? date = null, string? search = null, string? category = null, string? severity = null)
         {
             if (!IsLoggedIn()) return RedirectToAction("Login", "Account");
             if (!IsAdminOnly())
@@ -399,7 +399,42 @@ namespace CloudPCRental.Controllers
                 return RedirectToAction("AdminDashboard");
             }
 
-            var logs = MockDataStore.GetSystemLogs(date, search, category, severity);
+            List<SystemLog> logs;
+            try
+            {
+                if (await _context.Database.CanConnectAsync())
+                {
+                    var query = _context.SystemLogs.AsQueryable();
+                    if (date.HasValue)
+                    {
+                        var targetDate = date.Value.Date;
+                        query = query.Where(l => l.Timestamp.Date == targetDate);
+                    }
+                    if (!string.IsNullOrWhiteSpace(search))
+                    {
+                        var s = search.Trim().ToLower();
+                        query = query.Where(l => l.PerformedBy.ToLower().Contains(s) || l.Detail.ToLower().Contains(s) || l.IpAddress.ToLower().Contains(s));
+                    }
+                    if (!string.IsNullOrWhiteSpace(category) && category != "ประเภททั้งหมด")
+                    {
+                        query = query.Where(l => l.Category == category);
+                    }
+                    if (!string.IsNullOrWhiteSpace(severity) && severity != "ระดับความรุนแรงทั้งหมด")
+                    {
+                        query = query.Where(l => l.Severity == severity);
+                    }
+                    logs = await query.OrderByDescending(l => l.Timestamp).ToListAsync();
+                }
+                else
+                {
+                    logs = MockDataStore.GetSystemLogs(date, search, category, severity);
+                }
+            }
+            catch
+            {
+                logs = MockDataStore.GetSystemLogs(date, search, category, severity);
+            }
+
             ViewBag.SelectedDate = date?.ToString("yyyy-MM-dd");
             ViewBag.SearchKeyword = search ?? "";
             ViewBag.SelectedCategory = category ?? "ประเภททั้งหมด";

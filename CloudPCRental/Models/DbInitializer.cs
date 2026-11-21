@@ -133,12 +133,33 @@ namespace CloudPCRental.Models
                     await context.SaveChangesAsync();
                 }
 
+                // 4. ตรวจสอบและซิงค์ข้อมูลบันทึกระบบ (System Logs) เข้าฐานข้อมูล MySQL
+                if (!await context.SystemLogs.AnyAsync())
+                {
+                    MockDataStore.EnsureDefaultLogs();
+                    var defaultLogs = MockDataStore.GetSystemLogs();
+                    foreach (var log in defaultLogs)
+                    {
+                        context.SystemLogs.Add(new SystemLog
+                        {
+                            Timestamp = log.Timestamp,
+                            PerformedBy = log.PerformedBy,
+                            Category = log.Category,
+                            Detail = log.Detail,
+                            Severity = log.Severity,
+                            IpAddress = log.IpAddress
+                        });
+                    }
+                    await context.SaveChangesAsync();
+                }
+
                 int userCount = await context.Users.CountAsync();
                 int machineCount = await context.Machines.CountAsync();
                 int bookingCount = await context.Bookings.CountAsync();
+                int logCount = await context.SystemLogs.CountAsync();
 
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine($"[CloudPC DB] [DATA] พร้อมใช้งาน: ผู้ใช้ {userCount} บัญชี, เครื่อง {machineCount} เครื่อง, ประวัติการจอง {bookingCount} รายการ");
+                Console.WriteLine($"[CloudPC DB] [DATA] พร้อมใช้งาน: ผู้ใช้ {userCount} บัญชี, เครื่อง {machineCount} เครื่อง, ประวัติการจอง {bookingCount} รายการ, บันทึกระบบ {logCount} รายการ");
                 Console.WriteLine("=======================================================\n");
                 Console.ResetColor();
             }

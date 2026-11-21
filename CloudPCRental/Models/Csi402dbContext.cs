@@ -30,6 +30,20 @@ namespace CloudPCRental.Models
                 .WithMany()
                 .HasForeignKey(b => b.MachineId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // การแมปตารางและคอลัมน์ของ SystemLog
+            modelBuilder.Entity<SystemLog>(entity =>
+            {
+                entity.ToTable("system_logs");
+                entity.HasKey(e => e.LogId);
+                entity.Property(e => e.LogId).HasColumnName("LogId");
+                entity.Property(e => e.Timestamp).HasColumnName("Timestamp");
+                entity.Property(e => e.PerformedBy).HasColumnName("PerformedBy").HasMaxLength(100).IsRequired();
+                entity.Property(e => e.Category).HasColumnName("Category").HasMaxLength(50).IsRequired();
+                entity.Property(e => e.Detail).HasColumnName("Detail").HasColumnType("text").IsRequired();
+                entity.Property(e => e.Severity).HasColumnName("Severity").HasMaxLength(50).IsRequired();
+                entity.Property(e => e.IpAddress).HasColumnName("IpAddress").HasMaxLength(50);
+            });
         }
     }
 }

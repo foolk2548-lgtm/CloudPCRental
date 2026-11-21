@@ -50,6 +50,17 @@ CREATE TABLE IF NOT EXISTS `bookings` (
     CONSTRAINT `fk_bookings_machine` FOREIGN KEY (`MachineId`) REFERENCES `machines` (`MachineId`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=95000 DEFAULT CHARSET=utf8mb4;
 
+-- 4. ตาราง system_logs (ประวัติกิจกรรมและการตรวจสอบระบบ System & Audit Logs)
+CREATE TABLE IF NOT EXISTS `system_logs` (
+    `LogId` INT AUTO_INCREMENT PRIMARY KEY,
+    `Timestamp` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `PerformedBy` VARCHAR(100) NOT NULL,
+    `Category` VARCHAR(50) NOT NULL DEFAULT 'System',
+    `Detail` TEXT NOT NULL,
+    `Severity` VARCHAR(50) NOT NULL DEFAULT 'ข้อมูลทั่วไป',
+    `IpAddress` VARCHAR(50) NOT NULL DEFAULT '127.0.0.1'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ===============================================================
 -- ข้อมูลเริ่มต้น (Seed Data)
 -- ===============================================================
@@ -75,3 +86,12 @@ INSERT IGNORE INTO `machines` (`MachineId`, `MachineName`, `CPU`, `RAM`, `GPU`, 
 -- รายการจองตัวอย่างสำหรับแสดงในประวัติการจองและระบบบัญชี
 INSERT IGNORE INTO `bookings` (`BookingId`, `UserId`, `MachineId`, `TotalAmount`, `PaymentDate`, `PaymentStatus`, `RentalHours`, `Note`) VALUES
 (94812, 5, 1, 60.00, NOW() - INTERVAL 1 DAY, 'Refunded', 4, 'ตรวจสอบเงื่อนไขตรงตามนโยบาย: เครื่องขัดข้องจริง อนุมัติคืนเงินเต็มจำนวนเรียบร้อย (+60.00 ฿ เข้ากระเป๋าเงิน)');
+
+-- ประวัติบันทึกระบบเริ่มต้น (System Logs Seed Data)
+INSERT IGNORE INTO `system_logs` (`LogId`, `Timestamp`, `PerformedBy`, `Category`, `Detail`, `Severity`, `IpAddress`) VALUES
+(1, NOW() - INTERVAL 12 MINUTE, 'admin (ผู้ดูแลระบบหลัก)', 'Security', 'ปรับปรุงนโยบายรหัสผ่านของพนักงาน', 'สำคัญ', '192.168.1.50'),
+(2, NOW() - INTERVAL 25 MINUTE, 'somchai.r@cloudpc.com', 'Booking', 'สร้างการจองล่วงหน้า 5 ชม. เครื่อง PC-001', 'ข้อมูลทั่วไป', '171.96.22.104'),
+(3, NOW() - INTERVAL 40 MINUTE, 'System Monitor', 'Hardware', 'เครื่อง PC-004 เกิดความร้อนสะสมเกิน 85°C', 'วิกฤต', '10.0.0.4'),
+(4, NOW() - INTERVAL 60 MINUTE, 'somying.r@cloudpc.com', 'Login', 'ผู้ดูแลระบบ Somying เข้าสู่ระบบสำเร็จ', 'ข้อมูลทั่วไป', '192.168.1.101'),
+(5, NOW() - INTERVAL 90 MINUTE, 'napas.s@cloudpc.com', 'Payment', 'ยืนยันสลิปยอดชำระเงินของเลขที่ #B-99812', 'สำคัญ', '115.87.210.45'),
+(6, NOW() - INTERVAL 120 MINUTE, 'Database AutoBackup', 'System', 'สำรองข้อมูลฐานข้อมูลประจำวันเสร็จสมบูรณ์', 'ข้อมูลทั่วไป', '127.0.0.1');
