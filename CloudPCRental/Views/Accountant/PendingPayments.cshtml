@@ -2,14 +2,16 @@
 @{
     Layout = "_AdminLayout";
     ViewData["Title"] = "ตรวจสอบสลิปโอนเงิน";
+    var historyPayments = ViewBag.HistoryPayments as List<CloudPCRental.Models.Booking> ?? new List<CloudPCRental.Models.Booking>();
     int countPending = Model?.Count() ?? 0;
+    int countHistory = historyPayments.Count;
     decimal totalPendingAmount = Model?.Sum(b => b.TotalAmount) ?? 0;
 }
 
 <!-- Header -->
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
-        <div class="text-muted small">ตรวจสอบความถูกต้องของสลิปหลักฐานการโอนเงินก่อนอนุมัติเปิดสิทธิ์เครื่อง</div>
+        <div class="text-muted small">ตรวจสอบความถูกต้องของสลิปหลักฐานการโอนเงินก่อนอนุมัติเปิดสิทธิ์เครื่อง และดูประวัติการตรวจสอบย้อนหลัง</div>
         <h3 class="fw-bold text-dark mb-0">ตรวจสอบสลิปโอนเงิน (Payment Verification)</h3>
     </div>
     <div class="d-flex align-items-center gap-3">
@@ -52,132 +54,257 @@
     </div>
 
     <div class="col-sm-12 col-md-4">
-        <div class="card-cloudpc p-3 bg-white border rounded-3 shadow-sm">
+        <div class="card-cloudpc p-3 bg-white border rounded-3 shadow-sm" style="border-left: 4px solid #3b82f6 !important;">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <span class="text-muted small">ขั้นตอนการทำงาน</span>
-                    <div class="fw-semibold text-dark mt-1" style="font-size: 0.85rem;">
-                        <i class="bi bi-check2 text-success me-1"></i>อนุมัติ = เปิดสถานะเครื่อง<br />
-                        <i class="bi bi-x text-danger me-1"></i>ปฏิเสธ = แจ้งเหตุผลให้ลูกค้า
-                    </div>
+                    <span class="text-muted small">ประวัติที่ตรวจสอบแล้ว</span>
+                    <h3 class="fw-bold text-primary my-1">@countHistory <small class="fs-6 text-muted">รายการ</small></h3>
+                    <div class="text-muted small" style="font-size: 0.72rem;">อนุมัติ &amp; ปฏิเสธในระบบทั้งหมด</div>
                 </div>
-                <div class="text-secondary fs-3"><i class="bi bi-shield-check"></i></div>
+                <div class="text-primary fs-3"><i class="bi bi-clock-history"></i></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Table Card -->
-<div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h6 class="fw-bold text-dark mb-0">รายการสลิปที่รอการตรวจสอบ (@countPending รายการ)</h6>
-        <div class="text-muted small">
-            <i class="bi bi-info-circle me-1"></i> กรุณาตรวจสอบยอดเงินและเวลาในสลิปให้ตรงกับรายการ
+<!-- Tab Switcher Navigation -->
+<ul class="nav nav-pills mb-3 gap-2 bg-white p-2 rounded-4 shadow-sm border" id="paymentTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-bold rounded-3 px-4 py-2" id="pending-tab" data-bs-toggle="pill" data-bs-target="#tab-pending" type="button" role="tab" aria-controls="tab-pending" aria-selected="true">
+            <i class="bi bi-hourglass-split me-1 text-warning"></i> รายการรอตรวจสอบ 
+            <span class="badge bg-warning text-dark ms-2 rounded-pill">@countPending</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold rounded-3 px-4 py-2 text-secondary" id="history-tab" data-bs-toggle="pill" data-bs-target="#tab-history" type="button" role="tab" aria-controls="tab-history" aria-selected="false">
+            <i class="bi bi-clock-history me-1 text-primary"></i> ประวัติการตรวจสอบสลิป 
+            <span class="badge bg-secondary ms-2 rounded-pill">@countHistory</span>
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="paymentTabsContent">
+    <!-- TAB 1: รายการรอตรวจสอบ -->
+    <div class="tab-pane fade show active" id="tab-pending" role="tabpanel" aria-labelledby="pending-tab">
+        <div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h6 class="fw-bold text-dark mb-0">รายการสลิปที่รอการตรวจสอบ (@countPending รายการ)</h6>
+                <div class="text-muted small">
+                    <i class="bi bi-info-circle me-1"></i> กรุณาตรวจสอบยอดเงินและเวลาในสลิปให้ตรงกับรายการ
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light text-muted">
+                        <tr>
+                            <th class="ps-3">รหัสการจอง</th>
+                            <th>วันที่ - เวลาโอน</th>
+                            <th>ลูกค้า</th>
+                            <th>เครื่องคอมพิวเตอร์</th>
+                            <th>จำนวนชั่วโมง</th>
+                            <th>ยอดเงินโอน</th>
+                            <th class="text-center">หลักฐานสลิป</th>
+                            <th class="text-end pe-3">การตรวจสอบ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (Model != null && Model.Any())
+                        {
+                            @foreach (var item in Model)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-bold text-primary">#BK-@item.BookingId.ToString("D4")</td>
+                                    <td class="text-muted">@item.PaymentDate.ToString("dd/MM/yyyy HH:mm น.")</td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">@(item.User?.Username ?? $"User #{item.UserId}")</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">@(item.User?.Email ?? "-")</div>
+                                    </td>
+                                    <td>
+                                        @if (item.MachineId == 0 || (item.Note != null && item.Note.Contains("เติมเงิน")))
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary border"><i class="bi bi-wallet2 me-1"></i> เติมเงิน Wallet</span>
+                                            <span class="text-secondary ms-1 fw-medium">กระเป๋าเงินลูกค้า</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-dark border">PC-@item.MachineId.ToString("D3")</span>
+                                            <span class="text-secondary ms-1 fw-medium">@(item.Machine?.MachineName ?? "Cloud PC")</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (item.MachineId == 0 || (item.Note != null && item.Note.Contains("เติมเงิน")))
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">เติมเครดิต</span>
+                                        }
+                                        else
+                                        {
+                                            <span>@item.RentalHours ชม.</span>
+                                        }
+                                    </td>
+                                    <td><strong class="text-dark fs-6">@item.TotalAmount.ToString("N2") ฿</strong></td>
+                                    <td class="text-center">
+                                        @if (!string.IsNullOrEmpty(item.SlipImageUrl))
+                                        {
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-primary px-3 rounded-pill btn-view-slip shadow-xs" 
+                                                    data-slip="@item.SlipImageUrl" 
+                                                    data-id="@item.BookingId"
+                                                    data-amount="@item.TotalAmount.ToString("N2")"
+                                                    data-user="@(item.User?.Username ?? "ลูกค้า")"
+                                                    data-readonly="false">
+                                                <i class="bi bi-image me-1"></i> ดูสลิป
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-muted border">ไม่มีไฟล์สลิป</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <div class="d-inline-flex gap-2">
+                                            <!-- ปุ่มอนุมัติ -->
+                                            <form asp-action="ApprovePayment" method="post" class="d-inline" onsubmit="return confirm('ยืนยันการอนุมัติรายการ #BK-@item.BookingId ใช่หรือไม่?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="bookingId" value="@item.BookingId" />
+                                                <button type="submit" class="btn btn-sm btn-success fw-semibold shadow-xs px-3" title="อนุมัติสลิป">
+                                                    <i class="bi bi-check-lg me-1"></i> อนุมัติ
+                                                </button>
+                                            </form>
+
+                                            <!-- ปุ่มปฏิเสธ -->
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-danger px-2 btn-open-reject" 
+                                                    data-id="@item.BookingId" 
+                                                    data-code="#BK-@item.BookingId.ToString("D4")"
+                                                    title="ปฏิเสธสลิป">
+                                                <i class="bi bi-x-lg me-1"></i> ปฏิเสธ
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-check2-circle fs-1 text-success d-block mb-2"></i>
+                                    <h6 class="fw-bold text-dark">ไม่มีสลิปที่รอการตรวจสอบในขณะนี้</h6>
+                                    <p class="small mb-0">ระบบได้ตรวจสอบและอนุมัติสลิปทั้งหมดเรียบร้อยแล้ว (สามารถดูประวัติย้อนหลังได้ที่แท็บ "ประวัติการตรวจสอบสลิป")</p>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 small">
-            <thead class="table-light text-muted">
-                <tr>
-                    <th class="ps-3">รหัสการจอง</th>
-                    <th>วันที่ - เวลาโอน</th>
-                    <th>ลูกค้า</th>
-                    <th>เครื่องคอมพิวเตอร์</th>
-                    <th>จำนวนชั่วโมง</th>
-                    <th>ยอดเงินโอน</th>
-                    <th class="text-center">หลักฐานสลิป</th>
-                    <th class="text-end pe-3">การตรวจสอบ</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model != null && Model.Any())
-                {
-                    @foreach (var item in Model)
-                    {
-                        <tr>
-                            <td class="ps-3 fw-bold text-primary">#BK-@item.BookingId.ToString("D4")</td>
-                            <td class="text-muted">@item.PaymentDate.ToString("dd/MM/yyyy HH:mm น.")</td>
-                            <td>
-                                <div class="fw-semibold text-dark">@(item.User?.Username ?? $"User #{item.UserId}")</div>
-                                <div class="text-muted" style="font-size: 0.72rem;">@(item.User?.Email ?? "-")</div>
-                            </td>
-                            <td>
-                                @if (item.MachineId == 0 || (item.Note != null && item.Note.Contains("เติมเงิน")))
-                                {
-                                    <span class="badge bg-primary-subtle text-primary border"><i class="bi bi-wallet2 me-1"></i> เติมเงิน Wallet</span>
-                                    <span class="text-secondary ms-1 fw-medium">กระเป๋าเงินลูกค้า</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-light text-dark border">PC-@item.MachineId.ToString("D3")</span>
-                                    <span class="text-secondary ms-1 fw-medium">@(item.Machine?.MachineName ?? "Cloud PC")</span>
-                                }
-                            </td>
-                            <td>
-                                @if (item.MachineId == 0 || (item.Note != null && item.Note.Contains("เติมเงิน")))
-                                {
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle">เติมเครดิต</span>
-                                }
-                                else
-                                {
-                                    <span>@item.RentalHours ชม.</span>
-                                }
-                            </td>
-                            <td><strong class="text-dark fs-6">@item.TotalAmount.ToString("N2") ฿</strong></td>
-                            <td class="text-center">
-                                @if (!string.IsNullOrEmpty(item.SlipImageUrl))
-                                {
-                                    <button type="button" 
-                                            class="btn btn-sm btn-outline-primary px-3 rounded-pill btn-view-slip shadow-xs" 
-                                            data-slip="@item.SlipImageUrl" 
-                                            data-id="@item.BookingId"
-                                            data-amount="@item.TotalAmount.ToString("N2")"
-                                            data-user="@(item.User?.Username ?? "ลูกค้า")">
-                                        <i class="bi bi-image me-1"></i> ดูสลิป
-                                    </button>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-light text-muted border">ไม่มีไฟล์สลิป</span>
-                                }
-                            </td>
-                            <td class="text-end pe-3">
-                                <div class="d-inline-flex gap-2">
-                                    <!-- ปุ่มอนุมัติ -->
-                                    <form asp-action="ApprovePayment" method="post" class="d-inline" onsubmit="return confirm('ยืนยันการอนุมัติรายการ #BK-@item.BookingId ใช่หรือไม่?');">
-                                        @Html.AntiForgeryToken()
-                                        <input type="hidden" name="bookingId" value="@item.BookingId" />
-                                        <button type="submit" class="btn btn-sm btn-success fw-semibold shadow-xs px-3" title="อนุมัติสลิป">
-                                            <i class="bi bi-check-lg me-1"></i> อนุมัติ
-                                        </button>
-                                    </form>
+    <!-- TAB 2: ประวัติการตรวจสอบสลิป (History) -->
+    <div class="tab-pane fade" id="tab-history" role="tabpanel" aria-labelledby="history-tab">
+        <div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                    <h6 class="fw-bold text-dark mb-0">ประวัติการตรวจสอบสลิปทั้งหมด (@countHistory รายการ)</h6>
+                    <div class="text-muted small">บันทึกรายการสลิปโอนเงินที่ฝ่ายบัญชีได้อนุมัติหรือปฏิเสธแล้ว ย้อนหลังสำหรับตรวจสอบความถูกต้อง</div>
+                </div>
+            </div>
 
-                                    <!-- ปุ่มปฏิเสธ -->
-                                    <button type="button" 
-                                            class="btn btn-sm btn-outline-danger px-2 btn-open-reject" 
-                                            data-id="@item.BookingId" 
-                                            data-code="#BK-@item.BookingId.ToString("D4")"
-                                            title="ปฏิเสธสลิป">
-                                        <i class="bi bi-x-lg me-1"></i> ปฏิเสธ
-                                    </button>
-                                </div>
-                            </td>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light text-muted">
+                        <tr>
+                            <th class="ps-3">รหัสการจอง</th>
+                            <th>วันที่ - เวลาโอน</th>
+                            <th>ลูกค้า</th>
+                            <th>ประเภทบริการ</th>
+                            <th>ยอดเงินโอน</th>
+                            <th class="text-center">หลักฐานสลิป</th>
+                            <th>สถานะการตรวจสอบ</th>
+                            <th class="pe-3">หมายเหตุ / ผลการตรวจ</th>
                         </tr>
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="8" class="text-center py-5 text-muted">
-                            <i class="bi bi-check2-circle fs-1 text-success d-block mb-2"></i>
-                            <h6 class="fw-bold text-dark">ไม่มีสลิปที่รอการตรวจสอบในขณะนี้</h6>
-                            <p class="small mb-0">ระบบได้ตรวจสอบและอนุมัติสลิปทั้งหมดเรียบร้อยแล้ว</p>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                    </thead>
+                    <tbody>
+                        @if (historyPayments.Any())
+                        {
+                            @foreach (var item in historyPayments)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-bold text-primary font-monospace">#BK-@item.BookingId.ToString("D4")</td>
+                                    <td class="text-muted">@item.PaymentDate.ToString("dd/MM/yyyy HH:mm น.")</td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">@(item.User?.Username ?? $"User #{item.UserId}")</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">@(item.User?.Email ?? "-")</div>
+                                    </td>
+                                    <td>
+                                        @if (item.MachineId == 0 || (item.Note != null && item.Note.Contains("เติมเงิน")))
+                                        {
+                                            <span class="badge bg-primary-subtle text-primary border"><i class="bi bi-wallet2 me-1"></i> เติมเงิน Wallet</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-dark border">PC-@item.MachineId.ToString("D3")</span>
+                                            <span class="text-secondary ms-1 fw-medium">@(item.Machine?.MachineName ?? "Cloud PC")</span>
+                                        }
+                                    </td>
+                                    <td><strong class="text-dark fs-6">@item.TotalAmount.ToString("N2") ฿</strong></td>
+                                    <td class="text-center">
+                                        @if (!string.IsNullOrEmpty(item.SlipImageUrl))
+                                        {
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-primary px-3 rounded-pill btn-view-slip shadow-xs" 
+                                                    data-slip="@item.SlipImageUrl" 
+                                                    data-id="@item.BookingId"
+                                                    data-amount="@item.TotalAmount.ToString("N2")"
+                                                    data-user="@(item.User?.Username ?? "ลูกค้า")"
+                                                    data-readonly="true">
+                                                <i class="bi bi-image me-1"></i> ดูสลิป
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-light text-muted border">ไม่มีไฟล์สลิป</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (item.PaymentStatus == "Approved")
+                                        {
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">
+                                                <i class="bi bi-check-circle-fill me-1"></i> อนุมัติสำเร็จ
+                                            </span>
+                                        }
+                                        else if (item.PaymentStatus == "Rejected")
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1">
+                                                <i class="bi bi-x-circle-fill me-1"></i> ปฏิเสธสลิป
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary-subtle text-secondary border">@item.PaymentStatus</span>
+                                        }
+                                    </td>
+                                    <td class="pe-3">
+                                        <span class="text-muted small">@(item.Note ?? (item.PaymentStatus == "Approved" ? "อนุมัติเปิดสิทธิ์ใช้งานเรียบร้อย" : "-"))</span>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-clock-history fs-1 text-secondary d-block mb-2"></i>
+                                    <h6 class="fw-bold text-dark">ยังไม่มีประวัติการตรวจสอบสลิป</h6>
+                                    <p class="small mb-0">รายการสลิปที่ผ่านการอนุมัติหรือปฏิเสธจะถูกบันทึกไว้ที่นี่</p>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -197,13 +324,15 @@
             </div>
             <div class="modal-footer bg-light py-2 d-flex justify-content-between">
                 <button type="button" class="btn btn-secondary btn-sm rounded-3 px-3" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
-                <form asp-action="ApprovePayment" method="post" class="d-inline">
-                    @Html.AntiForgeryToken()
-                    <input type="hidden" name="bookingId" id="modalApproveBookingId" value="" />
-                    <button type="submit" class="btn btn-success btn-sm rounded-3 px-4 fw-semibold shadow-xs">
-                        <i class="bi bi-check-lg me-1"></i> อนุมัติสลิปนี้ทันที
-                    </button>
-                </form>
+                <div id="modalApproveContainer">
+                    <form asp-action="ApprovePayment" method="post" class="d-inline">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="bookingId" id="modalApproveBookingId" value="" />
+                        <button type="submit" class="btn btn-success btn-sm rounded-3 px-4 fw-semibold shadow-xs">
+                            <i class="bi bi-check-lg me-1"></i> อนุมัติสลิปนี้ทันที
+                        </button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -269,10 +398,17 @@
                 const id = this.getAttribute("data-id");
                 const amount = this.getAttribute("data-amount");
                 const user = this.getAttribute("data-user");
+                const isReadonly = this.getAttribute("data-readonly") === "true";
 
                 document.getElementById("slipModalImage").src = url;
                 document.getElementById("slipModalTitle").innerText = "ตรวจสอบสลิป #BK-" + String(id).padStart(4, '0');
                 document.getElementById("slipModalSubtitle").innerText = "ลูกค้า: " + user + " | ยอดที่ต้องชำระ: " + amount + " บาท";
+                
+                const approveBtnContainer = document.getElementById("modalApproveContainer");
+                if (approveBtnContainer) {
+                    approveBtnContainer.style.display = isReadonly ? "none" : "block";
+                }
+
                 var approveHidden = document.getElementById("modalApproveBookingId");
                 if (approveHidden) approveHidden.value = id;
 

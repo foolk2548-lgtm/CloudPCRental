@@ -62,12 +62,12 @@ namespace CloudPCRental.Models
 
                 foreach (var mm in mockMachines)
                 {
-                    var exist = dbMachines.FirstOrDefault(m => m.MachineId == mm.MachineId || m.MachineName.Equals(mm.MachineName, StringComparison.OrdinalIgnoreCase));
+                    var exist = dbMachines.FirstOrDefault(m => m.MachineId == mm.MachineId);
                     if (exist == null)
                     {
                         context.Machines.Add(new Machine
                         {
-                            MachineName = mm.MachineName,
+                            MachineName = MockDataStore.StandardMachineNames.TryGetValue(mm.MachineId, out var sn) ? sn : mm.MachineName,
                             CPU = mm.CPU,
                             RAM = mm.RAM,
                             GPU = mm.GPU,
@@ -77,7 +77,7 @@ namespace CloudPCRental.Models
                     }
                     else
                     {
-                        exist.MachineName = mm.MachineName;
+                        exist.MachineName = MockDataStore.StandardMachineNames.TryGetValue(mm.MachineId, out var sn) ? sn : mm.MachineName;
                         exist.CPU = mm.CPU;
                         exist.RAM = mm.RAM;
                         exist.GPU = mm.GPU;

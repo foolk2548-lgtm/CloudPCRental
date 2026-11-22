@@ -82,8 +82,13 @@ namespace CloudPCRental.Controllers
             // ซิงค์ข้อมูลสถานะการแจ้งซ่อมและหมายเหตุจาก MockDataStore เสมอ
             // ป้องกันปัญหาเครื่องที่แจ้งซ่อม (รออนุมัติ หรือกำลังซ่อม) ขึ้นว่า "กำลังใช้งาน"
             var mockMachines = MockDataStore.GetMachines();
+
             foreach (var m in list)
             {
+                if (MockDataStore.StandardMachineNames.TryGetValue(m.MachineId, out var sName))
+                {
+                    m.MachineName = sName;
+                }
                 var mock = mockMachines.FirstOrDefault(x => x.MachineId == m.MachineId || x.MachineName == m.MachineName);
                 if (mock != null)
                 {
@@ -96,9 +101,20 @@ namespace CloudPCRental.Controllers
                     {
                         m.Status = mock.Status;
                     }
-                    else if (mock.Status == "Available" && (m.Status == "PendingRepair" || m.Status == "Maintenance"))
+                    else if (MockDataStore.HasActiveOrUpcomingQueue(m.MachineId))
                     {
-                        m.Status = "Available";
+                        m.Status = "Rented"; // มีคิวบางช่วง
+                    }
+                    else
+                    {
+                        m.Status = "Available"; // ว่าง
+                    }
+                }
+                else
+                {
+                    if (m.Status != "PendingRepair" && m.Status != "Maintenance")
+                    {
+                        m.Status = MockDataStore.HasActiveOrUpcomingQueue(m.MachineId) ? "Rented" : "Available";
                     }
                 }
             }
@@ -136,9 +152,13 @@ namespace CloudPCRental.Controllers
                     {
                         machine.Status = mock.Status;
                     }
-                    else if (mock.Status == "Available" && (machine.Status == "PendingRepair" || machine.Status == "Maintenance"))
+                    else if (MockDataStore.HasActiveOrUpcomingQueue(id))
                     {
-                        machine.Status = "Available";
+                        machine.Status = "Rented"; // มีคิวบางช่วง
+                    }
+                    else
+                    {
+                        machine.Status = "Available"; // ว่าง
                     }
                 }
             }
@@ -203,8 +223,8 @@ namespace CloudPCRental.Controllers
                 return RedirectToAction("Login", new { returnUrl = Url.Action("Membership", "CloudPC") });
             }
 
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
-            string username = HttpContext.Session.GetString("Username") ?? "thanapol";
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            string username = HttpContext.Session.GetString("Username") ?? "User";
             var model = MockDataStore.GetUserMembershipInfo(userId, username);
             return View(model);
         }

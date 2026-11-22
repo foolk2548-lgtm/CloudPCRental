@@ -34,7 +34,22 @@
 
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h5 class="fw-bold mb-0 text-dark">@Model?.MachineName</h5>
-                <span class="badge-status-available">ว่าง</span>
+                @if (Model?.Status == "PendingRepair" || (!string.IsNullOrEmpty(Model?.RepairNote) && string.IsNullOrEmpty(Model?.ApprovedBy)))
+                {
+                    <span class="badge text-nowrap" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; font-size: 0.75rem;"><i class="bi bi-hourglass-split me-1"></i> รออนุมัติซ่อม</span>
+                }
+                else if (Model?.Status == "Maintenance" || (!string.IsNullOrEmpty(Model?.RepairNote) && !string.IsNullOrEmpty(Model?.ApprovedBy)))
+                {
+                    <span class="badge-status-maintenance text-nowrap"><i class="bi bi-tools me-1"></i> ซ่อมบำรุง</span>
+                }
+                else if (Model?.Status == "Rented")
+                {
+                    <span class="badge text-nowrap" style="background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.75rem;"><i class="bi bi-clock-history me-1"></i> มีคิวบางช่วง</span>
+                }
+                else
+                {
+                    <span class="badge-status-available text-nowrap">ว่าง</span>
+                }
             </div>
 
             <p class="text-muted small mb-3">
@@ -116,6 +131,21 @@
 
             <!-- 2. เลือกช่วงเวลาที่ต้องการใช้งาน (Interactive Time Slots) -->
             <div class="mb-4">
+                @if (isInitialToday && currentHour >= 23)
+                {
+                    <div class="alert alert-warning d-flex align-items-center justify-content-between p-3 rounded-3 mb-3 border-warning-subtle shadow-xs" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-moon-stars text-warning fs-4 me-3"></i>
+                            <div>
+                                <strong class="text-dark d-block">รอบเวลาให้บริการของวันนี้สิ้นสุดลงแล้ว (23:00 น.)</strong>
+                                <span class="small text-muted">ทุกช่วงเวลาสำหรับวันนี้ผ่านไปแล้ว คุณสามารถเลือกจองล่วงหน้าสำหรับวันพรุ่งนี้ได้ทันที</span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-warning btn-sm fw-semibold rounded-pill px-3 text-nowrap ms-2" onclick="selectTomorrow()">
+                            <i class="bi bi-calendar2-check me-1"></i> จองวันพรุ่งนี้
+                        </button>
+                    </div>
+                }
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <label class="form-label small fw-semibold text-secondary mb-0">เลือกช่วงเวลาที่ต้องการใช้งาน</label>
                     <span class="text-muted small" id="selectedTimeRangeText">
@@ -284,9 +314,28 @@
     var realMonth = realNow.getMonth(); // 0-11
     var realYear = realNow.getFullYear() + 543;
 
-    var selectedDay = realDay;
-    var selectedMonthIndex = realMonth;
-    var currentYear = realYear;
+    // หากเวลาปัจจุบันเกิน 23:00 น. ให้เริ่มต้นเลือกวันถัดไปอัตโนมัติ เพื่อให้ผู้ใช้เห็นสล็อตที่สามารถจองได้ทันที
+    var initTarget = new Date();
+    if (initTarget.getHours() >= 23) {
+        initTarget.setDate(initTarget.getDate() + 1);
+    }
+    var selectedDay = initTarget.getDate();
+    var selectedMonthIndex = initTarget.getMonth();
+    var currentYear = initTarget.getFullYear() + 543;
+
+    function selectTomorrow() {
+        var tom = new Date();
+        tom.setDate(tom.getDate() + 1);
+        selectedDay = tom.getDate();
+        selectedMonthIndex = tom.getMonth();
+        currentYear = tom.getFullYear() + 543;
+        renderCalendar();
+        var fullDateStr = getSelectedDateString();
+        var badge = document.getElementById('selectedDateBadge');
+        if (badge) badge.innerHTML = '<i class="bi bi-calendar-check me-1"></i> ' + fullDateStr;
+        updateBookingUrl();
+        fetchBookedSlotsForDate(fullDateStr);
+    }
 
     var monthsThai = [
         "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",

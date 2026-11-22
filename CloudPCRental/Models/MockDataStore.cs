@@ -220,9 +220,10 @@ namespace CloudPCRental.Models
                     _bookings.Clear();
                     if (snapshot.Bookings != null)
                     {
+                        var nowUtc = DateTime.Now;
                         foreach (var dto in snapshot.Bookings)
                         {
-                            _bookings.Add(new Booking
+                            var b = new Booking
                             {
                                 BookingId = dto.BookingId,
                                 UserId = dto.UserId,
@@ -240,7 +241,40 @@ namespace CloudPCRental.Models
                                 EndTime = dto.EndTime,
                                 User = _users.FirstOrDefault(u => u.UserId == dto.UserId),
                                 Machine = _machines.FirstOrDefault(m => m.MachineId == dto.MachineId)
-                            });
+                            };
+
+                            // ซิงค์วันเวลาเริ่มและสิ้นสุดจริงจาก Note เสมอ (เช่น "22 พฤศจิกายน 2569, 17:00 - 19:00 (2 ชม.)")
+                            if (!string.IsNullOrEmpty(b.Note) && b.Note.Contains(","))
+                            {
+                                var noteParts = b.Note.Split(',');
+                                var datePart = noteParts[0].Trim();
+                                var timePart = noteParts.Length > 1 ? noteParts[1].Trim() : "";
+                                var pStart = ParseBookingStartTime(datePart, timePart);
+                                var pEnd = ParseBookingEndTime(datePart, timePart);
+                                if (pStart.HasValue) b.StartTime = pStart.Value;
+                                if (pEnd.HasValue) b.EndTime = pEnd.Value;
+                            }
+
+                            // ตรวจสอบและอัปเดตสถานะตามเวลาจริงอย่างเคร่งครัด
+                            if (b.MachineId > 0 && b.PaymentStatus != "Pending" && b.PaymentStatus != "Rejected" &&
+                                b.PaymentStatus != "RefundRequested" && b.PaymentStatus != "RefundRejected" &&
+                                b.PaymentStatus != "Refunded")
+                            {
+                                if (b.EndTime.HasValue && nowUtc >= b.EndTime.Value)
+                                {
+                                    b.PaymentStatus = "Completed";
+                                }
+                                else if (b.StartTime.HasValue && nowUtc < b.StartTime.Value)
+                                {
+                                    b.PaymentStatus = "Booked"; // ยังไม่ถึงเวลาเริ่มใช้งานอย่างเด็ดขาด
+                                }
+                                else if (b.StartTime.HasValue && nowUtc >= b.StartTime.Value && b.EndTime.HasValue && nowUtc < b.EndTime.Value)
+                                {
+                                    b.PaymentStatus = "InUse"; // ถึงเวลาเริ่มแล้ว
+                                }
+                            }
+
+                            _bookings.Add(b);
                         }
                     }
 
@@ -294,6 +328,26 @@ namespace CloudPCRental.Models
                     }
                     _nextLogId = snapshot.NextLogId > 100 ? snapshot.NextLogId : 100;
 
+                    // ทำความสะอาดบัญชีผู้ใช้ทั่วไปที่ไม่ได้ชื่อ 'thanapol': กำจัดประวัติจำลองตกค้างของ demo
+                    foreach (var u in _users.Where(u => u.Role == "User" && !u.Username.Equals("thanapol", StringComparison.OrdinalIgnoreCase)).ToList())
+                    {
+                        // หากมีประวัติคะแนนที่เป็นรหัสจำลองของ thanapol ตกค้าง ให้ล้างออก
+                        _pointTransactions.RemoveAll(t => t.UserId == u.UserId && (t.ReferenceCode == "#PTS-98402" || t.ReferenceCode == "#PTS-96531" || t.ReferenceCode == "#PTS-95410" || t.ReferenceCode == "#PTS-93218"));
+
+                        // หากเป็นบัญชีที่สมัครใหม่แต่มีประวัติเดิมตกค้าง ให้ล้างข้อมูลเริ่มต้นใหม่ทั้งหมด
+                        if (u.Username.Contains("@") || u.Email.Contains("@"))
+                        {
+                            if (_userPoints.TryGetValue(u.UserId, out var pts) && pts >= 1000)
+                            {
+                                _userPoints[u.UserId] = 0;
+                            }
+                            _bookings.RemoveAll(b => b.UserId == u.UserId && b.PaymentDate < DateTime.Today.AddDays(-1));
+                            _pointTransactions.RemoveAll(t => t.UserId == u.UserId && t.CreatedAt < DateTime.Today.AddDays(-1));
+                            _walletTransactions.RemoveAll(w => w.UserId == u.UserId && w.CreatedAt < DateTime.Today.AddDays(-1));
+                        }
+                    }
+
+                    SanitizeAllStrings();
                     return true;
                 }
                 catch (Exception ex)
@@ -304,9 +358,75 @@ namespace CloudPCRental.Models
             }
         }
 
+        public static void SanitizeAllStrings()
+        {
+            var thCulture = new System.Globalization.CultureInfo("th-TH");
+            var now = DateTime.Now;
+
+            foreach (var m in _machines)
+            {
+                if (StandardMachineNames.TryGetValue(m.MachineId, out var sName))
+                {
+                    m.MachineName = sName;
+                }
+                else if (m.MachineName != null && m.MachineName.Contains("à"))
+                {
+                    m.MachineName = $"เครื่องคอมพิวเตอร์ PC-{m.MachineId:D3}";
+                }
+
+                if (!string.IsNullOrEmpty(m.RepairNote) && (m.RepairNote.Contains("à") || m.RepairNote.Contains("¹") || m.RepairNote.Contains("¸")))
+                {
+                    if (m.MachineId == 2)
+                        m.RepairNote = "จอฟ้าบ่อยครั้ง การ์ดจอตัดการทำงานเมื่อเล่นเกมกราฟิกสูง";
+                    else if (m.MachineId == 4)
+                        m.RepairNote = "พัดลมเคสและไฟเลี้ยงการ์ดจอมีเสียงดัง ช่างนัดเข้าซ่อมบ่ายนี้";
+                    else if (m.MachineId == 17)
+                        m.RepairNote = "ช่างเข้าตรวจเช็คระบบ";
+                    else
+                        m.RepairNote = "เครื่องมีอาการขัดข้อง ช่างเทคนิคกำลังเข้าตรวจสอบ";
+                }
+
+                // สถานะเครื่องอิงตามข้อมูลจริง 100%: ถ้าไม่มีการใช้งานอยู่จริง หรือไม่มียอดจองของวันนี้ที่ยังไม่หมดเวลา ให้สถานะเป็น "ว่าง" (Available)
+                if (m.Status != "PendingRepair" && m.Status != "Maintenance")
+                {
+                    m.Status = HasActiveOrUpcomingQueue(m.MachineId) ? "Rented" : "Available";
+                }
+            }
+
+            foreach (var b in _bookings)
+            {
+                if (b.MachineId > 0 && StandardMachineNames.TryGetValue(b.MachineId, out var sName))
+                {
+                    if (b.Machine != null) b.Machine.MachineName = sName;
+                }
+
+                if (!string.IsNullOrEmpty(b.Note) && (b.Note.Contains("à") || b.Note.Contains("¹") || b.Note.Contains("¸")))
+                {
+                    if (b.MachineId == 0 || b.Note.Contains("Wallet") || b.Note.Contains("เติมเงิน"))
+                    {
+                        b.Note = $"{b.PaymentDate.ToString("d MMMM yyyy, HH:mm น.", thCulture)} (เติมเงินเข้ากระเป๋าเงิน CloudPC Wallet)";
+                    }
+                    else
+                    {
+                        b.Note = $"{b.PaymentDate.ToString("d MMMM yyyy, HH:mm", thCulture)} - {b.PaymentDate.AddHours(b.RentalHours):HH:mm น.} ({b.RentalHours} ชม.)";
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(b.RefundReason) && (b.RefundReason.Contains("à") || b.RefundReason.Contains("¹") || b.RefundReason.Contains("¸")))
+                {
+                    b.RefundReason = "เครื่องมีปัญหาจอฟ้าและกระตุก ไม่สามารถเรนเดอร์งานกราฟิกต่อได้";
+                }
+            }
+        }
+
         public static string GetTodayThaiDate()
         {
             return DateTime.Now.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("th-TH"));
+        }
+
+        public static string FormatThaiDate(DateTime dt)
+        {
+            return dt.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("th-TH"));
         }
 
         public static string GetCurrentThaiDateTime()
@@ -476,9 +596,36 @@ namespace CloudPCRental.Models
                     new User { UserId = 8, Username = "somjet", Email = "somjet.game@gmail.com", Password = "password123", Role = "User" }
                 });
 
+                SanitizeAllStrings();
                 SaveToFile();
             }
         }
+
+        public static readonly Dictionary<int, string> StandardMachineNames = new()
+        {
+            { 1, "เครื่องเล่นเกมสเปกแรง PRO 01" },
+            { 2, "เครื่องทำงานตัดต่อ Render 02" },
+            { 3, "เครื่องประมวลผล AI/Data 03" },
+            { 4, "เครื่องสเปกเริ่มต้นทั่วไป Work 04" },
+            { 5, "เครื่องดีไซเนอร์สเปกทำงาน 05" },
+            { 6, "เซิร์ฟเวอร์จำลองโปรแกรม Dev 06" },
+            { 7, "เครื่องเกมมิ่งสปีดสูง Speed 07" },
+            { 8, "เวิร์กสเตชันตัดต่อ 4K Studio 08" },
+            { 9, "ดีพเลิร์นนิงซูเปอร์โหนด AI 09" },
+            { 10, "เครื่องสำนักงานพิมพ์งานเบา Office 10" },
+            { 11, "แคสเตอร์เกมออนไลน์ Stream 11" },
+            { 12, "เครื่องเรนเดอร์ 3D Max 12" },
+            { 13, "ดาต้าไซเอนซ์โหนด BigData 13" },
+            { 14, "มัลติมีเดียทั่วไป Work 14" },
+            { 15, "ซูเปอร์เกมมิ่งเรด Gaming 15" },
+            { 16, "สตูดิโอโมชันกราฟิก Studio 16" },
+            { 17, "แมชชีนเลิร์นนิงแล็บ Cluster 17" },
+            { 18, "งานเอกสารและบัญชี Office 18" },
+            { 19, "โปรเพลเยอร์อีสปอร์ต E-Sport 19" },
+            { 20, "วิดีโอโปรดักชันเรนเดอร์ Cut 20" },
+            { 21, "ปัญญาประดิษฐ์เทรนนิ่ง Train 21" },
+            { 22, "สำนักงานสาขาทั่วไป Office 22" }
+        };
 
         public static List<Machine> GetMachines()
         {
@@ -487,7 +634,7 @@ namespace CloudPCRental.Models
                 return _machines.Select(m => new Machine
                 {
                     MachineId = m.MachineId,
-                    MachineName = m.MachineName,
+                    MachineName = StandardMachineNames.TryGetValue(m.MachineId, out var sName) ? sName : (string.IsNullOrWhiteSpace(m.MachineName) || m.MachineName.Contains("à") ? $"เครื่องคอมพิวเตอร์ Cloud PC #{m.MachineId:D2}" : m.MachineName),
                     CPU = m.CPU,
                     RAM = m.RAM,
                     GPU = m.GPU,
@@ -510,7 +657,7 @@ namespace CloudPCRental.Models
                 return new Machine
                 {
                     MachineId = m.MachineId,
-                    MachineName = m.MachineName,
+                    MachineName = StandardMachineNames.TryGetValue(m.MachineId, out var sName) ? sName : (string.IsNullOrWhiteSpace(m.MachineName) || m.MachineName.Contains("à") ? $"เครื่องคอมพิวเตอร์ Cloud PC #{m.MachineId:D2}" : m.MachineName),
                     CPU = m.CPU,
                     RAM = m.RAM,
                     GPU = m.GPU,
@@ -803,11 +950,23 @@ namespace CloudPCRental.Models
         {
             lock (_lock)
             {
-                int newId = _users.Any() ? _users.Max(u => u.UserId) + 1 : 1;
+                int maxUserId = _users.Any() ? _users.Max(u => u.UserId) : 0;
+                int maxBookingUserId = _bookings.Any() ? _bookings.Max(b => b.UserId) : 0;
+                int maxPointUserId = _pointTransactions.Any() ? _pointTransactions.Max(t => t.UserId) : 0;
+                int maxWalletUserId = _walletTransactions.Any() ? _walletTransactions.Max(w => w.UserId) : 0;
+                int newId = Math.Max(maxUserId, Math.Max(maxBookingUserId, Math.Max(maxPointUserId, maxWalletUserId))) + 1;
+
                 user.UserId = newId;
                 _users.Add(user);
                 _userBalances[newId] = 0.00m;
                 _userPoints[newId] = 0;
+
+                // รับประกันว่าบัญชีที่สร้างใหม่จะเริ่มต้นใหม่แบบ Clean Slate (ไม่มีข้อมูลเก่าตกค้าง)
+                _bookings.RemoveAll(b => b.UserId == newId);
+                _pointTransactions.RemoveAll(t => t.UserId == newId);
+                _walletTransactions.RemoveAll(w => w.UserId == newId);
+                _bookedSlotsRegistry.RemoveAll(s => s.UserId == newId);
+                _supportTickets.RemoveAll(t => t.UserId == newId);
                 SaveToFile();
             }
         }
@@ -851,6 +1010,28 @@ namespace CloudPCRental.Models
                 _userBalances.TryRemove(id, out _);
                 _userPoints.TryRemove(id, out _);
                 _userPhoneNumbers.TryRemove(id, out _);
+
+                // ล้างประวัติและข้อมูลทั้งหมดที่เชื่อมโยงกับบัญชีนี้อย่างสิ้นเชิง (Cascade Delete)
+                _bookings.RemoveAll(b => b.UserId == id);
+                _pointTransactions.RemoveAll(t => t.UserId == id);
+                _walletTransactions.RemoveAll(w => w.UserId == id);
+                _bookedSlotsRegistry.RemoveAll(s => s.UserId == id);
+                _supportTickets.RemoveAll(t => t.UserId == id);
+                SaveToFile();
+            }
+        }
+
+        public static void ResetUserData(int userId)
+        {
+            lock (_lock)
+            {
+                _userBalances[userId] = 0.00m;
+                _userPoints[userId] = 0;
+                _bookings.RemoveAll(b => b.UserId == userId);
+                _pointTransactions.RemoveAll(t => t.UserId == userId);
+                _walletTransactions.RemoveAll(w => w.UserId == userId);
+                _bookedSlotsRegistry.RemoveAll(s => s.UserId == userId);
+                _supportTickets.RemoveAll(t => t.UserId == userId);
                 SaveToFile();
             }
         }
@@ -920,7 +1101,41 @@ namespace CloudPCRental.Models
             {
                 var newId = ++_nextBookingId;
                 var machine = _machines.FirstOrDefault(m => m.MachineId == machineId);
-                if (machine != null && paymentStatus == "Approved")
+
+                // สกัดวันเวลาเริ่มและสิ้นสุดจริงอย่างแม่นยำ
+                var pStart = ParseBookingStartTime(bookingDate, timeRange);
+                var pEnd = ParseBookingEndTime(bookingDate, timeRange);
+                if (!pStart.HasValue && !string.IsNullOrEmpty(note) && note.Contains(","))
+                {
+                    var noteParts = note.Split(',');
+                    pStart = ParseBookingStartTime(noteParts[0].Trim(), noteParts.Length > 1 ? noteParts[1].Trim() : "");
+                    pEnd = ParseBookingEndTime(noteParts[0].Trim(), noteParts.Length > 1 ? noteParts[1].Trim() : "");
+                }
+
+                var startFinal = pStart ?? DateTime.Now;
+                var endFinal = pEnd ?? startFinal.AddHours(rentalHours);
+                var now = DateTime.Now;
+
+                // กำหนดสถานะตามเงื่อนไขเวลาจริงอย่างเคร่งครัด
+                string initialStatus = paymentStatus;
+                if (paymentStatus == "Approved")
+                {
+                    if (now < startFinal)
+                    {
+                        initialStatus = "Booked"; // จองล่วงหน้า ยังไม่ถึงเวลาเริ่มใช้งานอย่างเด็ดขาด
+                    }
+                    else if (now >= startFinal && now < endFinal)
+                    {
+                        initialStatus = "InUse"; // ถึงเวลาเริ่มแล้ว
+                    }
+                    else
+                    {
+                        initialStatus = "Completed";
+                    }
+                }
+
+                // ปรับสถานะเครื่อง: ให้เป็น Rented เฉพาะกรณีที่เครื่องเปิดใช้งานอยู่ ณ วินาทีนี้จริง ๆ เท่านั้น
+                if (machine != null && initialStatus == "InUse")
                 {
                     machine.Status = "Rented";
                 }
@@ -933,10 +1148,10 @@ namespace CloudPCRental.Models
                     RentalHours = rentalHours,
                     TotalAmount = totalAmount,
                     PaymentDate = DateTime.Now,
-                    PaymentStatus = paymentStatus,
+                    PaymentStatus = initialStatus,
                     SlipImageUrl = slipImageUrl,
-                    StartTime = ParseBookingStartTime(bookingDate, timeRange) ?? DateTime.Now,
-                    EndTime = ParseBookingEndTime(bookingDate, timeRange) ?? DateTime.Now.AddHours(rentalHours),
+                    StartTime = startFinal,
+                    EndTime = endFinal,
                     Note = note ?? $"จองและชำระ ({rentalHours} ชม.)",
                     User = _users.FirstOrDefault(u => u.UserId == userId),
                     Machine = machine
@@ -1135,50 +1350,68 @@ namespace CloudPCRental.Models
             catch { return null; }
         }
 
-        private static DateTime? ParseThaiOrIsoDate(string? dateStr)
+        public static DateTime? ParseThaiOrIsoDate(string? dateStr)
         {
             if (string.IsNullOrWhiteSpace(dateStr)) return DateTime.Today;
-            // ISO format: "2026-11-17"
-            if (DateTime.TryParse(dateStr, out var iso)) return iso.Date;
-            // ภาษาไทย เช่น "17 พฤศจิกายน 2569"
-            var thaiMonths = new Dictionary<string, int>
+            dateStr = dateStr.Trim();
+
+            // 1. ตรวจสอบชื่อเดือนภาษาไทย (ทั้งแบบเต็มและแบบย่อ) เช่น "23 พฤศจิกายน 2569" หรือ "23 พ.ย. 2569"
+            var thaiMonths = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
             {
                 {"มกราคม",1},{"กุมภาพันธ์",2},{"มีนาคม",3},{"เมษายน",4},
                 {"พฤษภาคม",5},{"มิถุนายน",6},{"กรกฎาคม",7},{"สิงหาคม",8},
-                {"กันยายน",9},{"ตุลาคม",10},{"พฤศจิกายน",11},{"ธันวาคม",12}
+                {"กันยายน",9},{"ตุลาคม",10},{"พฤศจิกายน",11},{"ธันวาคม",12},
+                {"ม.ค.",1},{"ก.พ.",2},{"มี.ค.",3},{"เม.ย.",4},
+                {"พ.ค.",5},{"มิ.ย.",6},{"ก.ค.",7},{"ส.ค.",8},
+                {"ก.ย.",9},{"ต.ค.",10},{"พ.ย.",11},{"ธ.ค.",12}
             };
-            var parts = dateStr.Trim().Split(' ');
+
+            var parts = dateStr.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length >= 3 && int.TryParse(parts[0], out int d) && thaiMonths.TryGetValue(parts[1], out int m) && int.TryParse(parts[2], out int y))
             {
-                // แปลงปี พ.ศ. → ค.ศ.
-                if (y > 2500) y -= 543;
-                return new DateTime(y, m, d);
+                if (y > 2400) y -= 543; // แปลง พ.ศ. เป็น ค.ศ. เสมอ
+                try { return new DateTime(y, m, d); } catch { }
             }
+
+            // 2. รูปแบบ ISO "yyyy-MM-dd"
+            if (DateTime.TryParse(dateStr, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var iso))
+            {
+                int yIso = iso.Year > 2400 ? iso.Year - 543 : iso.Year;
+                return new DateTime(yIso, iso.Month, iso.Day);
+            }
+
             return DateTime.Today;
         }
 
-        private static TimeSpan? ExtractStartHourFromRange(string? timeRange)
+        public static TimeSpan? ExtractStartHourFromRange(string? timeRange)
         {
-            // "21:00 - 23:00" หรือ "21:00 - 23:00|..."
+            // "08:00 - 10:00" หรือ "08:00 - 10:00|..."
             var clean = (timeRange ?? "").Split('|')[0].Split(';')[0].Trim();
             var dash = clean.IndexOf(" - ");
             if (dash < 0) dash = clean.IndexOf("-");
             if (dash < 0) return null;
             var startStr = clean.Substring(0, dash).Trim();
+            if (startStr.Contains("น.")) startStr = startStr.Replace("น.", "").Trim();
             if (TimeSpan.TryParse(startStr, out var ts)) return ts;
             return null;
         }
 
-        private static TimeSpan? ExtractEndHourFromRange(string? timeRange)
+        public static TimeSpan? ExtractEndHourFromRange(string? timeRange)
         {
             // ดึง slot สุดท้ายแล้วอ่าน end time
             var slots = (timeRange ?? "").Split(new[]{'|',';'}, StringSplitOptions.RemoveEmptyEntries);
             var lastSlot = slots.Length > 0 ? slots[slots.Length - 1].Trim() : (timeRange ?? "").Trim();
             var dash = lastSlot.IndexOf(" - ");
-            if (dash < 0) dash = lastSlot.IndexOf("-");
+            int offset = 3;
+            if (dash < 0)
+            {
+                dash = lastSlot.IndexOf("-");
+                offset = 1;
+            }
             if (dash < 0) return null;
-            var endStr = lastSlot.Substring(dash + 3).Trim();
+            var endStr = lastSlot.Substring(dash + offset).Trim();
             if (endStr.Contains("(")) endStr = endStr.Substring(0, endStr.IndexOf("(")).Trim();
+            if (endStr.Contains("น.")) endStr = endStr.Replace("น.", "").Trim();
             if (TimeSpan.TryParse(endStr, out var ts)) return ts;
             return null;
         }
@@ -1282,14 +1515,46 @@ namespace CloudPCRental.Models
                     }
                 }
 
-                // กรณีเครื่อง 2 (เครื่องทำงานตัดต่อ Render 02) คิวจองเริ่มต้นช่วง 11:00 - 13:00 สำหรับวันที่ 10 ตุลาคม 2566 และวันที่ปัจจุบัน
-                if (machineId == 2 && (IsSameDate("10 ตุลาคม 2566", targetDate) || IsSameDate(GetTodayThaiDate(), targetDate)))
+                return bookedSlots.ToList();
+            }
+        }
+
+        public static bool HasActiveOrUpcomingQueue(int machineId)
+        {
+            lock (_lock)
+            {
+                var now = DateTime.Now;
+                string todayStr = GetTodayThaiDate();
+                int curHour = now.Hour;
+
+                // 1. มีการเช่าที่กำลังเปิดเครื่องใช้งานอยู่ ณ เวลานี้ (InUse / ยังไม่หมดเวลา EndTime > now)
+                bool hasActiveLiveBooking = _bookings.Any(b => b.MachineId == machineId &&
+                    (b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)" || b.PaymentStatus == "InUse") &&
+                    b.PaymentStatus != "Refunded" && b.PaymentStatus != "Rejected" && b.PaymentStatus != "Completed" &&
+                    (!b.EndTime.HasValue || b.EndTime.Value > now));
+
+                if (hasActiveLiveBooking) return true;
+
+                // 2. มีการจองสล็อตเวลาสำหรับ "วันนี้" ที่ยังไม่หมดเวลา (slotEndHour > curHour)
+                var todaySlots = GetBookedSlots(machineId, todayStr);
+                foreach (var slot in todaySlots)
                 {
-                    bookedSlots.Add("11:00 - 12:00");
-                    bookedSlots.Add("12:00 - 13:00");
+                    var parts = slot.Split(new[] { '-', '–' }, StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length == 2)
+                    {
+                        string endStr = parts[1].Trim().Replace("น.", "");
+                        if (int.TryParse(endStr.Split(':')[0], out int endHour))
+                        {
+                            if (endHour == 0) endHour = 24; // 00:00 คือสิ้นสุดเที่ยงคืน
+                            if (endHour > curHour)
+                            {
+                                return true; // มีคิวการจองในวันนี้ที่ยังไม่หมดเวลา
+                            }
+                        }
+                    }
                 }
 
-                return bookedSlots.ToList();
+                return false;
             }
         }
 
@@ -1305,6 +1570,32 @@ namespace CloudPCRental.Models
                     BookingId = s.BookingId,
                     UserId = s.UserId
                 }).ToList();
+            }
+        }
+
+        public static bool ExtendBookingTime(int bookingId, int additionalHours, DateTime newEndTime, decimal additionalCost)
+        {
+            lock (_lock)
+            {
+                var b = _bookings.FirstOrDefault(x => x.BookingId == bookingId);
+                if (b == null) return false;
+
+                DateTime oldEndTime = b.EndTime ?? (b.StartTime?.AddHours(b.RentalHours) ?? b.PaymentDate.AddHours(b.RentalHours));
+                b.RentalHours += additionalHours;
+                b.EndTime = newEndTime;
+                b.TotalAmount += additionalCost;
+
+                string dateStr = ExtractDateFromNote(b.Note) ?? GetTodayThaiDate();
+                string startTimeStr = b.StartTime.HasValue 
+                    ? b.StartTime.Value.ToString("HH:mm") 
+                    : oldEndTime.AddHours(-(b.RentalHours - additionalHours)).ToString("HH:mm");
+                b.Note = $"{dateStr}, {startTimeStr} - {newEndTime:HH:mm} ({b.RentalHours} ชม.)";
+
+                string extendedSlot = $"{oldEndTime:HH:mm} - {newEndTime:HH:mm}";
+                RegisterBookedSlots(b.MachineId, dateStr, extendedSlot, b.BookingId, b.UserId);
+
+                SaveToFile();
+                return true;
             }
         }
 
@@ -1429,6 +1720,27 @@ namespace CloudPCRental.Models
                     {
                         // ปลดล็อกสล็อตเวลาเพื่อให้ผู้ใช้อื่นจองได้
                         _bookedSlotsRegistry.RemoveAll(x => x.BookingId == id);
+                    }
+                    SaveToFile();
+                }
+            }
+        }
+
+        public static void CompleteBooking(int id)
+        {
+            lock (_lock)
+            {
+                var b = _bookings.FirstOrDefault(x => x.BookingId == id);
+                if (b != null)
+                {
+                    b.PaymentStatus = "Completed";
+                    b.EndTime = DateTime.Now;
+                    ReleaseBookedSlots(b.BookingId);
+
+                    var m = _machines.FirstOrDefault(x => x.MachineId == b.MachineId);
+                    if (m != null && m.Status == "Rented")
+                    {
+                        m.Status = "Available";
                     }
                     SaveToFile();
                 }
@@ -1592,9 +1904,11 @@ namespace CloudPCRental.Models
         // ==========================================
         public static decimal GetUserBalance(int userId)
         {
-            if (userId == 5 && !_userBalances.ContainsKey(5))
+            if (!_userBalances.ContainsKey(userId))
             {
-                _userBalances[5] = 600.00m;
+                var user = _users.FirstOrDefault(u => u.UserId == userId);
+                bool isThanapol = user != null && user.Username.Equals("thanapol", StringComparison.OrdinalIgnoreCase);
+                _userBalances[userId] = isThanapol ? 600.00m : 0.00m;
             }
             return _userBalances.GetOrAdd(userId, 0.00m);
         }
@@ -1727,13 +2041,7 @@ namespace CloudPCRental.Models
         {
             lock (_lock)
             {
-                var list = _walletTransactions.Where(t => t.UserId == userId).ToList();
-                if (!list.Any())
-                {
-                    // กรณีเป็น User ใหม่ คืนค่าประวัติจำลองเริ่มต้นของ thanapol (userId 5)
-                    return _walletTransactions.Where(t => t.UserId == 5).ToList();
-                }
-                return list;
+                return _walletTransactions.Where(t => t.UserId == userId).OrderByDescending(t => t.CreatedAt).ToList();
             }
         }
 
@@ -1744,69 +2052,74 @@ namespace CloudPCRental.Models
         {
             lock (_lock)
             {
-                // กำหนดคะแนนพื้นฐานของ thanapol (userId: 5) เริ่มต้นที่ 1,250 PTS
-                if (!_userPoints.ContainsKey(5))
+                // กำหนดคะแนนพื้นฐานของ thanapol เฉพาะเมื่อมีบัญชี thanapol อยู่ในระบบจริงเท่านั้น
+                var thanapolUser = _users.FirstOrDefault(u => u.Username.Equals("thanapol", StringComparison.OrdinalIgnoreCase));
+                if (thanapolUser != null)
                 {
-                    _userPoints[5] = 1250;
-                }
-
-                if (!_pointTransactions.Any(t => t.UserId == 5))
-                {
-                    _pointTransactions.AddRange(new List<PointTransaction>
+                    int tId = thanapolUser.UserId;
+                    if (!_userPoints.ContainsKey(tId))
                     {
-                        new PointTransaction
+                        _userPoints[tId] = 1250;
+                    }
+
+                    if (!_pointTransactions.Any(t => t.UserId == tId))
+                    {
+                        _pointTransactions.AddRange(new List<PointTransaction>
                         {
-                            Id = 1,
-                            UserId = 5,
-                            ReferenceCode = "#PTS-98402",
-                            CreatedAt = DateTime.Now.AddDays(-22),
-                            Description = "รับคะแนนสะสมจากการเช่าเครื่อง Extreme Gaming PC (4 ชม.)",
-                            SubDescription = "ระดับ Platinum (คูณพิเศษ 1.5 เท่า)",
-                            Points = 120,
-                            BalanceAfter = 1250,
-                            Type = "receive"
-                        },
-                        new PointTransaction
-                        {
-                            Id = 2,
-                            UserId = 5,
-                            ReferenceCode = "#PTS-96531",
-                            CreatedAt = DateTime.Now.AddDays(-27),
-                            Description = "แลกคะแนนเพื่อส่วนลดค่าเช่าเครื่องครั้งถัดไป - ส่วนลด 100 THB",
-                            SubDescription = "ใช้คูปองส่วนลดในหน้าเช่าเครื่อง",
-                            Points = -500,
-                            BalanceAfter = 1130,
-                            Type = "spend"
-                        },
-                        new PointTransaction
-                        {
-                            Id = 3,
-                            UserId = 5,
-                            ReferenceCode = "#PTS-95410",
-                            CreatedAt = DateTime.Now.AddDays(-32),
-                            Description = "รับคะแนนสะสมจากการเช่าเครื่อง High-End Workstation (5 ชม.)",
-                            SubDescription = "การเช่าเสร็จสิ้นสมบูรณ์",
-                            Points = 150,
-                            BalanceAfter = 1630,
-                            Type = "receive"
-                        },
-                        new PointTransaction
-                        {
-                            Id = 4,
-                            UserId = 5,
-                            ReferenceCode = "#PTS-93218",
-                            CreatedAt = DateTime.Now.AddDays(-37),
-                            Description = "รับคะแนนโบนัสพิเศษเนื่องจากเลื่อนขึ้นสู่ระดับสมาชิก Platinum",
-                            SubDescription = "โบนัสฉลองเลื่อนระดับอัตโนมัติ",
-                            Points = 300,
-                            BalanceAfter = 1480,
-                            Type = "receive"
-                        }
-                    });
+                            new PointTransaction
+                            {
+                                Id = 1,
+                                UserId = tId,
+                                ReferenceCode = "#PTS-98402",
+                                CreatedAt = DateTime.Now.AddDays(-22),
+                                Description = "รับคะแนนสะสมจากการเช่าเครื่อง Extreme Gaming PC (4 ชม.)",
+                                SubDescription = "ระดับ Platinum (คูณพิเศษ 1.5 เท่า)",
+                                Points = 120,
+                                BalanceAfter = 1250,
+                                Type = "receive"
+                            },
+                            new PointTransaction
+                            {
+                                Id = 2,
+                                UserId = tId,
+                                ReferenceCode = "#PTS-96531",
+                                CreatedAt = DateTime.Now.AddDays(-27),
+                                Description = "แลกคะแนนเพื่อส่วนลดค่าเช่าเครื่องครั้งถัดไป - ส่วนลด 100 THB",
+                                SubDescription = "ใช้คูปองส่วนลดในหน้าเช่าเครื่อง",
+                                Points = -500,
+                                BalanceAfter = 1130,
+                                Type = "spend"
+                            },
+                            new PointTransaction
+                            {
+                                Id = 3,
+                                UserId = tId,
+                                ReferenceCode = "#PTS-95410",
+                                CreatedAt = DateTime.Now.AddDays(-32),
+                                Description = "รับคะแนนสะสมจากการเช่าเครื่อง High-End Workstation (5 ชม.)",
+                                SubDescription = "การเช่าเสร็จสิ้นสมบูรณ์",
+                                Points = 150,
+                                BalanceAfter = 1630,
+                                Type = "receive"
+                            },
+                            new PointTransaction
+                            {
+                                Id = 4,
+                                UserId = tId,
+                                ReferenceCode = "#PTS-93218",
+                                CreatedAt = DateTime.Now.AddDays(-37),
+                                Description = "รับคะแนนโบนัสพิเศษเนื่องจากเลื่อนขึ้นสู่ระดับสมาชิก Platinum",
+                                SubDescription = "โบนัสฉลองเลื่อนระดับอัตโนมัติ",
+                                Points = 300,
+                                BalanceAfter = 1480,
+                                Type = "receive"
+                            }
+                        });
+                    }
                 }
 
-                // ซิงค์การเช่าเครื่องที่อนุมัติแล้วใน _bookings ของลูกค้า (หากยังไม่ได้รับคะแนน)
-                var approvedRentals = _bookings.Where(b => b.MachineId > 0 && b.PaymentStatus == "Approved")
+                // ซิงค์การเช่าเครื่องที่อนุมัติแล้วใน _bookings ของลูกค้า (เฉพาะบัญชีที่มีตัวตนจริงในระบบ)
+                var approvedRentals = _bookings.Where(b => b.MachineId > 0 && b.PaymentStatus == "Approved" && _users.Any(u => u.UserId == b.UserId))
                                               .OrderBy(b => b.PaymentDate)
                                               .ToList();
 
@@ -1877,7 +2190,9 @@ namespace CloudPCRental.Models
         {
             if (!_userPoints.ContainsKey(userId))
             {
-                _userPoints[userId] = (userId == 5) ? 1250 : 0;
+                var user = _users.FirstOrDefault(u => u.UserId == userId);
+                bool isThanapol = user != null && user.Username.Equals("thanapol", StringComparison.OrdinalIgnoreCase);
+                _userPoints[userId] = isThanapol ? 1250 : 0;
             }
             return _userPoints[userId];
         }
@@ -1955,14 +2270,15 @@ namespace CloudPCRental.Models
                                             .ToList();
 
                 var userObj = _users.FirstOrDefault(u => u.UserId == userId);
-                string memberIdDisplay = (userId == 5) ? "CPC-77491" : $"CPC-{userId * 15498 % 90000 + 10000}";
-                string displayName = !string.IsNullOrWhiteSpace(username) ? username : (userObj?.Username ?? "ธนพล ดีสมเกียรติ");
-                if (displayName.Equals("thanapol", StringComparison.OrdinalIgnoreCase))
+                bool isThanapol = userObj != null && userObj.Username.Equals("thanapol", StringComparison.OrdinalIgnoreCase);
+                string memberIdDisplay = isThanapol ? "CPC-77491" : $"CPC-{userId * 15498 % 90000 + 10000}";
+                string displayName = !string.IsNullOrWhiteSpace(username) ? username : (userObj?.Username ?? $"User #{userId}");
+                if (isThanapol)
                 {
                     displayName = "ธนพล ดีสมเกียรติ";
                 }
 
-                int expiringPoints = points > 0 ? (userId == 5 ? 150 : Math.Min(points, 50)) : 0;
+                int expiringPoints = points > 0 ? (isThanapol ? 150 : Math.Min(points, 50)) : 0;
                 string expiringDateDisplay = $"31 ธ.ค. {DateTime.Now.Year + 543 + 1}";
 
                 return new UserMembershipInfo

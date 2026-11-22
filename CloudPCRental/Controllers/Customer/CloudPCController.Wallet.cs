@@ -21,12 +21,12 @@ namespace CloudPCRental.Controllers
                 return RedirectToAction("Login", new { returnUrl = Url.Action("Wallet", "CloudPC") });
             }
 
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
             decimal balance = MockDataStore.GetUserBalance(userId);
             HttpContext.Session.SetString("WalletBalance", balance.ToString("F2"));
 
             ViewBag.Balance = balance;
-            ViewBag.Username = HttpContext.Session.GetString("Username") ?? "ธนพล ดีสมเกียรติ";
+            ViewBag.Username = HttpContext.Session.GetString("Username") ?? "ผู้ใช้งาน";
 
             var transactions = MockDataStore.GetUserTransactions(userId);
             return View(transactions);
@@ -38,8 +38,15 @@ namespace CloudPCRental.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction("Login");
 
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
-            if (amount <= 0) amount = 100;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            const decimal minTopup = 20m;
+            const decimal maxTopup = 5000m;
+
+            if (amount < minTopup || amount > maxTopup)
+            {
+                TempData["ErrorMessage"] = $"ยอดเงินที่ต้องการเติมต้องอยู่ระหว่าง {minTopup:N0} ถึง {maxTopup:N0} บาท ต่อครั้งเท่านั้นครับ (จำกัดสูงสุด {maxTopup:N0} บาท/ครั้ง)";
+                return RedirectToAction("Wallet");
+            }
             var method = paymentMethod ?? "พร้อมเพย์ QR Code";
 
             // 1. กรณีเป็นพร้อมเพย์ QR Code: ต้องแนบสลิปและส่งให้ฝ่ายบัญชีตรวจสอบก่อน เครดิตจึงจะเข้ากระเป๋า
@@ -124,7 +131,7 @@ namespace CloudPCRental.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction("Login");
 
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
             decimal currentBal = MockDataStore.GetUserBalance(userId);
 
             if (currentBal < amount)
@@ -148,7 +155,7 @@ namespace CloudPCRental.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction("Login", "Account");
 
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
             string fullReason = string.IsNullOrWhiteSpace(issueDetail) 
                 ? refundReason 
                 : $"[{refundReason}] {issueDetail}";
@@ -190,7 +197,7 @@ namespace CloudPCRental.Controllers
         {
             if (!IsLoggedIn()) return RedirectToAction("Login");
 
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
             decimal newBal = MockDataStore.RefundBalance(userId, refundAmount, $"ยกเลิกการจองและคืนเงิน {bookingCode}", bookingCode ?? "#REFUND");
             int targetBookingId = 94812;
             if (!string.IsNullOrWhiteSpace(bookingCode))
@@ -220,7 +227,7 @@ namespace CloudPCRental.Controllers
         [HttpGet]
         public IActionResult GetWalletBalance()
         {
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
             decimal bal = MockDataStore.GetUserBalance(userId);
             var txns = MockDataStore.GetUserTransactions(userId);
             bool hasPending = txns.Any(t => t.Status == "รอตรวจสอบ");
@@ -232,8 +239,14 @@ namespace CloudPCRental.Controllers
         public IActionResult TopUpWalletAjax(decimal amount, string? paymentMethod, string? sampleSlipUrl = null)
         {
             if (!IsLoggedIn()) return Json(new { success = false, message = "กรุณาเข้าสู่ระบบก่อน" });
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
-            if (amount <= 0) amount = 100;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            const decimal minTopup = 20m;
+            const decimal maxTopup = 5000m;
+
+            if (amount < minTopup || amount > maxTopup)
+            {
+                return Json(new { success = false, message = $"ยอดเงินที่ต้องการเติมต้องอยู่ระหว่าง {minTopup:N0} ถึง {maxTopup:N0} บาท ต่อครั้งเท่านั้นครับ (จำกัดสูงสุด {maxTopup:N0} บาท/ครั้ง)" });
+            }
             var method = paymentMethod ?? "พร้อมเพย์ QR Code";
 
             if (method == "พร้อมเพย์ QR Code")
@@ -268,7 +281,7 @@ namespace CloudPCRental.Controllers
         public IActionResult DeductWalletAjax(decimal amount, string? title)
         {
             if (!IsLoggedIn()) return Json(new { success = false, message = "กรุณาเข้าสู่ระบบก่อน" });
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
             decimal currentBal = MockDataStore.GetUserBalance(userId);
             if (currentBal < amount)
             {

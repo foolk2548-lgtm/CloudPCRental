@@ -32,6 +32,6 @@ echo.
 echo กำลังเริ่มสร้าง Tunnel ออนไลน์ กรุณารอสักครู่...
 echo.
 
-"%~dp0cloudflared.exe" tunnel --url http://localhost:5218
+"%~dp0cloudflared.exe" tunnel --url http://127.0.0.1:5218 --protocol http2
 
 pause

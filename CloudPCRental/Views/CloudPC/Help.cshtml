@@ -1,7 +1,7 @@
 @inject Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor
 @{
     ViewData["Title"] = "ศูนย์ช่วยเหลือและคำถามที่พบบ่อย - CloudPC";
-    var helpUserId = HttpContextAccessor.HttpContext?.Session.GetInt32("UserId") ?? 5;
+    var helpUserId = HttpContextAccessor.HttpContext?.Session.GetInt32("UserId") ?? 0;
     var userTickets = CloudPCRental.Models.MockDataStore.GetSupportTickets(helpUserId);
 }
 

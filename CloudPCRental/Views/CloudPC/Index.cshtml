@@ -141,16 +141,16 @@
                                         <i class="bi bi-wrench-adjustable me-1"></i> ซ่อมบำรุง
                                     </button>
                                 }
-                                else if (machine.Status == "Available")
-                                {
-                                    <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-primary btn-sm px-3 rounded-2 fw-semibold shadow-xs">
-                                        จองเลย
-                                    </a>
-                                }
                                 else if (machine.Status == "Rented")
                                 {
-                                    <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-outline-primary btn-sm px-2 rounded-2 fw-semibold shadow-xs" title="เครื่องนี้มีผู้จองบางช่วงเวลา แต่ยังมีเวลาอื่นว่างอยู่ คลิกเพื่อเลือกช่วงเวลาที่ต้องการได้">
-                                        <i class="bi bi-calendar-check me-1"></i> จองเวลาว่าง
+                                    <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-primary btn-sm px-3 rounded-2 fw-semibold shadow-xs" title="เครื่องนี้มีคิวการจองบางช่วงเวลา สามารถกดเพื่อจองช่วงเวลาว่างล่วงหน้าได้">
+                                        <i class="bi bi-calendar-plus me-1"></i> จองล่วงหน้า
+                                    </a>
+                                }
+                                else if (machine.Status == "Available")
+                                {
+                                    <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-primary btn-sm px-3 rounded-2 fw-semibold shadow-xs" title="เครื่องว่างพร้อมใช้งานทันที">
+                                        <i class="bi bi-play-circle me-1"></i> จองเลย
                                     </a>
                                 }
                                 else

@@ -204,6 +204,13 @@ namespace CloudPCRental.Controllers
                 .OrderByDescending(b => b.PaymentDate)
                 .ToList();
 
+            var historyPayments = allBookings
+                .Where(b => b.PaymentStatus == "Approved" || b.PaymentStatus == "Rejected")
+                .OrderByDescending(b => b.PaymentDate)
+                .ToList();
+
+            ViewBag.HistoryPayments = historyPayments;
+
             return View(pendingPayments);
         }
 

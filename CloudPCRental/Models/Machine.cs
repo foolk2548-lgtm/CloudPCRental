@@ -49,6 +49,27 @@ namespace CloudPCRental.Models
         public string? ImageUrl { get; set; }
 
         [NotMapped]
+        public string Category
+        {
+            get
+            {
+                var name = (MachineName ?? "").ToLower();
+                var gpu = (GPU ?? "").ToLower();
+
+                if (name.Contains("ai") || name.Contains("data") || gpu.Contains("a100") || gpu.Contains("h100") || name.Contains("server") || name.Contains("เซิร์ฟเวอร์") || name.Contains("dev") || name.Contains("cluster") || name.Contains("ปัญญาประดิษฐ์") || name.Contains("ดีพเลิร์นนิง") || MachineId == 3 || MachineId == 6 || MachineId == 9 || MachineId == 13 || MachineId == 17 || MachineId == 21)
+                    return "ai";
+
+                if (name.Contains("render") || name.Contains("ตัดต่อ") || name.Contains("studio") || name.Contains("ดีไซเนอร์") || name.Contains("graphic") || name.Contains("workstation") || name.Contains("3d") || name.Contains("วิดีโอ") || name.Contains("โมชัน") || MachineId == 2 || MachineId == 5 || MachineId == 8 || MachineId == 12 || MachineId == 16 || MachineId == 20)
+                    return "graphic";
+
+                if (name.Contains("office") || name.Contains("สำนักงาน") || name.Contains("เริ่มต้น") || name.Contains("ทั่วไป") || name.Contains("เอกสาร") || name.Contains("มัลติมีเดีย") || name.Contains("work 04") || name.Contains("work 14") || name.Contains("work 18") || MachineId == 4 || MachineId == 10 || MachineId == 14 || MachineId == 18 || MachineId == 22)
+                    return "office";
+
+                return "gaming";
+            }
+        }
+
+        [NotMapped]
         public string DisplayImageUrl
         {
             get

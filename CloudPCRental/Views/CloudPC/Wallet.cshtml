@@ -2,9 +2,25 @@
 @{
     Layout = "_CustomerLayout";
     ViewData["Title"] = "กระเป๋าเงินของฉัน";
-    decimal balance = ViewBag.Balance ?? 540.00m;
-    string username = ViewBag.Username ?? "ธนพล ดีสมเกียรติ";
+    decimal balance = ViewBag.Balance ?? 0.00m;
+    string username = ViewBag.Username ?? (Context.Session.GetString("Username") ?? "ผู้ใช้งาน");
 }
+
+<style>
+    /* ซ่อนลูกศรขึ้น-ลงของ input type="number" */
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button,
+    .no-spinners::-webkit-inner-spin-button,
+    .no-spinners::-webkit-outer-spin-button { 
+        -webkit-appearance: none !important; 
+        margin: 0 !important; 
+    }
+    input[type=number],
+    .no-spinners { 
+        -moz-appearance: textfield !important;
+        appearance: textfield !important;
+    }
+</style>
 
 <!-- Header -->
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
@@ -88,8 +104,21 @@
                     </div>
                     <div class="input-group">
                         <span class="input-group-text bg-light text-muted small">จำนวนเงินที่ต้องการเติม</span>
-                        <input type="number" id="topupAmount" name="amount" class="form-control fw-bold fs-6" value="100" min="10" max="50000" oninput="updateQrAmount(this.value)" required />
+                        <input type="number" id="topupAmount" name="amount" class="form-control fw-bold fs-6 no-spinners" value="100" min="20" max="5000" oninput="validateAndSetAmount(this.value)" required />
                         <span class="input-group-text bg-light text-muted small">บาท</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <div class="form-text small text-muted d-flex align-items-center" style="font-size: 0.78rem;">
+                            <i class="bi bi-info-circle-fill text-primary me-1"></i> เติมเงินได้ตั้งแต่ <strong class="text-dark mx-1">20 - 5,000 บาท</strong> ต่อครั้ง
+                        </div>
+                        <div class="small fw-semibold text-primary" style="font-size: 0.75rem;">
+                            (สูงสุด 5,000 บาท/ครั้ง)
+                        </div>
+                    </div>
+                    <!-- แจ้งเตือนเมื่อกรอกเกินลิมิตหรือต่ำกว่าขั้นต่ำ -->
+                    <div id="topupLimitWarning" class="alert alert-danger py-2 px-3 small mt-2 d-none rounded-3 d-flex align-items-center mb-0">
+                        <i class="bi bi-exclamation-triangle-fill text-danger me-2 fs-6 flex-shrink-0"></i>
+                        <span id="topupLimitWarningText">ยอดเงินต้องอยู่ระหว่าง <strong>20 ถึง 5,000 บาท</strong> ต่อครั้ง</span>
                     </div>
                 </div>
 
@@ -310,28 +339,80 @@
 </div>
 
 <script>
+    const MIN_TOPUP = 20;
+    const MAX_TOPUP = 5000;
+
     function setAmount(val, btn) {
         document.getElementById('topupAmount').value = val;
         document.querySelectorAll('.preset-btn').forEach(function(b) {
             b.classList.remove('active');
         });
         if (btn) btn.classList.add('active');
-        updateQrAmount(val);
+        validateAndSetAmount(val);
     }
 
-    function updateQrAmount(val) {
+    function validateAndSetAmount(val) {
+        var num = parseFloat(val);
+        var warnBox = document.getElementById('topupLimitWarning');
+        var warnText = document.getElementById('topupLimitWarningText');
+        var btnSubmit = document.getElementById('btnSubmitTopup');
+        var inputEl = document.getElementById('topupAmount');
+
+        if (isNaN(num) || num < MIN_TOPUP) {
+            if (warnBox && warnText) {
+                warnBox.classList.remove('d-none');
+                warnText.innerHTML = 'ยอดเติมเงินขั้นต่ำคือ <strong>' + MIN_TOPUP + ' บาท</strong> ต่อครั้งครับ';
+            }
+            if (btnSubmit) btnSubmit.disabled = true;
+            if (inputEl) inputEl.classList.add('is-invalid');
+            updateQrAmount(val, false);
+        } else if (num > MAX_TOPUP) {
+            if (warnBox && warnText) {
+                warnBox.classList.remove('d-none');
+                warnText.innerHTML = 'จำกัดการเติมเงินสูงสุดไม่เกิน <strong>' + MAX_TOPUP.toLocaleString() + ' บาท</strong> ต่อครั้งครับ (ยอดที่คุณระบุ: ' + num.toLocaleString() + ' บาท)';
+            }
+            if (btnSubmit) btnSubmit.disabled = true;
+            if (inputEl) inputEl.classList.add('is-invalid');
+            updateQrAmount(val, false);
+        } else {
+            if (warnBox) warnBox.classList.add('d-none');
+            if (btnSubmit) btnSubmit.disabled = false;
+            if (inputEl) inputEl.classList.remove('is-invalid');
+            updateQrAmount(num, true);
+        }
+    }
+
+    function updateQrAmount(val, isValid) {
         var num = parseFloat(val) || 100;
         var formatted = num.toFixed(2);
         
-        document.getElementById('qrAmountDisplay').innerText = formatted;
-        document.getElementById('btnAmountDisplay').innerText = formatted;
+        var qrDisp = document.getElementById('qrAmountDisplay');
+        var btnDisp = document.getElementById('btnAmountDisplay');
+        if (qrDisp) qrDisp.innerText = formatted;
+        if (btnDisp) btnDisp.innerText = formatted;
         
-        // อัปเดตรูป QR Code ให้ตรงกับยอดเงินที่เลือก
+        // อัปเดตรูป QR Code ให้ตรงกับยอดเงินที่เลือก (เฉพาะเมื่อยอดถูกต้อง)
         var qrImg = document.getElementById('promptpayQrImg');
-        if (qrImg) {
+        if (qrImg && (isValid !== false)) {
             qrImg.src = 'https://promptpay.io/0612013936/' + num + '.png';
         }
     }
+
+    // ตรวจสอบการส่งฟอร์มเติมเงิน ป้องกันการกรอกเกินลิมิต
+    document.addEventListener("DOMContentLoaded", function() {
+        var form = document.getElementById('topupForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                var amt = parseFloat(document.getElementById('topupAmount').value);
+                if (isNaN(amt) || amt < MIN_TOPUP || amt > MAX_TOPUP) {
+                    e.preventDefault();
+                    validateAndSetAmount(amt);
+                    alert('ขออภัยครับ ยอดเติมเงินต้องอยู่ระหว่าง ' + MIN_TOPUP + ' ถึง ' + MAX_TOPUP.toLocaleString() + ' บาท ต่อครั้งเท่านั้นครับ');
+                    return false;
+                }
+            });
+        }
+    });
 
     function copyPromptPayNum() {
         var num = '0612013936';

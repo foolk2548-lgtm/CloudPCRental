@@ -15,7 +15,7 @@ Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Fo
 
 # 3. Start cloudflared tunnel
 if (Test-Path "tunnel.log") { Remove-Item "tunnel.log" -Force }
-$tunnelProc = Start-Process -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url http://localhost:5218" -RedirectStandardError "tunnel.log" -PassThru -WindowStyle Hidden
+$tunnelProc = Start-Process -FilePath ".\cloudflared.exe" -ArgumentList "tunnel --url http://127.0.0.1:5218 --protocol http2" -RedirectStandardError "tunnel.log" -PassThru -WindowStyle Hidden
 
 # 4. Poll tunnel.log for the public trycloudflare.com URL
 $foundUrl = $null

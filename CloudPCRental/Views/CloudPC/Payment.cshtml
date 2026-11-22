@@ -92,7 +92,7 @@
             <h5 class="fw-bold text-dark mb-3">เลือกช่องทางบริการชำระเงิน</h5>
 
             @{
-                decimal userBal = ViewBag.UserBalance ?? 540.00m;
+                decimal userBal = ViewBag.UserBalance ?? 0.00m;
                 bool hasEnoughWallet = userBal >= totalAmount;
             }
 

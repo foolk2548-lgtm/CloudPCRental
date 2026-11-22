@@ -12,10 +12,21 @@ namespace CloudPCRental.Controllers
         // 2. ค้นหาและคัดกรองเครื่อง (Machines Catalog) - Wireframe Page 3
         // ==========================================
         [HttpGet]
-        public async Task<IActionResult> Machines(string? search, string? category, string? status, decimal? minPrice, decimal? maxPrice, string? sort, int page = 1)
+        public async Task<IActionResult> Machines(string? search, string[]? categories, string? category, string? status, decimal? minPrice, decimal? maxPrice, string? sort, int page = 1)
         {
+            // รวม categories จากทั้ง string[] categories และ string? category เพื่อรองรับทุกลิงก์
+            var catList = new List<string>();
+            if (categories != null && categories.Length > 0)
+            {
+                catList.AddRange(categories.Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim().ToLower()));
+            }
+            if (!string.IsNullOrWhiteSpace(category) && !catList.Contains(category.Trim().ToLower()))
+            {
+                catList.Add(category.Trim().ToLower());
+            }
+
             ViewBag.Search = search;
-            ViewBag.Category = category;
+            ViewBag.Categories = catList;
             ViewBag.Status = status;
             ViewBag.MinPrice = minPrice ?? 5;
             ViewBag.MaxPrice = maxPrice ?? 100;
@@ -26,7 +37,7 @@ namespace CloudPCRental.Controllers
             // นับจำนวนตามสถานะจริงเพื่อแสดงบน Sidebar Radio
             ViewBag.CountAvailable = allMachines.Count(m => m.Status == "Available");
             ViewBag.CountRented = allMachines.Count(m => m.Status == "Rented");
-            ViewBag.CountMaintenance = allMachines.Count(m => m.Status == "Maintenance");
+            ViewBag.CountMaintenance = allMachines.Count(m => m.Status == "Maintenance" || m.Status == "PendingRepair");
 
             var query = allMachines.AsEnumerable();
 
@@ -38,10 +49,23 @@ namespace CloudPCRental.Controllers
                                          m.GPU.Contains(search, StringComparison.OrdinalIgnoreCase));
             }
 
-            // กรองตามสถานะ (ว่าง, กำลังใช้งาน, ซ่อมบำรุง)
+            // กรองตามประเภทเครื่อง (Categories)
+            if (catList.Any())
+            {
+                query = query.Where(m => catList.Contains(m.Category, StringComparer.OrdinalIgnoreCase));
+            }
+
+            // กรองตามสถานะ (ว่าง, มีคิวบางช่วง/กำลังใช้งาน, ซ่อมบำรุง)
             if (!string.IsNullOrWhiteSpace(status) && status != "All")
             {
-                query = query.Where(m => m.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
+                if (status.Equals("Maintenance", StringComparison.OrdinalIgnoreCase))
+                {
+                    query = query.Where(m => m.Status == "Maintenance" || m.Status == "PendingRepair");
+                }
+                else
+                {
+                    query = query.Where(m => m.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
+                }
             }
 
             // กรองตามช่วงราคา

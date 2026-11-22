@@ -37,13 +37,17 @@ namespace CloudPCRental.Controllers
                 return RedirectToAction("Machines");
             }
 
-            int bookingUserId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int bookingUserId = HttpContext.Session.GetInt32("UserId") ?? 0;
             decimal userBalance = MockDataStore.GetUserBalance(bookingUserId);
             ViewBag.UserBalance = userBalance;
             HttpContext.Session.SetString("WalletBalance", userBalance.ToString("F2"));
 
             // ส่งข้อมูลช่วงเวลาที่ถูกจองแล้วของเครื่องนี้ เพื่อให้หน้า UI แสดงเต็มเฉพาะเวลาที่ถูกจองจริง
-            string selectedDate = MockDataStore.GetTodayThaiDate();
+            // หากเวลาปัจจุบันเกิน 23:00 น. (สล็อตทั้งหมดของวันนี้สิ้นสุดแล้ว) ให้เลือกวันพรุ่งนี้เริ่มต้นทันที
+            var nowThai = DateTime.Now;
+            string selectedDate = (nowThai.Hour >= 23)
+                ? MockDataStore.FormatThaiDate(nowThai.AddDays(1))
+                : MockDataStore.GetTodayThaiDate();
 
             // ซิงค์การจองจากฐานข้อมูล MySQL (ถ้ามี) เข้าสู่ระบบสล็อตจอง
             try
@@ -220,7 +224,7 @@ namespace CloudPCRental.Controllers
                 return RedirectToAction("Login");
             }
 
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
             var machine = await GetMachineByIdAsync(machineId);
             if (machine == null || machine.Status == "Maintenance" || machine.Status == "PendingRepair")
             {
@@ -340,10 +344,10 @@ namespace CloudPCRental.Controllers
                         RentalHours = hours,
                         TotalAmount = priceToPay,
                         PaymentDate = DateTime.Now,
-                        PaymentStatus = paymentStatus,
+                        PaymentStatus = newBooking.PaymentStatus,
                         SlipImageUrl = slipUrl,
-                        StartTime = DateTime.Now,
-                        EndTime = DateTime.Now.AddHours(hours),
+                        StartTime = newBooking.StartTime ?? DateTime.Now,
+                        EndTime = newBooking.EndTime ?? DateTime.Now.AddHours(hours),
                         Note = bookingTimeNote
                     };
                     _context.Bookings.Add(dbBooking);
@@ -382,11 +386,12 @@ namespace CloudPCRental.Controllers
         {
             int id = machineId ?? 1;
             var machine = await GetMachineByIdAsync(id);
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
 
-            ViewBag.CustomerName = HttpContext.Session.GetString("Username") ?? "ธนพล ดีสมเกียรติ";
-            ViewBag.CustomerEmail = HttpContext.Session.GetString("Email") ?? "thanapol@example.com";
-            ViewBag.TxnNumber = "TXN-" + DateTime.Now.ToString("yyyyMMdd") + "-9812";
+            ViewBag.CustomerName = HttpContext.Session.GetString("Username") ?? "ผู้ใช้งาน";
+            ViewBag.CustomerEmail = HttpContext.Session.GetString("Email") ?? "";
+            ViewBag.UserId = userId;
+            ViewBag.TxnNumber = "REC-" + DateTime.Now.ToString("yyyyMMdd") + "-9812";
             ViewBag.TxnDate = MockDataStore.GetCurrentThaiDateTime();
             ViewBag.Hours = hours;
             ViewBag.BookingDate = string.IsNullOrWhiteSpace(bookingDate) ? MockDataStore.GetTodayThaiDate() : bookingDate;
@@ -397,6 +402,54 @@ namespace CloudPCRental.Controllers
             ViewBag.EarnedPoints = earnedPoints > 0 ? earnedPoints : Math.Max(1, (int)Math.Round((double)(ViewBag.PaidAmount) / 10.0 * 1.5));
 
             return View(machine);
+        }
+
+        // ==========================================
+        // 5.1 ดูและพิมพ์ใบเสร็จรับเงินย้อนหลัง (View / Download Past Receipt)
+        // ==========================================
+        [HttpGet]
+        public async Task<IActionResult> Receipt(int id)
+        {
+            if (!IsLoggedIn())
+            {
+                TempData["ErrorMessage"] = "กรุณาเข้าสู่ระบบก่อน เพื่อดูใบเสร็จรับเงิน";
+                return RedirectToAction("Login", "Account");
+            }
+
+            int currentUserId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            string currentUserRole = HttpContext.Session.GetString("Role") ?? "User";
+
+            var allBookings = await GetAllBookingsAsync();
+            var booking = allBookings.FirstOrDefault(b => b.BookingId == id);
+            if (booking == null)
+            {
+                TempData["ErrorMessage"] = $"ไม่พบข้อมูลรายการจองรหัส #{id}";
+                return RedirectToAction("MyBookings");
+            }
+
+            if (currentUserRole == "User" && booking.UserId != currentUserId && currentUserId > 0)
+            {
+                TempData["ErrorMessage"] = "คุณไม่มีสิทธิ์เข้าถึงใบเสร็จของผู้อื่น";
+                return RedirectToAction("MyBookings");
+            }
+
+            var machine = booking.Machine ?? await GetMachineByIdAsync(booking.MachineId);
+            ViewBag.CustomerName = HttpContext.Session.GetString("Username") ?? (booking.User?.Username ?? "ผู้ใช้งาน");
+            ViewBag.CustomerEmail = HttpContext.Session.GetString("Email") ?? (booking.User?.Email ?? "");
+            ViewBag.UserId = booking.UserId;
+            ViewBag.TxnNumber = "REC-" + booking.PaymentDate.ToString("yyyyMMdd") + $"-{booking.BookingId}";
+            ViewBag.TxnDate = MockDataStore.FormatThaiDate(booking.PaymentDate) + ", " + booking.PaymentDate.ToString("HH:mm:ss น.");
+            ViewBag.Hours = booking.RentalHours > 0 ? booking.RentalHours : 1;
+            ViewBag.PaidAmount = booking.TotalAmount;
+            ViewBag.BookingDate = MockDataStore.ExtractDateFromNote(booking.Note) ?? MockDataStore.FormatThaiDate(booking.PaymentDate);
+            ViewBag.TimeRange = !string.IsNullOrWhiteSpace(booking.Note) && booking.Note.Contains("(")
+                ? booking.Note
+                : $"({booking.RentalHours} ชม.)";
+            ViewBag.PayMethod = "wallet";
+            ViewBag.RemainingBal = MockDataStore.GetUserBalance(booking.UserId);
+            ViewBag.EarnedPoints = Math.Max(1, (int)Math.Round((double)booking.TotalAmount / 10.0 * 1.5));
+
+            return View("PaymentSuccess", machine);
         }
 
         // ==========================================
@@ -421,7 +474,7 @@ namespace CloudPCRental.Controllers
                 return RedirectToAction("Login", "Account", new { returnUrl = Url.Action("MyBookings", "CloudPC") });
             }
 
-            int userId = HttpContext.Session.GetInt32("UserId") ?? 5;
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
             var bookings = await GetAllBookingsAsync();
             var now = DateTime.Now;
 
@@ -431,23 +484,86 @@ namespace CloudPCRental.Controllers
                 .OrderByDescending(b => b.BookingId)
                 .ToList();
 
-            // อัปเดตสถานะตามเวลาจริง: ถ้าหมดเวลาแล้วให้เป็น Completed
+            // อัปเดตสถานะตามเวลาจริง: ถ้าหมดเวลาแล้วให้เป็น Completed และทำความสะอาดชื่อเครื่องภาษาไทย
+            var thCulture = new System.Globalization.CultureInfo("th-TH");
             foreach (var b in myBookings)
             {
-                if ((b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)") && b.EndTime.HasValue)
+                if (b.Machine != null && MockDataStore.StandardMachineNames.TryGetValue(b.Machine.MachineId, out var sn))
                 {
-                    if (now >= b.EndTime.Value)
-                        b.PaymentStatus = "Completed";
-                    else if (now >= b.StartTime.GetValueOrDefault() && now < b.EndTime.Value)
-                        b.PaymentStatus = "InUse"; // กำลังใช้งานอยู่
+                    b.Machine.MachineName = sn;
+                }
+                else if (b.MachineId > 0 && MockDataStore.StandardMachineNames.TryGetValue(b.MachineId, out var sn2))
+                {
+                    if (b.Machine == null) b.Machine = MockDataStore.GetMachineById(b.MachineId);
+                    if (b.Machine != null) b.Machine.MachineName = sn2;
+                }
+
+                if (!string.IsNullOrEmpty(b.Note) && (b.Note.Contains("à") || b.Note.Contains("¹") || b.Note.Contains("¸")))
+                {
+                    if (b.MachineId == 0 || b.Note.Contains("Wallet") || b.Note.Contains("เติมเงิน"))
+                    {
+                        b.Note = $"{b.PaymentDate.ToString("d MMMM yyyy, HH:mm น.", thCulture)} (เติมเงินเข้ากระเป๋าเงิน CloudPC Wallet)";
+                    }
+                    else
+                    {
+                        b.Note = $"{b.PaymentDate.ToString("d MMMM yyyy, HH:mm", thCulture)} - {b.PaymentDate.AddHours(b.RentalHours):HH:mm น.} ({b.RentalHours} ชม.)";
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(b.RefundReason) && (b.RefundReason.Contains("à") || b.RefundReason.Contains("¹") || b.RefundReason.Contains("¸")))
+                {
+                    b.RefundReason = "เครื่องมีปัญหาจอฟ้าและกระตุก ไม่สามารถเรนเดอร์งานกราฟิกต่อได้";
+                }
+
+                // ดึงวันเวลาเริ่มและสิ้นสุดจริงจาก Note เสมอ หากมีระบุไว้ (เช่น "23 พฤศจิกายน 2569, 08:00 - 10:00 (2 ชม.)")
+                if (!string.IsNullOrEmpty(b.Note) && b.Note.Contains(","))
+                {
+                    var noteParts = b.Note.Split(',');
+                    var datePart = noteParts[0].Trim();
+                    var timePart = noteParts.Length > 1 ? noteParts[1].Trim() : "";
+                    var parsedStart = MockDataStore.ParseBookingStartTime(datePart, timePart);
+                    var parsedEnd = MockDataStore.ParseBookingEndTime(datePart, timePart);
+                    if (parsedStart.HasValue) b.StartTime = parsedStart.Value;
+                    if (parsedEnd.HasValue) b.EndTime = parsedEnd.Value;
+                }
+                else if (b.StartTime.HasValue && !b.EndTime.HasValue)
+                {
+                    b.EndTime = b.StartTime.Value.AddHours(b.RentalHours > 0 ? b.RentalHours : 2);
+                }
+
+                // อัปเดตสถานะให้ถูกต้องตามเงื่อนไขเวลาจริง (เสร็จสิ้น / กำลังใช้งาน / จองล่วงหน้า)
+                if (b.MachineId == 0 || (b.Note != null && (b.Note.Contains("Wallet") || b.Note.Contains("เติมเงิน"))))
+                {
+                    b.PaymentStatus = "Completed";
+                }
+                else if (b.PaymentStatus != "Pending" && b.PaymentStatus != "Rejected" && 
+                         b.PaymentStatus != "RefundRequested" && b.PaymentStatus != "RefundRejected" && 
+                         b.PaymentStatus != "Refunded")
+                {
+                    if (b.EndTime.HasValue && now >= b.EndTime.Value)
+                    {
+                        b.PaymentStatus = "Completed"; // สิ้นสุดการเช่าแล้ว
+                    }
+                    else if (b.StartTime.HasValue && now < b.StartTime.Value)
+                    {
+                        b.PaymentStatus = "Booked"; // จองล่วงหน้า (ยังไม่ถึงเวลาเริ่มใช้งาน เครื่องยังไม่พร้อมใช้งาน)
+                    }
+                    else if (b.StartTime.HasValue && now >= b.StartTime.Value && b.EndTime.HasValue && now < b.EndTime.Value)
+                    {
+                        b.PaymentStatus = "InUse"; // ถึงเวลาเริ่มแล้วและยังไม่หมดเวลา (พร้อมเข้าใช้งานเครื่อง)
+                    }
+                    else
+                    {
+                        b.PaymentStatus = "Booked"; // จองล่วงหน้า
+                    }
                 }
             }
 
             ViewBag.NewBookings = myBookings;
             ViewBag.ServerNow = now; // ส่งเวลา server ให้ View ใช้คำนวณ countdown
 
-            // คำนวณสถิติจากข้อมูลจริงของ user คนนี้เท่านั้น
-            int activeMachines = myBookings.Count(b => b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)" || b.PaymentStatus == "InUse");
+            // คำนวณสถิติจากข้อมูลจริง: นับเฉพาะเครื่องที่กำลังใช้งานอยู่ ณ ปัจจุบันจริง ๆ
+            int activeMachines = myBookings.Count(b => b.PaymentStatus == "InUse");
             ViewBag.ActiveMachinesCount = activeMachines;
             ViewBag.TotalBookingsCount = myBookings.Count;
             ViewBag.AccumulatedHoursCount = myBookings.Sum(b => b.RentalHours);
@@ -467,6 +583,200 @@ namespace CloudPCRental.Controllers
             HttpContext.Session.SetString("WalletBalance", currentBal.ToString("F2"));
 
             return View();
+        }
+
+        // ==========================================
+        // 8. ต่อเวลาใช้งานเครื่องคอมพิวเตอร์ (Extend Booking Realtime API)
+        // ==========================================
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ExtendBookingAjax(int bookingId, int hours = 1)
+        {
+            if (!IsLoggedIn())
+            {
+                return Json(new { success = false, message = "กรุณาเข้าสู่ระบบก่อนทำรายการ" });
+            }
+
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            if (hours <= 0) hours = 1;
+
+            // ค้นหารายการจองในระบบ
+            var allBookings = await GetAllBookingsAsync();
+            var booking = allBookings.FirstOrDefault(b => b.BookingId == bookingId);
+            if (booking == null || (booking.UserId != userId && userId != 1))
+            {
+                return Json(new { success = false, message = "ไม่พบรายการจองนี้ หรือคุณไม่มีสิทธิ์จัดการเครื่องนี้" });
+            }
+
+            if (booking.PaymentStatus != "Approved" && booking.PaymentStatus != "จอง (พร้อมใช้งาน)" && booking.PaymentStatus != "InUse")
+            {
+                return Json(new { success = false, message = "ไม่สามารถต่อเวลาได้ เนื่องจากสถานะการเช่าปัจจุบันไม่ได้เปิดใช้งานอยู่" });
+            }
+
+            var machine = await GetMachineByIdAsync(booking.MachineId);
+            if (machine == null)
+            {
+                return Json(new { success = false, message = "ไม่พบข้อมูลเครื่องคอมพิวเตอร์นี้ในระบบ" });
+            }
+
+            // คำนวณเวลาสิ้นสุดปัจจุบันและเวลาใหม่ที่จะขยายไป
+            DateTime currentEndTime = booking.EndTime ?? (booking.StartTime?.AddHours(booking.RentalHours) ?? booking.PaymentDate.AddHours(booking.RentalHours));
+            DateTime newEndTime = currentEndTime.AddHours(hours);
+            string dateStr = MockDataStore.ExtractDateFromNote(booking.Note) ?? MockDataStore.GetTodayThaiDate();
+            string nextSlotStr = $"{currentEndTime:HH:mm} - {newEndTime:HH:mm}";
+
+            // 1. ตรวจสอบเงื่อนไขคิวชน (Slot Conflict Prevention)
+            // เช็คว่ามีลูกค้ารายอื่นจองเครื่องนี้ในเวลาที่ต่อเนื่องจากเราหรือไม่
+            var conflictingBooking = allBookings.FirstOrDefault(other =>
+                other.BookingId != booking.BookingId &&
+                other.MachineId == booking.MachineId &&
+                (other.PaymentStatus == "Approved" || other.PaymentStatus == "InUse" || other.PaymentStatus == "จอง (พร้อมใช้งาน)" || other.PaymentStatus == "Pending") &&
+                other.StartTime.HasValue && other.EndTime.HasValue &&
+                other.StartTime.Value < newEndTime && other.EndTime.Value > currentEndTime);
+
+            bool hasSlotConflict = false;
+            string conflictTimeDisplay = nextSlotStr + " น.";
+
+            if (conflictingBooking != null)
+            {
+                hasSlotConflict = true;
+                if (conflictingBooking.StartTime.HasValue && conflictingBooking.EndTime.HasValue)
+                {
+                    conflictTimeDisplay = $"{conflictingBooking.StartTime.Value:HH:mm} - {conflictingBooking.EndTime.Value:HH:mm} น.";
+                }
+            }
+            else
+            {
+                // ตรวจสอบในระบบลงทะเบียนสล็อตจองล่วงหน้า (_bookedSlotsRegistry)
+                var registry = MockDataStore.GetBookedSlotsRegistry();
+                for (int h = 0; h < hours; h++)
+                {
+                    var chkStart = currentEndTime.AddHours(h);
+                    var chkEnd = chkStart.AddHours(1);
+                    string checkSlot = $"{chkStart:HH:mm} - {chkEnd:HH:mm}";
+
+                    var slotMatch = registry.FirstOrDefault(s =>
+                        s.MachineId == booking.MachineId &&
+                        MockDataStore.IsSameDate(s.Date, dateStr) &&
+                        s.Slot.Equals(checkSlot, StringComparison.OrdinalIgnoreCase) &&
+                        s.BookingId != booking.BookingId);
+
+                    if (slotMatch != null)
+                    {
+                        hasSlotConflict = true;
+                        conflictTimeDisplay = checkSlot + " น.";
+                        break;
+                    }
+                }
+            }
+
+            if (hasSlotConflict)
+            {
+                return Json(new
+                {
+                    success = false,
+                    hasConflict = true,
+                    conflictTime = conflictTimeDisplay,
+                    message = $"⚠️ ไม่สามารถต่อเวลาได้: เนื่องจากมีผู้ใช้งานท่านอื่นจองเครื่องนี้ไว้แล้วในคิวถัดไป ({conflictTimeDisplay}) ระบบไม่อนุญาตให้ต่อเวลาทับซ้อนกับคิวของลูกค้าท่านอื่นครับ"
+                });
+            }
+
+            // 2. ตรวจสอบยอดเงินในกระเป๋าเงิน (Wallet Balance Check)
+            decimal extendCost = machine.PricePerHour * hours;
+            decimal currentBal = MockDataStore.GetUserBalance(userId);
+            if (currentBal < extendCost)
+            {
+                return Json(new
+                {
+                    success = false,
+                    hasConflict = false,
+                    message = $"ยอดเงินในกระเป๋าเงินไม่เพียงพอสำหรับการต่อเวลา (มี {currentBal:N2} THB ต้องการ {extendCost:N2} THB) กรุณาเติมเงินเข้ากระเป๋าเงินก่อนครับ"
+                });
+            }
+
+            // 3. หักเงินค่าต่อเวลาจริงจากกระเป๋าเงิน
+            MockDataStore.DeductBalance(userId, extendCost, $"ต่อเวลาใช้งานเครื่อง {machine.MachineName} (#CPC-{booking.BookingId}) +{hours} ชม.", $"#EXT-{booking.BookingId}-{DateTime.Now:HHmm}");
+            decimal newBal = MockDataStore.GetUserBalance(userId);
+            HttpContext.Session.SetString("WalletBalance", newBal.ToString("F2"));
+
+            // 4. บันทึกขยายเวลาใน MockDataStore
+            MockDataStore.ExtendBookingTime(booking.BookingId, hours, newEndTime, extendCost);
+
+            // 5. บันทึกขยายเวลาในฐานข้อมูล MySQL (ถ้ามี)
+            try
+            {
+                if (await _context.Database.CanConnectAsync())
+                {
+                    var dbB = await _context.Bookings.FirstOrDefaultAsync(b => b.BookingId == booking.BookingId);
+                    if (dbB != null)
+                    {
+                        dbB.RentalHours += hours;
+                        dbB.EndTime = newEndTime;
+                        dbB.TotalAmount += extendCost;
+                        await _context.SaveChangesAsync();
+                    }
+                }
+            }
+            catch { }
+
+            // 6. บันทึกคะแนนสะสมที่ได้รับจากการต่อเวลา
+            MockDataStore.AwardBookingPoints(userId, extendCost, machine.MachineName, hours, booking.BookingId);
+
+            int remainingSecs = Math.Max(0, (int)(newEndTime - DateTime.Now).TotalSeconds);
+
+            return Json(new
+            {
+                success = true,
+                newHours = booking.RentalHours + hours,
+                newEndTime = newEndTime.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
+                newEndTimeDisplay = newEndTime.ToString("HH:mm น."),
+                newTotalAmount = booking.TotalAmount + extendCost,
+                remainingSeconds = remainingSecs,
+                newBalance = newBal,
+                formatted = newBal.ToString("N2") + " THB",
+                message = $"หักค่าต่อเวลา -{extendCost:N2} THB สำเร็จ! ขยายเวลาถึง {newEndTime:HH:mm} น. (ยอดคงเหลือ: {newBal:N2} THB)"
+            });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ReturnMachineAjax(int bookingId)
+        {
+            if (!IsLoggedIn())
+            {
+                return Json(new { success = false, message = "กรุณาเข้าสู่ระบบก่อนทำรายการ" });
+            }
+
+            int userId = HttpContext.Session.GetInt32("UserId") ?? 0;
+            var allBookings = await GetAllBookingsAsync();
+            var booking = allBookings.FirstOrDefault(b => b.BookingId == bookingId);
+            if (booking == null || (booking.UserId != userId && userId != 1))
+            {
+                return Json(new { success = false, message = "ไม่พบรายการจองนี้" });
+            }
+
+            MockDataStore.CompleteBooking(bookingId);
+
+            try
+            {
+                if (await _context.Database.CanConnectAsync())
+                {
+                    var dbB = await _context.Bookings.Include(b => b.Machine).FirstOrDefaultAsync(b => b.BookingId == bookingId);
+                    if (dbB != null)
+                    {
+                        dbB.PaymentStatus = "Completed";
+                        dbB.EndTime = DateTime.Now;
+                        if (dbB.Machine != null && dbB.Machine.Status == "Rented")
+                        {
+                            dbB.Machine.Status = "Available";
+                        }
+                        await _context.SaveChangesAsync();
+                    }
+                }
+            }
+            catch { }
+
+            return Json(new { success = true, message = $"คืนเครื่อง #CPC-{bookingId} เรียบร้อยแล้ว ขอบคุณที่เลือกใช้บริการ CloudPC ครับ" });
         }
     }
 }

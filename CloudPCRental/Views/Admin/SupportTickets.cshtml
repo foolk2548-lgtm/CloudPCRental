@@ -112,8 +112,26 @@
                         <div>
                             <div class="d-flex align-items-center gap-2">
                                 <h6 class="fw-bold text-dark mb-0">@selectedTicket.UserName</h6>
-                                <span class="badge badge-tier-platinum py-0 px-2" style="font-size: 0.68rem;">
-                                    <i class="bi bi-gem"></i> Platinum Member
+                                @{
+                                    var ticketUserMembership = CloudPCRental.Models.MockDataStore.GetUserMembershipInfo(selectedTicket.UserId, selectedTicket.UserName);
+                                    var ticketTier = ticketUserMembership?.TierName ?? "Bronze";
+                                    var ticketBadgeClass = ticketTier switch {
+                                        "Diamond" => "badge-tier-diamond",
+                                        "Platinum" => "badge-tier-platinum",
+                                        "Gold" => "badge-tier-gold",
+                                        "Silver" => "badge-tier-silver",
+                                        _ => "badge-tier-bronze"
+                                    };
+                                    var ticketIcon = ticketTier switch {
+                                        "Diamond" => "bi-trophy-fill",
+                                        "Platinum" => "bi-gem",
+                                        "Gold" => "bi-shield-shaded",
+                                        "Silver" => "bi-shield-fill",
+                                        _ => "bi-shield"
+                                    };
+                                }
+                                <span class="badge @ticketBadgeClass py-0 px-2" style="font-size: 0.68rem;">
+                                    <i class="bi @ticketIcon"></i> @ticketTier Member
                                 </span>
                                 <span class="badge bg-light text-secondary border font-monospace" style="font-size: 0.7rem;">@selectedTicket.TicketCode</span>
                             </div>

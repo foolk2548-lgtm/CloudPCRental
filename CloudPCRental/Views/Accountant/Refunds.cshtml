@@ -3,16 +3,20 @@
     Layout = "_AdminLayout";
     ViewData["Title"] = "จัดการการยกเลิกและคืนเงิน";
 
-    int pendingRefundCount = Model?.Count(b => b.PaymentStatus == "RefundRequested") ?? 0;
-    int approvedRefundCount = Model?.Count(b => b.PaymentStatus == "Refunded") ?? 0;
-    int rejectedRefundCount = Model?.Count(b => b.PaymentStatus == "RefundRejected") ?? 0;
-    decimal totalPendingRefundAmount = Model?.Where(b => b.PaymentStatus == "RefundRequested").Sum(b => b.TotalAmount) ?? 0;
+    var pendingRefunds = Model?.Where(b => b.PaymentStatus == "RefundRequested").OrderByDescending(b => b.PaymentDate).ToList() ?? new List<CloudPCRental.Models.Booking>();
+    var historyRefunds = Model?.Where(b => b.PaymentStatus == "Refunded" || b.PaymentStatus == "RefundRejected").OrderByDescending(b => b.RefundDate ?? b.PaymentDate).ToList() ?? new List<CloudPCRental.Models.Booking>();
+
+    int pendingRefundCount = pendingRefunds.Count;
+    int historyRefundCount = historyRefunds.Count;
+    int approvedRefundCount = historyRefunds.Count(b => b.PaymentStatus == "Refunded");
+    int rejectedRefundCount = historyRefunds.Count(b => b.PaymentStatus == "RefundRejected");
+    decimal totalPendingRefundAmount = pendingRefunds.Sum(b => b.TotalAmount);
 }
 
 <!-- Header -->
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
-        <div class="text-muted small">ระบบตรวจสอบคำขอยกเลิกการเช่าเครื่อง ตรวจสอบข้อมูลเงื่อนไขตามนโยบาย และพิจารณาอนุมัติ/ปฏิเสธการคืนเงิน</div>
+        <div class="text-muted small">ระบบตรวจสอบคำขอยกเลิกการเช่าเครื่อง ตรวจสอบข้อมูลเงื่อนไขตามนโยบาย และบันทึกประวัติการคืนเงิน</div>
         <h3 class="fw-bold text-dark mb-0">จัดการการยกเลิกและคืนเงิน (Refund Management)</h3>
     </div>
     <div class="d-flex align-items-center gap-3">
@@ -58,11 +62,11 @@
         <div class="card-cloudpc p-3 bg-white border rounded-3 shadow-sm" style="border-left: 4px solid #10b981 !important;">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
-                    <span class="text-muted small">พิจารณาแล้วทั้งหมด</span>
-                    <h3 class="fw-bold text-success my-1">@(approvedRefundCount + rejectedRefundCount) <small class="fs-6 text-muted">รายการ</small></h3>
+                    <span class="text-muted small">ประวัติพิจารณาแล้วทั้งหมด</span>
+                    <h3 class="fw-bold text-success my-1">@historyRefundCount <small class="fs-6 text-muted">รายการ</small></h3>
                     <div class="text-muted small" style="font-size: 0.72rem;">อนุมัติแล้ว @approvedRefundCount | ปฏิเสธ @rejectedRefundCount</div>
                 </div>
-                <div class="text-success fs-3"><i class="bi bi-check2-circle"></i></div>
+                <div class="text-success fs-3"><i class="bi bi-clock-history"></i></div>
             </div>
         </div>
     </div>
@@ -83,157 +87,249 @@
     </div>
 </div>
 
-<!-- Table Card -->
-<div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
-    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h6 class="fw-bold text-dark mb-0">รายการคำขอคืนเงินทั้งหมด</h6>
-        <div class="text-muted small">
-            <i class="bi bi-info-circle me-1"></i> คลิกปุ่ม "ตรวจสอบ & พิจารณา" เพื่อดูข้อมูลที่ลูกค้ายื่นมาและตรวจสอบเงื่อนไข
+<!-- Tab Switcher Navigation -->
+<ul class="nav nav-pills mb-3 gap-2 bg-white p-2 rounded-4 shadow-sm border" id="refundTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active fw-bold rounded-3 px-4 py-2" id="refund-pending-tab" data-bs-toggle="pill" data-bs-target="#tab-refund-pending" type="button" role="tab" aria-controls="tab-refund-pending" aria-selected="true">
+            <i class="bi bi-hourglass-split me-1 text-warning"></i> คำขอรอตรวจสอบ 
+            <span class="badge bg-warning text-dark ms-2 rounded-pill">@pendingRefundCount</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-bold rounded-3 px-4 py-2 text-secondary" id="refund-history-tab" data-bs-toggle="pill" data-bs-target="#tab-refund-history" type="button" role="tab" aria-controls="tab-refund-history" aria-selected="false">
+            <i class="bi bi-clock-history me-1 text-primary"></i> ประวัติการคืนเงิน 
+            <span class="badge bg-secondary ms-2 rounded-pill">@historyRefundCount</span>
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="refundTabsContent">
+    <!-- TAB 1: คำขอรอตรวจสอบ (Pending) -->
+    <div class="tab-pane fade show active" id="tab-refund-pending" role="tabpanel" aria-labelledby="refund-pending-tab">
+        <div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <h6 class="fw-bold text-dark mb-0">รายการคำขอคืนเงินที่รอการพิจารณา (@pendingRefundCount รายการ)</h6>
+                <div class="text-muted small">
+                    <i class="bi bi-info-circle me-1"></i> คลิกปุ่ม "ตรวจสอบ &amp; พิจารณา" เพื่อดูข้อมูลที่ลูกค้ายื่นมาและตรวจสอบเงื่อนไข
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light text-muted">
+                        <tr>
+                            <th class="ps-3">รหัสการจอง</th>
+                            <th>วันที่ทำรายการ</th>
+                            <th>ลูกค้า</th>
+                            <th>เครื่องคอมพิวเตอร์</th>
+                            <th>ยอดเงินขอคืน</th>
+                            <th>ข้อมูล &amp; เหตุผลที่ยื่นมา</th>
+                            <th>สถานะ</th>
+                            <th class="text-end pe-3">การพิจารณา</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @if (pendingRefunds.Any())
+                        {
+                            @foreach (var item in pendingRefunds)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-bold text-primary font-monospace">
+                                        #BK-@item.BookingId.ToString("D4")
+                                        @if (item.BookingId == 94812 || item.BookingId == 104 || item.BookingId == 103)
+                                        {
+                                            <div>
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.68rem;">#CPC-94812</span>
+                                            </div>
+                                        }
+                                        else if (item.BookingId >= 95000)
+                                        {
+                                            <div>
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.68rem;">#CPC-@item.BookingId</span>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="text-muted">@item.PaymentDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">@(item.User?.Username ?? $"User #{item.UserId}")</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">@(item.User?.Email ?? "-")</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">PC-@item.MachineId.ToString("D3")</span>
+                                        <span class="text-secondary ms-1">@(item.Machine?.MachineName ?? "Cloud PC")</span>
+                                    </td>
+                                    <td><strong class="text-dark fs-6">@item.TotalAmount.ToString("N2") ฿</strong></td>
+                                    <td>
+                                        <div class="p-2 rounded" style="background-color: #fff8f8; border-left: 3px solid #f43f5e; max-width: 280px;">
+                                            <div class="text-danger fw-medium" style="line-height: 1.3;">
+                                                @(item.RefundReason ?? "ลูกค้าขอยกเลิกการใช้งาน")
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(item.Note))
+                                            {
+                                                <div class="text-muted small mt-1" style="font-size: 0.7rem;">หมายเหตุ: @item.Note</div>
+                                            }
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">
+                                            <i class="bi bi-hourglass-split me-1"></i> รอตรวจสอบเงื่อนไข
+                                        </span>
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <div class="d-inline-flex gap-1 align-items-center">
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-primary fw-semibold rounded-3 px-3 btn-review-refund shadow-xs" 
+                                                    data-id="@item.BookingId"
+                                                    data-code="#BK-@item.BookingId.ToString("D4")"
+                                                    data-user="@(item.User?.Username ?? "ลูกค้า")"
+                                                    data-email="@(item.User?.Email ?? "-")"
+                                                    data-machine="PC-@item.MachineId.ToString("D3") (@(item.Machine?.MachineName ?? "Cloud PC"))"
+                                                    data-amount="@item.TotalAmount.ToString("N2")"
+                                                    data-date="@item.PaymentDate.ToString("dd/MM/yyyy HH:mm")"
+                                                    data-reason="@(item.RefundReason ?? "-")"
+                                                    data-original-slip="@(item.SlipImageUrl ?? "")">
+                                                <i class="bi bi-clipboard-check me-1"></i> ตรวจสอบ &amp; พิจารณา
+                                            </button>
+                                            <form asp-controller="Accountant" asp-action="ApproveRefund" method="post" class="d-inline">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="bookingId" value="@item.BookingId" />
+                                                <input type="hidden" name="note" value="ตรวจสอบเงื่อนไขตรงตามนโยบาย อนุมัติคืนเงินเต็มจำนวนเรียบร้อย (+60.00 ฿ เข้ากระเป๋าเงิน)" />
+                                                <button type="submit" class="btn btn-sm btn-outline-success rounded-3 px-2 py-1 shadow-xs" title="อนุมัติคืนเงินทันที (+@item.TotalAmount.ToString("N0") ฿)">
+                                                    <i class="bi bi-check-lg me-1"></i> อนุมัติด่วน
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-shield-check fs-1 text-success d-block mb-2"></i>
+                                    <h6 class="fw-bold text-dark">ไม่มีคำขอคืนเงินที่รอการตรวจสอบ</h6>
+                                    <p class="small mb-0">ระบบได้ตรวจสอบและพิจารณาคำขอทั้งหมดเรียบร้อยแล้ว (สามารถดูประวัติย้อนหลังได้ที่แท็บ "ประวัติการคืนเงิน")</p>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
-    <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0 small">
-            <thead class="table-light text-muted">
-                <tr>
-                    <th class="ps-3">รหัสการจอง</th>
-                    <th>วันที่ทำรายการ</th>
-                    <th>ลูกค้า</th>
-                    <th>เครื่องคอมพิวเตอร์</th>
-                    <th>ยอดเงินขอคืน</th>
-                    <th>ข้อมูล & เหตุผลที่ยื่นมา</th>
-                    <th>สถานะ</th>
-                    <th class="text-end pe-3">การพิจารณา</th>
-                </tr>
-            </thead>
-            <tbody>
-                @if (Model != null && Model.Any())
-                {
-                    @foreach (var item in Model)
-                    {
+    <!-- TAB 2: ประวัติการคืนเงิน (History) -->
+    <div class="tab-pane fade" id="tab-refund-history" role="tabpanel" aria-labelledby="refund-history-tab">
+        <div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
+            <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                <div>
+                    <h6 class="fw-bold text-dark mb-0">ประวัติการคืนเงินและคำขอที่พิจารณาแล้ว (@historyRefundCount รายการ)</h6>
+                    <div class="text-muted small">บันทึกประวัติคำขอคืนเงินทั้งหมดที่ฝ่ายบัญชีได้อนุมัติคืนเงินหรือปฏิเสธแล้ว ย้อนหลังสำหรับตรวจสอบความถูกต้อง</div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 small">
+                    <thead class="table-light text-muted">
                         <tr>
-                            <td class="ps-3 fw-bold text-primary font-monospace">
-                                #BK-@item.BookingId.ToString("D4")
-                                @if (item.BookingId == 94812 || item.BookingId == 104 || item.BookingId == 103)
-                                {
-                                    <div>
-                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.68rem;">#CPC-94812</span>
-                                    </div>
-                                }
-                                else if (item.BookingId >= 95000)
-                                {
-                                    <div>
-                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.68rem;">#CPC-@item.BookingId</span>
-                                    </div>
-                                }
-                            </td>
-                            <td class="text-muted">@item.PaymentDate.ToString("dd/MM/yyyy HH:mm")</td>
-                            <td>
-                                <div class="fw-semibold text-dark">@(item.User?.Username ?? $"User #{item.UserId}")</div>
-                                <div class="text-muted" style="font-size: 0.72rem;">@(item.User?.Email ?? "-")</div>
-                            </td>
-                            <td>
-                                <span class="badge bg-light text-dark border">PC-@item.MachineId.ToString("D3")</span>
-                                <span class="text-secondary ms-1">@(item.Machine?.MachineName ?? "Cloud PC")</span>
-                            </td>
-                            <td><strong class="text-dark fs-6">@item.TotalAmount.ToString("N2") ฿</strong></td>
-                            <td>
-                                <div class="p-2 rounded" style="background-color: #fff8f8; border-left: 3px solid #f43f5e; max-width: 280px;">
-                                    <div class="text-danger fw-medium" style="line-height: 1.3;">
-                                        @(item.RefundReason ?? "ลูกค้าขอยกเลิกการใช้งาน")
-                                    </div>
-                                    @if (!string.IsNullOrEmpty(item.Note))
-                                    {
-                                        <div class="text-muted small mt-1" style="font-size: 0.7rem;">หมายเหตุ: @item.Note</div>
-                                    }
-                                </div>
-                            </td>
-                            <td>
-                                @if (item.PaymentStatus == "RefundRequested")
-                                {
-                                    <span class="badge" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a;">
-                                        <i class="bi bi-hourglass-split me-1"></i> รอตรวจสอบเงื่อนไข
-                                    </span>
-                                }
-                                else if (item.PaymentStatus == "Refunded")
-                                {
-                                    <span class="badge" style="background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;">
-                                        <i class="bi bi-check-circle-fill me-1"></i> อนุมัติคืนเงินแล้ว
-                                    </span>
-                                    <div class="text-muted small mt-1" style="font-size: 0.7rem;">
-                                        @(item.RefundDate?.ToString("dd/MM/yyyy HH:mm") ?? "")
-                                    </div>
-                                }
-                                else if (item.PaymentStatus == "RefundRejected")
-                                {
-                                    <span class="badge" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca;">
-                                        <i class="bi bi-x-circle-fill me-1"></i> ปฏิเสธคำขอ
-                                    </span>
-                                    <div class="text-muted small mt-1" style="font-size: 0.7rem;">
-                                        @(item.RefundDate?.ToString("dd/MM/yyyy HH:mm") ?? "")
-                                    </div>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">@item.PaymentStatus</span>
-                                }
-                            </td>
-                            <td class="text-end pe-3">
-                                @if (item.PaymentStatus == "RefundRequested")
-                                {
-                                    <div class="d-inline-flex gap-1 align-items-center">
-                                        <button type="button" 
-                                                class="btn btn-sm btn-primary fw-semibold rounded-3 px-3 btn-review-refund shadow-xs" 
-                                                data-id="@item.BookingId"
-                                                data-code="#BK-@item.BookingId.ToString("D4")"
-                                                data-user="@(item.User?.Username ?? "ลูกค้า")"
-                                                data-email="@(item.User?.Email ?? "-")"
-                                                data-machine="PC-@item.MachineId.ToString("D3") (@(item.Machine?.MachineName ?? "Cloud PC"))"
-                                                data-amount="@item.TotalAmount.ToString("N2")"
-                                                data-date="@item.PaymentDate.ToString("dd/MM/yyyy HH:mm")"
-                                                data-reason="@(item.RefundReason ?? "-")"
-                                                data-original-slip="@(item.SlipImageUrl ?? "")">
-                                            <i class="bi bi-clipboard-check me-1"></i> ตรวจสอบ &amp; พิจารณา
-                                        </button>
-                                        <form asp-controller="Accountant" asp-action="ApproveRefund" method="post" class="d-inline">
-                                            @Html.AntiForgeryToken()
-                                            <input type="hidden" name="bookingId" value="@item.BookingId" />
-                                            <input type="hidden" name="note" value="ตรวจสอบเงื่อนไขตรงตามนโยบาย อนุมัติคืนเงินเต็มจำนวนเรียบร้อย (+60.00 ฿ เข้ากระเป๋าเงิน)" />
-                                            <button type="submit" class="btn btn-sm btn-outline-success rounded-3 px-2 py-1 shadow-xs" title="อนุมัติคืนเงินทันที (+@item.TotalAmount.ToString("N0") ฿)">
-                                                <i class="bi bi-check-lg me-1"></i> อนุมัติด่วน
-                                            </button>
-                                        </form>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <button type="button" 
-                                            class="btn btn-sm btn-outline-secondary rounded-3 px-3 btn-view-decision shadow-xs" 
-                                            data-code="#BK-@item.BookingId.ToString("D4")"
-                                            data-status="@(item.PaymentStatus == "Refunded" ? "อนุมัติการคืนเงินเรียบร้อย" : "ปฏิเสธคำขอคืนเงิน")"
-                                            data-status-class="@(item.PaymentStatus == "Refunded" ? "text-success" : "text-danger")"
-                                            data-date="@(item.RefundDate?.ToString("dd/MM/yyyy HH:mm น.") ?? "-")"
-                                            data-reason="@(item.RefundReason ?? "-")"
-                                            data-note="@(item.Note ?? "ตรวจสอบตามขั้นตอนเรียบร้อย")">
-                                        <i class="bi bi-journal-check me-1"></i> ดูผลการพิจารณา
-                                    </button>
-                                }
-                            </td>
+                            <th class="ps-3">รหัสการจอง</th>
+                            <th>วันที่ยื่นคำขอ</th>
+                            <th>วันที่ดำเนินการ</th>
+                            <th>ลูกค้า</th>
+                            <th>เครื่องคอมพิวเตอร์</th>
+                            <th>ยอดเงินขอคืน</th>
+                            <th>เหตุผลของลูกค้า</th>
+                            <th>สถานะการพิจารณา</th>
+                            <th class="text-end pe-3">รายละเอียด</th>
                         </tr>
-                    }
-                }
-                else
-                {
-                    <tr>
-                        <td colspan="8" class="text-center py-5 text-muted">
-                            <i class="bi bi-shield-check fs-1 text-success d-block mb-2"></i>
-                            <h6 class="fw-bold text-dark">ไม่มีคำขอคืนเงินในระบบ</h6>
-                            <p class="small mb-0">ยังไม่มีลูกค้ายกเลิกการใช้งานหรือแจ้งขอคืนเงิน</p>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                    </thead>
+                    <tbody>
+                        @if (historyRefunds.Any())
+                        {
+                            @foreach (var item in historyRefunds)
+                            {
+                                <tr>
+                                    <td class="ps-3 fw-bold text-primary font-monospace">
+                                        #BK-@item.BookingId.ToString("D4")
+                                        @if (item.BookingId == 94812 || item.BookingId == 104 || item.BookingId == 103)
+                                        {
+                                            <div>
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.68rem;">#CPC-94812</span>
+                                            </div>
+                                        }
+                                        else if (item.BookingId >= 95000)
+                                        {
+                                            <div>
+                                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle" style="font-size: 0.68rem;">#CPC-@item.BookingId</span>
+                                            </div>
+                                        }
+                                    </td>
+                                    <td class="text-muted">@item.PaymentDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td class="text-muted">@(item.RefundDate?.ToString("dd/MM/yyyy HH:mm น.") ?? "-")</td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">@(item.User?.Username ?? $"User #{item.UserId}")</div>
+                                        <div class="text-muted" style="font-size: 0.72rem;">@(item.User?.Email ?? "-")</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark border">PC-@item.MachineId.ToString("D3")</span>
+                                        <span class="text-secondary ms-1">@(item.Machine?.MachineName ?? "Cloud PC")</span>
+                                    </td>
+                                    <td><strong class="text-dark fs-6">@item.TotalAmount.ToString("N2") ฿</strong></td>
+                                    <td>
+                                        <div class="p-2 rounded bg-light border" style="max-width: 250px;">
+                                            <div class="text-dark small" style="line-height: 1.3;">
+                                                @(item.RefundReason ?? "ลูกค้าขอยกเลิกการใช้งาน")
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        @if (item.PaymentStatus == "Refunded")
+                                        {
+                                            <span class="badge" style="background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;">
+                                                <i class="bi bi-check-circle-fill me-1"></i> อนุมัติคืนเงินแล้ว
+                                            </span>
+                                        }
+                                        else if (item.PaymentStatus == "RefundRejected")
+                                        {
+                                            <span class="badge" style="background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca;">
+                                                <i class="bi bi-x-circle-fill me-1"></i> ปฏิเสธคำขอ
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">@item.PaymentStatus</span>
+                                        }
+                                    </td>
+                                    <td class="text-end pe-3">
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-secondary rounded-3 px-3 btn-view-decision shadow-xs" 
+                                                data-code="#BK-@item.BookingId.ToString("D4")"
+                                                data-status="@(item.PaymentStatus == "Refunded" ? "อนุมัติการคืนเงินเรียบร้อย" : "ปฏิเสธคำขอคืนเงิน")"
+                                                data-status-class="@(item.PaymentStatus == "Refunded" ? "text-success" : "text-danger")"
+                                                data-date="@(item.RefundDate?.ToString("dd/MM/yyyy HH:mm น.") ?? "-")"
+                                                data-reason="@(item.RefundReason ?? "-")"
+                                                data-note="@(item.Note ?? "ตรวจสอบตามขั้นตอนเรียบร้อย")">
+                                            <i class="bi bi-journal-check me-1"></i> ดูผลการพิจารณา
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="9" class="text-center py-5 text-muted">
+                                    <i class="bi bi-clock-history fs-1 text-secondary d-block mb-2"></i>
+                                    <h6 class="fw-bold text-dark">ยังไม่มีประวัติการคืนเงิน</h6>
+                                    <p class="small mb-0">รายการคำขอที่ผ่านการพิจารณาจะถูกจัดเก็บไว้ที่นี่เพื่อการตรวจสอบย้อนหลัง</p>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 

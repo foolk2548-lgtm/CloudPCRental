@@ -193,13 +193,12 @@
                 <div class="text-muted" style="font-size: 0.68rem;">2,500+ PTS</div>
                 @if (Model.TierLevel == 5) {
                     <span class="badge text-white mt-1 shadow-xs" style="font-size: 0.65rem; background: #8b5cf6;">ระดับของคุณ</span>
-                } else {
+                } else if (Model.TierLevel == 4) {
                     <span class="badge bg-purple-subtle text-purple border mt-1" style="font-size: 0.62rem; color: #8b5cf6; background: #f3e8ff;">เป้าหมายถัดไป</span>
                 }
             </div>
         </div>
     </div>
-</div>
 </div>
 
 <!-- 3. Interactive Tier Privilege Showcase (เลือกดูสิทธิพิเศษของแต่ละระดับ) -->
@@ -212,29 +211,33 @@
             <small class="text-muted">คลิกเลือกระดับด้านล่างเพื่อตรวจสอบสิทธิพิเศษที่จะได้รับในแต่ละขั้น</small>
         </div>
 
+        @{
+            var currentTierLower = (Model.TierName ?? "bronze").ToLower();
+        }
+
         <!-- Tab Pills to Switch Ranks -->
         <div class="btn-group p-1 bg-light rounded-pill border" role="group">
-            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn" onclick="switchTierView('bronze', this)">
-                <i class="bi bi-shield text-secondary me-1"></i>Bronze
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn @(currentTierLower == "bronze" ? "active btn-primary fw-semibold shadow-xs" : "")" onclick="switchTierView('bronze', this)">
+                <i class="bi bi-shield text-secondary me-1"></i>Bronze@(currentTierLower == "bronze" ? " (ปัจจุบัน)" : "")
             </button>
-            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn" onclick="switchTierView('silver', this)">
-                <i class="bi bi-shield-fill text-muted me-1"></i>Silver
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn @(currentTierLower == "silver" ? "active btn-primary fw-semibold shadow-xs" : "")" onclick="switchTierView('silver', this)">
+                <i class="bi bi-shield-fill text-muted me-1"></i>Silver@(currentTierLower == "silver" ? " (ปัจจุบัน)" : "")
             </button>
-            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn" onclick="switchTierView('gold', this)">
-                <i class="bi bi-shield-shaded text-warning me-1"></i>Gold
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn @(currentTierLower == "gold" ? "active btn-primary fw-semibold shadow-xs" : "")" onclick="switchTierView('gold', this)">
+                <i class="bi bi-shield-shaded text-warning me-1"></i>Gold@(currentTierLower == "gold" ? " (ปัจจุบัน)" : "")
             </button>
-            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn active btn-primary fw-semibold shadow-xs" onclick="switchTierView('platinum', this)">
-                <i class="bi bi-gem me-1"></i>Platinum (ปัจจุบัน)
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn @(currentTierLower == "platinum" ? "active btn-primary fw-semibold shadow-xs" : "")" onclick="switchTierView('platinum', this)">
+                <i class="bi bi-gem me-1"></i>Platinum@(currentTierLower == "platinum" ? " (ปัจจุบัน)" : "")
             </button>
-            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn" onclick="switchTierView('diamond', this)">
-                <i class="bi bi-trophy-fill text-purple me-1" style="color: #8b5cf6;"></i>Diamond
+            <button type="button" class="btn btn-sm rounded-pill px-3 tier-tab-btn @(currentTierLower == "diamond" ? "active btn-primary fw-semibold shadow-xs" : "")" onclick="switchTierView('diamond', this)">
+                <i class="bi bi-trophy-fill text-purple me-1" style="color: #8b5cf6;"></i>Diamond@(currentTierLower == "diamond" ? " (ปัจจุบัน)" : "")
             </button>
         </div>
     </div>
 
     <!-- Dynamic Tier Cards Container -->
     <div id="tierContentContainer">
-        <!-- Rendered by JavaScript: Default to Platinum -->
+        <!-- Rendered dynamically by JavaScript based on current tier -->
     </div>
 </div>
 
@@ -256,15 +259,37 @@
         <table class="table table-bordered align-middle text-center mb-0 small">
             <thead class="table-light">
                 <tr>
-                    <th class="text-start ps-3 py-3" style="width: 25%;">สิทธิประโยชน์ / บริการ</th>
-                    <th style="width: 15%;">🥉 Bronze</th>
-                    <th style="width: 15%;">🥈 Silver</th>
-                    <th style="width: 15%;">🥇 Gold</th>
-                    <th style="width: 16%; background-color: #e0f2fe; border: 2px solid #0284c7; color: #0369a1;" class="position-relative">
-                        <span class="badge bg-primary text-white position-absolute top-0 start-50 translate-middle" style="font-size: 0.6rem;">ระดับของคุณ</span>
+                    <th class="text-start ps-3 py-3" style="width: 24%;">สิทธิประโยชน์ / บริการ</th>
+                    <th style="width: 15%; @(currentTierLower == "bronze" ? "background-color: #e0f2fe; border: 2px solid #0284c7; color: #0369a1;" : "")" class="position-relative">
+                        @if (currentTierLower == "bronze") {
+                            <span class="badge bg-primary text-white position-absolute top-0 start-50 translate-middle shadow-xs" style="font-size: 0.6rem;">ระดับของคุณ</span>
+                        }
+                        🥉 Bronze
+                    </th>
+                    <th style="width: 15%; @(currentTierLower == "silver" ? "background-color: #e0f2fe; border: 2px solid #0284c7; color: #0369a1;" : "")" class="position-relative">
+                        @if (currentTierLower == "silver") {
+                            <span class="badge bg-primary text-white position-absolute top-0 start-50 translate-middle shadow-xs" style="font-size: 0.6rem;">ระดับของคุณ</span>
+                        }
+                        🥈 Silver
+                    </th>
+                    <th style="width: 15%; @(currentTierLower == "gold" ? "background-color: #e0f2fe; border: 2px solid #0284c7; color: #0369a1;" : "")" class="position-relative">
+                        @if (currentTierLower == "gold") {
+                            <span class="badge bg-primary text-white position-absolute top-0 start-50 translate-middle shadow-xs" style="font-size: 0.6rem;">ระดับของคุณ</span>
+                        }
+                        🥇 Gold
+                    </th>
+                    <th style="width: 16%; @(currentTierLower == "platinum" ? "background-color: #e0f2fe; border: 2px solid #0284c7; color: #0369a1;" : "")" class="position-relative">
+                        @if (currentTierLower == "platinum") {
+                            <span class="badge bg-primary text-white position-absolute top-0 start-50 translate-middle shadow-xs" style="font-size: 0.6rem;">ระดับของคุณ</span>
+                        }
                         💎 Platinum
                     </th>
-                    <th style="width: 14%; background-color: #faf5ff; color: #7e22ce;">👑 Diamond</th>
+                    <th style="width: 15%; @(currentTierLower == "diamond" ? "background-color: #e0f2fe; border: 2px solid #0284c7; color: #0369a1;" : "background-color: #faf5ff; color: #7e22ce;")" class="position-relative">
+                        @if (currentTierLower == "diamond") {
+                            <span class="badge bg-primary text-white position-absolute top-0 start-50 translate-middle shadow-xs" style="font-size: 0.6rem;">ระดับของคุณ</span>
+                        }
+                        👑 Diamond
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -272,63 +297,63 @@
                     <td class="text-start ps-3 fw-semibold text-dark">
                         <i class="bi bi-trophy me-2 text-warning"></i>เกณฑ์คะแนนสะสม
                     </td>
-                    <td>0 - 299 PTS</td>
-                    <td>300 - 699 PTS</td>
-                    <td>700 - 1,199 PTS</td>
-                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">1,200 - 2,499 PTS</td>
-                    <td class="fw-bold" style="color: #8b5cf6;">2,500+ PTS ขึ้นไป</td>
+                    <td class="@(currentTierLower == "bronze" ? "fw-bold text-primary bg-primary-subtle" : "")">0 - 299 PTS</td>
+                    <td class="@(currentTierLower == "silver" ? "fw-bold text-primary bg-primary-subtle" : "")">300 - 699 PTS</td>
+                    <td class="@(currentTierLower == "gold" ? "fw-bold text-primary bg-primary-subtle" : "")">700 - 1,199 PTS</td>
+                    <td class="@(currentTierLower == "platinum" ? "fw-bold text-primary bg-primary-subtle" : "")">1,200 - 2,499 PTS</td>
+                    <td class="fw-bold @(currentTierLower == "diamond" ? "text-primary bg-primary-subtle" : "")" style="color: #8b5cf6;">2,500+ PTS ขึ้นไป</td>
                 </tr>
                 <tr>
                     <td class="text-start ps-3 fw-semibold text-dark">
                         <i class="bi bi-percent me-2 text-danger"></i>ส่วนลดค่าเช่าทุกสเปก
                     </td>
-                    <td class="text-muted">-</td>
-                    <td><span class="badge bg-light text-dark border">ลด 5%</span></td>
-                    <td><span class="badge bg-warning-subtle text-dark border border-warning-subtle fw-semibold">ลด 10%</span></td>
-                    <td class="fw-bold text-success fs-6" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">ลดทันที 15%</td>
-                    <td class="fw-bold fs-6" style="color: #7e22ce;">ลดสูงสุด 25%</td>
+                    <td class="@(currentTierLower == "bronze" ? "fw-bold bg-primary-subtle" : "text-muted")">-</td>
+                    <td class="@(currentTierLower == "silver" ? "bg-primary-subtle" : "")"><span class="badge bg-light text-dark border">ลด 5%</span></td>
+                    <td class="@(currentTierLower == "gold" ? "bg-primary-subtle" : "")"><span class="badge bg-warning-subtle text-dark border border-warning-subtle fw-semibold">ลด 10%</span></td>
+                    <td class="fw-bold text-success fs-6 @(currentTierLower == "platinum" ? "bg-primary-subtle" : "")">ลดทันที 15%</td>
+                    <td class="fw-bold fs-6 @(currentTierLower == "diamond" ? "bg-primary-subtle" : "")" style="color: #7e22ce;">ลดสูงสุด 25%</td>
                 </tr>
                 <tr>
                     <td class="text-start ps-3 fw-semibold text-dark">
                         <i class="bi bi-coin me-2 text-warning"></i>ตัวคูณคะแนนสะสม (Multiplier)
                     </td>
-                    <td>x1.0 เท่า</td>
-                    <td>x1.2 เท่า</td>
-                    <td>x1.3 เท่า</td>
-                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">x1.5 เท่า</td>
-                    <td class="fw-bold" style="color: #8b5cf6;">x2.0 เท่า (คูณสอง)</td>
+                    <td class="@(currentTierLower == "bronze" ? "fw-bold text-primary bg-primary-subtle" : "")">x1.0 เท่า</td>
+                    <td class="@(currentTierLower == "silver" ? "fw-bold text-primary bg-primary-subtle" : "")">x1.2 เท่า</td>
+                    <td class="@(currentTierLower == "gold" ? "fw-bold text-primary bg-primary-subtle" : "")">x1.3 เท่า</td>
+                    <td class="fw-bold text-primary @(currentTierLower == "platinum" ? "bg-primary-subtle" : "")">x1.5 เท่า</td>
+                    <td class="fw-bold @(currentTierLower == "diamond" ? "bg-primary-subtle" : "")" style="color: #8b5cf6;">x2.0 เท่า (คูณสอง)</td>
                 </tr>
                 <tr>
                     <td class="text-start ps-3 fw-semibold text-dark">
                         <i class="bi bi-speedometer2 me-2 text-info"></i>ความเร็วอินเทอร์เน็ตเครื่อง (Bandwidth)
                     </td>
-                    <td>100 Mbps</td>
-                    <td>200 Mbps</td>
-                    <td>500 Mbps</td>
-                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">1 Gbps (ฟรี)</td>
-                    <td class="fw-bold" style="color: #8b5cf6;">2 Gbps ไม่จำกัด (ฟรี)</td>
+                    <td class="@(currentTierLower == "bronze" ? "fw-bold text-primary bg-primary-subtle" : "")">100 Mbps</td>
+                    <td class="@(currentTierLower == "silver" ? "fw-bold text-primary bg-primary-subtle" : "")">200 Mbps</td>
+                    <td class="@(currentTierLower == "gold" ? "fw-bold text-primary bg-primary-subtle" : "")">500 Mbps</td>
+                    <td class="fw-bold text-primary @(currentTierLower == "platinum" ? "bg-primary-subtle" : "")">1 Gbps (ฟรี)</td>
+                    <td class="fw-bold @(currentTierLower == "diamond" ? "bg-primary-subtle" : "")" style="color: #8b5cf6;">2 Gbps ไม่จำกัด (ฟรี)</td>
                 </tr>
                 <tr>
                     <td class="text-start ps-3 fw-semibold text-dark">
                         <i class="bi bi-hdd-network me-2 text-primary"></i>พื้นที่ Cloud Storage ฟรี
                     </td>
-                    <td>10 GB</td>
-                    <td>25 GB</td>
-                    <td>50 GB</td>
-                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">100 GB</td>
-                    <td class="fw-bold" style="color: #8b5cf6;">250 GB สำหรับเก็บเกม/งาน</td>
+                    <td class="@(currentTierLower == "bronze" ? "fw-bold text-primary bg-primary-subtle" : "")">10 GB</td>
+                    <td class="@(currentTierLower == "silver" ? "fw-bold text-primary bg-primary-subtle" : "")">25 GB</td>
+                    <td class="@(currentTierLower == "gold" ? "fw-bold text-primary bg-primary-subtle" : "")">50 GB</td>
+                    <td class="fw-bold text-primary @(currentTierLower == "platinum" ? "bg-primary-subtle" : "")">100 GB</td>
+                    <td class="fw-bold @(currentTierLower == "diamond" ? "bg-primary-subtle" : "")" style="color: #8b5cf6;">250 GB สำหรับเก็บเกม/งาน</td>
                 </tr>
                 <tr>
                     <td class="text-start ps-3 fw-semibold text-dark">
                         <i class="bi bi-shield-check me-2 text-success"></i>สิทธิ์จองคิวด่วนพิเศษ
                     </td>
-                    <td class="text-muted"><i class="bi bi-dash"></i></td>
-                    <td>จองล่วงหน้า 1 วัน</td>
-                    <td>จองล่วงหน้า 3 วัน</td>
-                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">
+                    <td class="@(currentTierLower == "bronze" ? "bg-primary-subtle text-muted" : "text-muted")"><i class="bi bi-dash"></i></td>
+                    <td class="@(currentTierLower == "silver" ? "bg-primary-subtle" : "")">จองล่วงหน้า 1 วัน</td>
+                    <td class="@(currentTierLower == "gold" ? "bg-primary-subtle" : "")">จองล่วงหน้า 3 วัน</td>
+                    <td class="fw-bold text-primary @(currentTierLower == "platinum" ? "bg-primary-subtle" : "")">
                         <i class="bi bi-check-circle-fill text-primary me-1"></i> คิวด่วนพิเศษ
                     </td>
-                    <td class="fw-bold" style="color: #8b5cf6;">
+                    <td class="fw-bold @(currentTierLower == "diamond" ? "bg-primary-subtle" : "")" style="color: #8b5cf6;">
                         <i class="bi bi-star-fill text-warning me-1"></i> VIP ล็อคเครื่องล่วงหน้า 7 วัน
                     </td>
                 </tr>
@@ -336,21 +361,21 @@
                     <td class="text-start ps-3 fw-semibold text-dark">
                         <i class="bi bi-headset me-2 text-secondary"></i>ช่องทางดูแลช่วยเหลือพิเศษ
                     </td>
-                    <td>แชทในเวลาทำการ</td>
-                    <td>ตอบกลับใน 1 ชม.</td>
-                    <td>แชทด่วนพิเศษ</td>
-                    <td class="fw-semibold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">เจ้าหน้าที่ดูแลเฉพาะ</td>
-                    <td class="fw-bold" style="color: #8b5cf6;">ผู้ดูแลระบบ VIP 24/7</td>
+                    <td class="@(currentTierLower == "bronze" ? "bg-primary-subtle" : "")">แชทในเวลาทำการ</td>
+                    <td class="@(currentTierLower == "silver" ? "bg-primary-subtle" : "")">ตอบกลับใน 1 ชม.</td>
+                    <td class="@(currentTierLower == "gold" ? "bg-primary-subtle" : "")">แชทด่วนพิเศษ</td>
+                    <td class="fw-semibold text-primary @(currentTierLower == "platinum" ? "bg-primary-subtle" : "")">เจ้าหน้าที่ดูแลเฉพาะ</td>
+                    <td class="fw-bold @(currentTierLower == "diamond" ? "bg-primary-subtle" : "")" style="color: #8b5cf6;">ผู้ดูแลระบบ VIP 24/7</td>
                 </tr>
                 <tr>
                     <td class="text-start ps-3 fw-semibold text-dark">
                         <i class="bi bi-gift me-2 text-danger"></i>ของขวัญวันเกิด (Birthday Gift)
                     </td>
-                    <td>50 PTS</td>
-                    <td>100 PTS</td>
-                    <td>200 PTS</td>
-                    <td class="fw-bold text-primary" style="background-color: #f0f9ff; border-left: 2px solid #0284c7; border-right: 2px solid #0284c7;">300 PTS</td>
-                    <td class="fw-bold text-danger">เช่าเครื่องฟรี 4 ชม.</td>
+                    <td class="@(currentTierLower == "bronze" ? "bg-primary-subtle fw-bold text-primary" : "")">50 PTS</td>
+                    <td class="@(currentTierLower == "silver" ? "bg-primary-subtle fw-bold text-primary" : "")">100 PTS</td>
+                    <td class="@(currentTierLower == "gold" ? "bg-primary-subtle fw-bold text-primary" : "")">200 PTS</td>
+                    <td class="fw-bold text-primary @(currentTierLower == "platinum" ? "bg-primary-subtle" : "")">300 PTS</td>
+                    <td class="fw-bold text-danger @(currentTierLower == "diamond" ? "bg-primary-subtle" : "")">เช่าเครื่องฟรี 4 ชม.</td>
                 </tr>
             </tbody>
         </table>
@@ -368,7 +393,7 @@
             <ul class="list-unstyled mb-0 small text-secondary d-flex flex-column gap-2">
                 <li class="d-flex align-items-start gap-2">
                     <i class="bi bi-check2 text-success fs-6 mt-n1"></i>
-                    <div><strong>เช่าคอมพิวเตอร์ Cloud PC:</strong> ทุกการใช้จ่าย 10 บาท รับ 1 คะแนน (สำหรับระดับ Platinum รับคูณ 1.5 เท่า)</div>
+                    <div><strong>เช่าคอมพิวเตอร์ Cloud PC:</strong> ทุกการใช้จ่าย 10 บาท รับ 1 คะแนน (สำหรับระดับ @(Model?.TierName ?? "Bronze") รับคูณ @((Model?.Multiplier ?? 1.0).ToString("0.0")) เท่า)</div>
                 </li>
                 <li class="d-flex align-items-start gap-2">
                     <i class="bi bi-check2 text-success fs-6 mt-n1"></i>
@@ -415,7 +440,7 @@
 <div class="card-cloudpc bg-white p-4 border rounded-4 shadow-sm">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
-            <h6 class="fw-bold mb-0 text-dark">ประวัติคะแนนสะสม ทั้งหมด @(Model.Transactions?.Count ?? 0) รายการ</h6>
+            <h6 class="fw-bold mb-0 text-dark">ประวัติคะแนนสะสม ทั้งหมด @(Model?.Transactions?.Count ?? 0) รายการ</h6>
             <small class="text-muted">รายการรับและใช้คะแนนสะสมของคุณ (คำนวณอัตโนมัติทุกการเช่าเครื่อง)</small>
         </div>
         <div class="d-flex gap-2">
@@ -440,12 +465,12 @@
                 </tr>
             </thead>
             <tbody>
-                @if (Model.Transactions != null && Model.Transactions.Any())
+                @if (Model?.Transactions != null && Model.Transactions.Any())
                 {
                     foreach (var txn in Model.Transactions)
                     {
                         var isReceive = txn.Type == "receive";
-                        <tr data-type="@txn.Type" data-search="@(txn.ReferenceCode.ToLower()) @(txn.Description.ToLower())">
+                        <tr data-type="@txn.Type" data-search="@(txn.ReferenceCode?.ToLower()) @(txn.Description?.ToLower())">
                             <td class="ps-3 fw-bold text-dark font-monospace">@txn.ReferenceCode</td>
                             <td>@txn.CreatedAt.ToString("d MMM yyyy, HH:mm น.", new System.Globalization.CultureInfo("th-TH"))</td>
                             <td>
@@ -539,7 +564,7 @@
         },
         platinum: {
             name: "Platinum",
-            badge: "💎 ระดับแพลตทินัม (1,200 - 2,499 PTS) • ระดับปัจจุบันของคุณ",
+            badge: "💎 ระดับแพลตทินัม (1,200 - 2,499 PTS)",
             themeColor: "#0284c7",
             bgClass: "bg-info-subtle",
             borderClass: "border-info-subtle",
@@ -580,7 +605,8 @@
     };
 
     function renderTierCards(tierKey) {
-        const tier = tierDetails[tierKey] || tierDetails.platinum;
+        const userCurrentTier = "@((Model?.TierName ?? "bronze").ToLower())";
+        const tier = tierDetails[tierKey] || tierDetails[userCurrentTier] || tierDetails.bronze;
         const container = document.getElementById("tierContentContainer");
         if (!container) return;
 
@@ -599,14 +625,15 @@
             `;
         });
 
-        const isCurrent = (tierKey === "platinum");
+        const isCurrent = (tierKey.toLowerCase() === userCurrentTier);
+        const displayBadge = tier.badge + (isCurrent ? " • ระดับปัจจุบันของคุณ" : "");
 
         container.innerHTML = `
             <div class="p-3 mb-3 rounded-3 border d-flex justify-content-between align-items-center flex-wrap gap-2" style="background-color: ${isCurrent ? '#f0f9ff' : '#f8fafc'}; border-color: ${tier.themeColor} !important;">
                 <div class="d-flex align-items-center gap-2">
                     <span class="fs-4" style="color: ${tier.themeColor};"><i class="bi bi-patch-check-fill"></i></span>
                     <div>
-                        <div class="fw-bold text-dark fs-6">${tier.badge}</div>
+                        <div class="fw-bold text-dark fs-6">${displayBadge}</div>
                         <div class="text-muted small">${tier.desc}</div>
                     </div>
                 </div>
@@ -659,7 +686,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", function () {
-        renderTierCards("@(Model.TierName.ToLower())");
+        renderTierCards("@((Model?.TierName ?? "bronze").ToLower())");
     });
 </script>
 }

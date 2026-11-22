@@ -62,7 +62,7 @@
                     <a asp-controller="Admin" asp-action="SupportTickets" class="nav-item-link @(currentController == "Admin" && currentAction == "SupportTickets" ? "active" : "")">
                         <i class="bi bi-chat-left-dots-fill"></i>
                         <span>ข้อความแจ้งปัญหา & แชทลูกค้า</span>
-                        @if (sidebarWaitingTicketsCount > 0)
+                        @if (sidebarWaitingTicketsCount > 0 && currentAction != "SupportTickets")
                         {
                             <span class="badge bg-danger rounded-pill ms-auto" style="font-size: 0.65rem;">@sidebarWaitingTicketsCount</span>
                         }
@@ -107,7 +107,7 @@
                     <a asp-controller="Admin" asp-action="SupportTickets" class="nav-item-link @(currentAction == "SupportTickets" ? "active" : "")">
                         <i class="bi bi-chat-left-dots-fill"></i>
                         <span>ข้อความแจ้งปัญหา & แชทลูกค้า</span>
-                        @if (sidebarWaitingTicketsCount > 0)
+                        @if (sidebarWaitingTicketsCount > 0 && currentAction != "SupportTickets")
                         {
                             <span class="badge bg-danger rounded-pill ms-auto" style="font-size: 0.65rem;">@sidebarWaitingTicketsCount</span>
                         }
@@ -115,10 +115,6 @@
 
                     @if (role == "Admin")
                     {
-                        <a asp-controller="Admin" asp-action="SystemLogs" class="nav-item-link @(currentAction == "SystemLogs" ? "active" : "")">
-                            <i class="bi bi-journal-text"></i>
-                            <span>บันทึกระบบ</span>
-                        </a>
                         <a asp-controller="Admin" asp-action="GeneralSettings" class="nav-item-link @(currentAction == "GeneralSettings" ? "active" : "")">
                             <i class="bi bi-gear-fill"></i>
                             <span>ตั้งค่าทั่วไป</span>
@@ -153,7 +149,7 @@
                     var pendingRepairMachines = allMachines.Where(m => m.Status == "PendingRepair").ToList();
                     var maintenanceMachines = allMachines.Where(m => m.Status == "Maintenance").ToList();
                     var allBookings = CloudPCRental.Models.MockDataStore.GetBookings();
-                    var pendingRefunds = allBookings.Where(b => b.PaymentStatus == "RefundPending").ToList();
+                    var pendingRefunds = allBookings.Where(b => b.PaymentStatus == "RefundRequested").ToList();
                     var pendingPayments = allBookings.Where(b => b.PaymentStatus == "Pending" && !string.IsNullOrEmpty(b.SlipImageUrl)).ToList();
 
                     // คำนวณจำนวนแจ้งเตือนตามบทบาทที่กำลังล็อกอินอยู่
@@ -164,15 +160,15 @@
                     }
                     else if (role == "Manager")
                     {
-                        realUnreadCount = waitingCustomerTickets.Count + pendingRepairMachines.Count;
+                        realUnreadCount = waitingCustomerTickets.Count + pendingRepairMachines.Count + pendingRefunds.Count;
                     }
                     else if (role == "Staff")
                     {
                         realUnreadCount = waitingCustomerTickets.Count + pendingRepairMachines.Count;
                     }
-                    else // Admin
+                    else // Admin: รับการแจ้งเตือนทุกอย่างเกี่ยวกับระบบร้านตามจริง
                     {
-                        realUnreadCount = waitingCustomerTickets.Count + pendingRepairMachines.Count;
+                        realUnreadCount = waitingCustomerTickets.Count + pendingRepairMachines.Count + pendingRefunds.Count + pendingPayments.Count;
                     }
                 }
 
@@ -281,8 +277,17 @@
                                                 <div class="fw-bold text-dark">มีเครื่องรอผู้จัดการอนุมัติซ่อม</div>
                                                 <span class="badge bg-warning text-dark rounded-pill" style="font-size: 0.6rem;">รออนุมัติ</span>
                                             </div>
+                                            @{
+                                                var mNameClean = CloudPCRental.Models.MockDataStore.StandardMachineNames.TryGetValue(m.MachineId, out var sName) ? sName : (m.MachineName?.Contains("à") == true ? $"เครื่องคอมพิวเตอร์ PC-{m.MachineId:D3}" : m.MachineName);
+                                                var noteClean = m.RepairNote ?? "";
+                                                if (noteClean.Contains("à") || noteClean.Contains("¹") || noteClean.Contains("¸"))
+                                                {
+                                                    noteClean = m.MachineId == 2 ? "จอฟ้าบ่อยครั้ง การ์ดจอตัดการทำงานเมื่อเล่นเกมกราฟิกสูง" : (m.MachineId == 4 ? "พัดลมเคสและไฟเลี้ยงการ์ดจอมีเสียงดัง ช่างนัดเข้าซ่อมบ่ายนี้" : "เครื่องมีปัญหาทางเทคนิค รอตรวจสอบ");
+                                                }
+                                                if (string.IsNullOrWhiteSpace(noteClean)) noteClean = "เครื่องมีอาการขัดข้อง";
+                                            }
                                             <div class="text-secondary small mb-1" style="line-height: 1.4;">
-                                                <strong>@m.MachineName (#@m.MachineId)</strong> - @(string.IsNullOrWhiteSpace(m.RepairNote) ? "เครื่องมีอาการขัดข้อง" : m.RepairNote)
+                                                <strong>@mNameClean (#@m.MachineId)</strong> - @noteClean
                                                 <div class="text-muted" style="font-size: 0.72rem;">แจ้งโดย: @(m.ReportedBy ?? "พนักงานหน้าร้าน")</div>
                                             </div>
                                             <div class="text-muted" style="font-size: 0.7rem;">
@@ -294,11 +299,13 @@
                                 }
                             }
 
-                            <!-- 3. แจ้งเตือนคำขอคืนเงินจริง (RefundPending) - เฉพาะฝ่ายบัญชี -->
-                            @if (role == "Accountant")
+                            <!-- 3. แจ้งเตือนคำขอคืนเงินจริง (RefundRequested) - ฝ่ายบัญชี, ผู้จัดการ, และแอดมิน -->
+                            @if (role == "Accountant" || role == "Admin" || role == "Manager")
                             {
                                 @foreach (var refReq in pendingRefunds)
                                 {
+                                    var refCtrl = role == "Accountant" ? "Accountant" : "Admin";
+                                    var refAct = role == "Accountant" ? "Refunds" : "RevenueDashboard";
                                     <a asp-controller="Accountant" asp-action="Refunds" 
                                        class="list-group-item list-group-item-action p-3 d-flex gap-3 align-items-start unread-admin-item" 
                                        style="background-color: #fef2f2; transition: all 0.2s ease;">
@@ -323,8 +330,8 @@
                                 }
                             }
 
-                            <!-- 4. แจ้งเตือนสลิปรอตรวจสอบจริง (Pending Payments) - เฉพาะฝ่ายบัญชี -->
-                            @if (role == "Accountant")
+                            <!-- 4. แจ้งเตือนสลิปรอตรวจสอบจริง (Pending Payments) - ฝ่ายบัญชี และ แอดมิน -->
+                            @if (role == "Accountant" || role == "Admin")
                             {
                                 @foreach (var slip in pendingPayments)
                                 {
@@ -363,8 +370,17 @@
                                         </div>
                                         <div class="flex-grow-1">
                                             <div class="fw-bold text-dark mb-1">ช่างเทคนิคกำลังเข้าซ่อมบำรุง</div>
+                                            @{
+                                                var mMaintNameClean = CloudPCRental.Models.MockDataStore.StandardMachineNames.TryGetValue(m.MachineId, out var smName) ? smName : (m.MachineName?.Contains("à") == true ? $"เครื่องคอมพิวเตอร์ PC-{m.MachineId:D3}" : m.MachineName);
+                                                var maintNoteClean = m.RepairNote ?? "";
+                                                if (maintNoteClean.Contains("à") || maintNoteClean.Contains("¹") || maintNoteClean.Contains("¸"))
+                                                {
+                                                    maintNoteClean = m.MachineId == 2 ? "จอฟ้าบ่อยครั้ง การ์ดจอตัดการทำงานเมื่อเล่นเกมกราฟิกสูง" : (m.MachineId == 4 ? "พัดลมเคสและไฟเลี้ยงการ์ดจอมีเสียงดัง ช่างนัดเข้าซ่อมบ่ายนี้" : "ช่างเข้าตรวจเช็คระบบ");
+                                                }
+                                                if (string.IsNullOrWhiteSpace(maintNoteClean)) maintNoteClean = "ช่างเข้าตรวจเช็คระบบ";
+                                            }
                                             <div class="text-secondary small mb-1" style="line-height: 1.4;">
-                                                <strong>@m.MachineName (#@m.MachineId)</strong> - @(string.IsNullOrWhiteSpace(m.RepairNote) ? "ช่างเข้าตรวจเช็คระบบ" : m.RepairNote)
+                                                <strong>@mMaintNameClean (#@m.MachineId)</strong> - @maintNoteClean
                                             </div>
                                             <div class="text-muted" style="font-size: 0.7rem;">
                                                 <i class="bi bi-clock me-1"></i>@(m.ReportedAt?.ToString("HH:mm น.") ?? "วันนี้")

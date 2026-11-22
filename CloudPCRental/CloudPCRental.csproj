@@ -4,8 +4,10 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- ปิด Hot Reload ใน dotnet watch เพื่อป้องกัน Unexpected true crash บน OneDrive / ย้ายโฟลเดอร์ -->
+    <!-- ปิด Hot Reload ใน dotnet watch เพื่อป้องกัน Unexpected true crash เมื่อมีการอัปโหลดรูปภาพหรือบันทึกไฟล์ -->
     <EnableHotReload>false</EnableHotReload>
+    <HotReloadEnabled>false</HotReloadEnabled>
+    <DefaultItemExcludes>$(DefaultItemExcludes);wwwroot\uploads\**;App_Data\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,12 +20,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- ป้องกันไม่ให้ dotnet watch แครชเมื่อมีการบันทึกข้อมูลหรืออัปโหลดสลิป -->
+    <!-- ป้องกันไม่ให้ dotnet watch แครชเมื่อมีการบันทึกข้อมูลหรืออัปโหลดสลิป/รูปภาพ -->
     <Content Update="App_Data\**" Watch="false" />
     <Content Update="wwwroot\uploads\**" Watch="false" />
     <None Update="App_Data\**" Watch="false" />
     <None Update="wwwroot\uploads\**" Watch="false" />
-    <Watch Remove="App_Data\**;wwwroot\uploads\**" />
+    <Watch Remove="App_Data\**;wwwroot\uploads\**;wwwroot\**\*.png;wwwroot\**\*.jpg;wwwroot\**\*.jpeg;wwwroot\**\*.webp;wwwroot\**\*.gif" />
   </ItemGroup>
 
 </Project>

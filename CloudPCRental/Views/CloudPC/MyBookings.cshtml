@@ -3,6 +3,326 @@
     ViewData["Title"] = "ประวัติการจองของฉัน";
 }
 
+<style>
+    /* สไตล์สำหรับ Virtual Cloud PC Desktop Simulator */
+    .vdesktop-frame {
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #1e293b;
+        background: #090d16;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+        position: relative;
+    }
+    .vdesktop-frame.vfullscreen {
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 1060 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        border-radius: 0 !important;
+        display: flex;
+        flex-direction: column;
+    }
+    .vdesktop-frame.vfullscreen .vdesktop-screen {
+        flex: 1;
+        min-height: 0 !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+    }
+    .vdesktop-topbar {
+        background: #0f172a;
+        color: #94a3b8;
+        padding: 7px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #1e293b;
+    }
+    .vdot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .vdesktop-screen {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        min-height: 440px;
+        max-height: 520px;
+        background: #020617;
+        overflow: hidden;
+        user-select: none;
+    }
+    .vscreen-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+    }
+    /* Standby Layer */
+    .vstandby-layer {
+        background: radial-gradient(circle at 50% 35%, #1e1b4b 0%, #090d16 75%, #020617 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+    .vstandby-pulse-circle {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: rgba(234, 179, 8, 0.15);
+        border: 2px solid rgba(234, 179, 8, 0.5);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        animation: vPulse 2.5s infinite ease-in-out;
+    }
+    @@keyframes vPulse {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(234, 179, 8, 0.2); }
+        50% { transform: scale(1.08); box-shadow: 0 0 35px rgba(234, 179, 8, 0.45); }
+    }
+    /* Active Windows 11 Desktop Layer */
+    .vdesktop-layer {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    .vdesktop-wallpaper {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, #090d16 0%, #1e1b4b 50%, #020617 100%);
+        background-image: radial-gradient(at 80% 20%, rgba(99, 102, 241, 0.35) 0px, transparent 50%),
+                          radial-gradient(at 20% 80%, rgba(236, 72, 153, 0.25) 0px, transparent 50%),
+                          radial-gradient(at 50% 50%, rgba(59, 130, 246, 0.3) 0px, transparent 60%);
+        z-index: 1;
+    }
+    .vdesktop-icons-grid {
+        position: absolute;
+        top: 15px;
+        left: 15px;
+        display: flex;
+        flex-direction: column;
+        flex-wrap: wrap;
+        gap: 15px;
+        max-height: calc(100% - 70px);
+        z-index: 5;
+    }
+    .vdesk-icon {
+        width: 76px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 6px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    .vdesk-icon:hover {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(8px);
+        transform: translateY(-2px);
+    }
+    .vdesk-icon-img {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.45rem;
+        margin-bottom: 4px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    }
+    .vdesk-icon-label {
+        color: #ffffff;
+        font-size: 0.68rem;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 72px;
+    }
+    /* Simulated Windows */
+    .vwindow {
+        position: absolute;
+        top: 35px;
+        left: 110px;
+        right: 25px;
+        bottom: 60px;
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 10px;
+        overflow: hidden;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+        animation: vWinPop 0.2s ease-out;
+    }
+    @@keyframes vWinPop {
+        from { transform: scale(0.96); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    .vwindow-header {
+        padding: 8px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid #1e293b;
+    }
+    .vwindow-body {
+        flex: 1;
+        overflow-y: auto;
+    }
+    .vtaskbar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 44px;
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(16px);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        z-index: 30;
+    }
+    .vtaskbar-center {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .vtask-btn {
+        width: 34px;
+        height: 34px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.15rem;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+    .vtask-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+    }
+    .vtaskbar-tray {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 0.72rem;
+        color: #e2e8f0;
+    }
+    .vtray-clock {
+        font-family: monospace;
+        font-size: 0.75rem;
+    }
+    .vblink-cursor {
+        animation: vBlink 1s infinite;
+    }
+    @@keyframes vBlink {
+        0%, 50% { opacity: 1; }
+        51%, 100% { opacity: 0; }
+    }
+
+    /* สไตล์สำหรับการพิมพ์รายงานประวัติการจองเป็น PDF */
+    @@media print {
+        body > header,
+        body > footer,
+        aside,
+        .sidebar-panel,
+        .top-user-bar,
+        .btn,
+        .alert,
+        #liveChatWidget,
+        .chat-widget,
+        .d-print-none,
+        #bookingSearchInput,
+        #bookingStatusFilter {
+            display: none !important;
+            visibility: hidden !important;
+        }
+
+        .layout-with-sidebar,
+        .main-content-panel,
+        body, html {
+            display: block !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #111827 !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Sarabun", sans-serif !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        .card-cloudpc {
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin-bottom: 0 !important;
+        }
+
+        .table-responsive {
+            overflow: visible !important;
+        }
+
+        #bookingsTable {
+            width: 100% !important;
+            border-collapse: collapse !important;
+        }
+
+        #bookingsTable th, #bookingsTable td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 8px 10px !important;
+            font-size: 0.8rem !important;
+        }
+
+        #bookingsTable th:last-child, #bookingsTable td:last-child {
+            display: none !important; /* ซ่อนคอลัมน์การจัดการในการพิมพ์รายงานสรุป */
+        }
+
+        .d-print-header {
+            display: block !important;
+            margin-bottom: 20px !important;
+            border-bottom: 2px solid #0f172a !important;
+            padding-bottom: 12px !important;
+        }
+
+        @@page {
+            size: A4 landscape;
+            margin: 10mm 12mm;
+        }
+    }
+</style>
+
+<!-- Print Report Header (แสดงเฉพาะเมื่อกดพิมพ์ / ดาวน์โหลด PDF) -->
+<div class="d-none d-print-header">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h4 class="fw-bold text-dark mb-0"><i class="bi bi-cpu-fill text-primary"></i> CloudPC Thailand - รายงานประวัติการจองเครื่องคอมพิวเตอร์</h4>
+            <div class="small text-muted">บริษัท คลาวด์พีซี เซอร์วิสเซส (ประเทศไทย) จำกัด | ระบบเช่าคอมพิวเตอร์ออนไลน์ประสิทธิภาพสูง</div>
+        </div>
+        <div class="text-end small text-muted">
+            <div>ผู้ใช้งาน: <strong>@(User?.Identity?.Name ?? "ลูกค้าผู้ใช้บริการ")</strong></div>
+            <div>ออกรายงานเมื่อ: @CloudPCRental.Models.MockDataStore.GetCurrentThaiDateTime()</div>
+        </div>
+    </div>
+</div>
+
 <!-- Page Alert Container -->
 <div id="pageAlertBox" class="alert alert-success d-none shadow-sm border-0 d-flex align-items-center mb-4 rounded-3" role="alert">
     <i class="bi bi-check-circle-fill fs-5 me-2" id="pageAlertIcon"></i>
@@ -65,19 +385,19 @@
 </div>
 
 <!-- Bookings Table Section -->
-<div class="card-cloudpc bg-white p-4 mb-4 border rounded-4 shadow-sm">
+<div class="card-cloudpc bg-white p-4 mb-5 border rounded-4 shadow-sm" style="margin-bottom: 90px !important;">
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <h6 class="fw-bold mb-0 text-dark">
-            <i class="bi bi-list-task text-primary me-1"></i> รายการประวัติการจองทั้งหมด @(ViewBag.TotalBookingsCount ?? 4) รายการ
+            <i class="bi bi-list-task text-primary me-1"></i> รายการประวัติการจองทั้งหมด @(ViewBag.TotalBookingsCount ?? 0) รายการ
         </h6>
-        <div class="d-flex gap-2">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
             <input type="text" id="bookingSearchInput" class="form-control form-control-sm rounded-2" 
-                   placeholder="ค้นหาเลขที่จอง, ชื่อเครื่อง..." style="width: 210px;" oninput="filterBookingsTable()" />
-            <select id="bookingStatusFilter" class="form-select form-select-sm rounded-2" style="width: 150px;" onchange="filterBookingsTable()">
+                   placeholder="ค้นหาเลขที่จอง, ชื่อเครื่อง..." style="width: 190px;" oninput="filterBookingsTable()" />
+            <select id="bookingStatusFilter" class="form-select form-select-sm rounded-2" style="width: 140px;" onchange="filterBookingsTable()">
                 <option value="all" selected>สถานะทั้งหมด</option>
-                <option value="booked">จอง</option>
-                <option value="completed">เสร็จ</option>
-                <option value="cancelled">ยกเลิก</option>
+                <option value="booked">จอง / กำลังใช้งาน</option>
+                <option value="completed">เสร็จสิ้น</option>
+                <option value="cancelled">ยกเลิก / คืนเงิน</option>
             </select>
         </div>
     </div>
@@ -86,235 +406,239 @@
         <table class="table table-hover align-middle mb-0 small" id="bookingsTable">
             <thead class="table-light text-muted">
                 <tr>
-                    <th class="ps-3">เลขที่จอง</th>
-                    <th>ชื่อเครื่อง</th>
-                    <th>วันเวลา</th>
-                    <th>สถานะ</th>
-                    <th class="text-end pe-3">จัดการ</th>
+                    <th class="ps-3 py-3" style="width: 130px; white-space: nowrap;">เลขที่จอง</th>
+                    <th class="py-3" style="min-width: 220px;">ชื่อเครื่อง</th>
+                    <th class="py-3" style="min-width: 260px;">วันเวลาที่จอง</th>
+                    <th class="py-3" style="width: 190px; white-space: nowrap;">สถานะ</th>
+                    <th class="text-end pe-3 py-3" style="min-width: 210px; white-space: nowrap;">การจัดการ</th>
                 </tr>
             </thead>
             <tbody>
-                @* 1. รายการเครื่องใหม่ที่ผู้ใช้เพิ่งกดเช่าเข้ามาแบบเรียลไทม์ *@
-                @if (ViewBag.NewBookings != null)
+                @if (ViewBag.NewBookings != null && ((List<CloudPCRental.Models.Booking>)ViewBag.NewBookings).Any())
                 {
+                    var thaiCulture = new System.Globalization.CultureInfo("th-TH");
                     foreach (var nb in (List<CloudPCRental.Models.Booking>)ViewBag.NewBookings)
                     {
                         var machine = nb.Machine ?? CloudPCRental.Models.MockDataStore.GetMachineById(nb.MachineId);
-                        var mName = machine?.MachineName ?? "Cloud PC";
+                        var mName = (machine != null && CloudPCRental.Models.MockDataStore.StandardMachineNames.TryGetValue(machine.MachineId, out var sName))
+                            ? sName 
+                            : (machine?.MachineName ?? "Cloud PC");
+                        if (mName.Contains("à") || mName.Contains("¹") || mName.Contains("¸") || string.IsNullOrWhiteSpace(mName)) 
+                            mName = CloudPCRental.Models.MockDataStore.StandardMachineNames.GetValueOrDefault(nb.MachineId, $"เครื่องคอมพิวเตอร์ PC-{nb.MachineId:D3}");
+
                         var mSpec = $"Spec: {machine?.CPU ?? "High CPU"} | {machine?.RAM ?? "32GB RAM"} | {machine?.GPU ?? "High GPU"}";
-                        var timeText = !string.IsNullOrEmpty(nb.Note) && nb.Note.Contains("(") ? nb.Note : $"{nb.PaymentDate.ToString("d MMM yyyy, HH:mm", new System.Globalization.CultureInfo("th-TH"))} - {nb.PaymentDate.AddHours(nb.RentalHours):HH:mm} ({nb.RentalHours} ชม.)";
-                        string rowStatus = (nb.PaymentStatus == "Refunded" || nb.PaymentStatus == "RefundRejected" || nb.PaymentStatus == "Rejected") ? "cancelled" : (nb.PaymentStatus == "RefundRequested" || nb.PaymentStatus == "Pending" ? "pending" : "booked");
+                        
+                        string timeText;
+                        if (nb.MachineId == 0 || (nb.Note != null && (nb.Note.Contains("เติมเงิน") || nb.Note.Contains("Wallet"))))
+                        {
+                            timeText = $"{nb.PaymentDate.ToString("d MMMM yyyy, HH:mm น.", thaiCulture)} (เติมเงินเข้ากระเป๋าเงิน)";
+                        }
+                        else if (!string.IsNullOrEmpty(nb.Note) && nb.Note.Contains("(") && !nb.Note.Contains("à") && !nb.Note.Contains("¹") && !nb.Note.Contains("¸"))
+                        {
+                            timeText = nb.Note;
+                        }
+                        else
+                        {
+                            timeText = $"{nb.PaymentDate.ToString("d MMMM yyyy, HH:mm", thaiCulture)} - {nb.PaymentDate.AddHours(nb.RentalHours):HH:mm น.} ({nb.RentalHours} ชม.)";
+                        }
+
+                        string rowStatus = (nb.PaymentStatus == "Completed") 
+                            ? "completed" 
+                            : ((nb.PaymentStatus == "Refunded" || nb.PaymentStatus == "RefundRejected" || nb.PaymentStatus == "Rejected") 
+                                ? "cancelled" 
+                                : ((nb.PaymentStatus == "RefundRequested" || nb.PaymentStatus == "Pending") 
+                                    ? "pending" 
+                                    : "booked"));
 
                         <tr id="bookingRow@(nb.BookingId)" data-status="@rowStatus" data-search="#cpc-@nb.BookingId @mName.ToLower()">
-                            <td class="ps-3 fw-bold text-primary font-monospace">#CPC-@nb.BookingId</td>
+                            <td class="ps-3" style="white-space: nowrap;">
+                                <a asp-action="Receipt" asp-route-id="@nb.BookingId" target="_blank" class="fw-bold text-primary font-monospace text-decoration-none" title="คลิกเพื่อดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">
+                                    <i class="bi bi-receipt me-1"></i>#CPC-@nb.BookingId
+                                </a>
+                            </td>
                             <td>
                                 <div class="fw-bold text-dark d-flex align-items-center gap-1">
                                     <span>@mName</span>
-                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.65rem;">เครื่องเช่าใหม่</span>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle" style="font-size: 0.65rem;">เครื่องเช่า</span>
                                 </div>
                                 <div class="text-muted" style="font-size: 0.72rem;">@mSpec</div>
                             </td>
-                            <td>@timeText</td>
-                            <td id="statusCell@(nb.BookingId)">
+                            <td id="bookingTime@(nb.BookingId)" style="white-space: normal; line-height: 1.4;">@timeText</td>
+                            <td id="statusCell@(nb.BookingId)" style="white-space: nowrap;">
                                 @if (nb.PaymentStatus == "Pending")
                                 {
-                                    <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                    <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;">
                                         <i class="bi bi-hourglass-split me-1 text-warning-emphasis"></i> รอฝ่ายบัญชีตรวจสอบสลิป
                                     </span>
                                 }
                                 else if (nb.PaymentStatus == "Rejected")
                                 {
-                                    <span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                    <span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;">
                                         <i class="bi bi-x-circle me-1"></i> ปฏิเสธสลิปโอนเงิน
                                     </span>
                                 }
                                 else if (nb.PaymentStatus == "RefundRequested")
                                 {
-                                    <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                    <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;">
                                         <i class="bi bi-hourglass-split me-1 text-warning-emphasis"></i> รอฝ่ายบัญชีตรวจสอบคืนเงิน
                                     </span>
                                 }
                                 else if (nb.PaymentStatus == "Refunded")
                                 {
-                                    <span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                    <span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;">
                                         <i class="bi bi-check2-circle me-1"></i> คืนเงินเรียบร้อย (+@nb.TotalAmount.ToString("N2") ฿)
                                     </span>
                                 }
                                 else if (nb.PaymentStatus == "RefundRejected")
                                 {
-                                    <span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                    <span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;">
                                         <i class="bi bi-x-circle me-1"></i> ปฏิเสธการคืนเงิน
                                     </span>
                                 }
                                 else if (nb.PaymentStatus == "Completed")
                                 {
-                                    <span class="badge" style="background-color: #f0fdf4 !important; color: #15803d !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
+                                    <span class="badge" style="background-color: #f0fdf4 !important; color: #15803d !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;">
                                         <i class="bi bi-check-circle-fill me-1"></i> เสร็จสิ้น
                                     </span>
                                 }
                                 else if (nb.PaymentStatus == "InUse")
                                 {
-                                    <span class="badge" style="background-color: #fef9c3 !important; color: #854d0e !important; border: 1px solid #fde047 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;"
+                                    <span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;"
                                           id="inuseBadge@(nb.BookingId)">
-                                        <i class="bi bi-lightning-charge-fill me-1"></i> กำลังใช้งาน
+                                        <i class="bi bi-lightning-charge-fill me-1 text-success"></i> กำลังใช้งาน
                                         @if (nb.EndTime.HasValue)
                                         {
-                                            <span class="ms-1" id="countdown@(nb.BookingId)" data-end="@nb.EndTime.Value.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)"></span>
+                                            <span class="ms-1 font-monospace" id="countdown@(nb.BookingId)" data-end="@nb.EndTime.Value.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)"></span>
                                         }
                                     </span>
                                 }
                                 else
                                 {
-                                    <span class="badge" style="background-color: #eff6ff !important; color: #1d4ed8 !important; border: 1px solid #bfdbfe !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
-                                        <i class="bi bi-play-circle-fill text-primary me-1"></i> จอง (พร้อมใช้งาน)
+                                    <span class="badge" style="background-color: #eff6ff !important; color: #1d4ed8 !important; border: 1px solid #bfdbfe !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;"
+                                          id="bookedBadge@(nb.BookingId)">
+                                        <i class="bi bi-calendar-check me-1"></i> จองล่วงหน้า (ยังไม่ถึงเวลา)
                                         @if (nb.StartTime.HasValue)
                                         {
-                                            <span class="ms-1 text-muted" style="font-size:0.7rem;" id="startIn@(nb.BookingId)" data-start="@nb.StartTime.Value.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)"></span>
+                                            <span class="ms-1 fw-normal text-muted font-monospace" style="font-size:0.75rem;" id="startIn@(nb.BookingId)" data-start="@nb.StartTime.Value.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)"></span>
                                         }
                                     </span>
                                 }
                             </td>
-                            <td class="text-end pe-3" id="actionCell@(nb.BookingId)">
+                            <td class="text-end pe-3" id="actionCell@(nb.BookingId)" style="white-space: nowrap;">
                                 @if (nb.PaymentStatus == "Pending")
                                 {
-                                    <button type="button" class="btn btn-outline-warning btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
-                                            onclick="openCustomerSlipModal('@nb.BookingId', '@(nb.SlipImageUrl ?? "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80")', @nb.TotalAmount)">
-                                        <i class="bi bi-image me-1"></i> ดูสลิปที่ส่งตรวจ
-                                    </button>
+                                    <div class="d-inline-flex align-items-center justify-content-end gap-2 text-nowrap">
+                                        <a asp-action="Receipt" asp-route-id="@nb.BookingId" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2 rounded-2 text-nowrap fw-semibold shadow-xs" style="font-size: 0.78rem;" title="ดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">
+                                            <i class="bi bi-receipt text-danger me-1"></i> ใบเสร็จ
+                                        </a>
+                                        <button type="button" class="btn btn-outline-warning btn-sm py-1 px-3 rounded-2 fw-semibold text-nowrap" style="font-size: 0.78rem;" 
+                                                onclick="openCustomerSlipModal('@nb.BookingId', '@(nb.SlipImageUrl ?? "https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&auto=format&fit=crop&q=80")', @nb.TotalAmount)">
+                                            <i class="bi bi-image me-1"></i> ดูสลิปที่ส่งตรวจ
+                                        </button>
+                                    </div>
                                 }
                                 else if (nb.PaymentStatus == "Rejected")
                                 {
-                                    <button type="button" class="btn btn-outline-danger btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
-                                            onclick="openCustomerRejectReasonModal('@nb.BookingId', '@(nb.Note ?? "สลิปไม่ถูกต้อง หรือยอดเงินไม่ตรงกับรายการ")')">
-                                        <i class="bi bi-exclamation-circle me-1"></i> ดูเหตุผลปฏิเสธ
-                                    </button>
+                                    <div class="d-inline-flex align-items-center justify-content-end gap-2 text-nowrap">
+                                        <a asp-action="Receipt" asp-route-id="@nb.BookingId" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2 rounded-2 text-nowrap fw-semibold shadow-xs" style="font-size: 0.78rem;" title="ดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">
+                                            <i class="bi bi-receipt text-danger me-1"></i> ใบเสร็จ
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger btn-sm py-1 px-3 rounded-2 fw-semibold text-nowrap" style="font-size: 0.78rem;" 
+                                                onclick="openCustomerRejectReasonModal('@nb.BookingId', '@(nb.Note ?? "สลิปไม่ถูกต้อง หรือยอดเงินไม่ตรงกับรายการ")')">
+                                            <i class="bi bi-exclamation-circle me-1"></i> ดูเหตุผลปฏิเสธ
+                                        </button>
+                                    </div>
                                 }
                                 else if (nb.PaymentStatus == "RefundRequested" || nb.PaymentStatus == "RefundRejected")
                                 {
-                                    <button type="button" class="btn btn-outline-warning btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
-                                            onclick="openRefundStatusModal('@nb.BookingId', '@nb.PaymentStatus', '@(nb.RefundReason ?? "ขอยกเลิกการจองและขอคืนเงิน")', '@(nb.Note ?? "ฝ่ายบัญชีกำลังตรวจสอบข้อมูล")', @nb.TotalAmount)">
-                                        <i class="bi bi-clock-history me-1"></i> ดูสถานะคำขอคืนเงิน
-                                    </button>
+                                    <div class="d-inline-flex align-items-center justify-content-end gap-2 text-nowrap">
+                                        <a asp-action="Receipt" asp-route-id="@nb.BookingId" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2 rounded-2 text-nowrap fw-semibold shadow-xs" style="font-size: 0.78rem;" title="ดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">
+                                            <i class="bi bi-receipt text-danger me-1"></i> ใบเสร็จ
+                                        </a>
+                                        <button type="button" class="btn btn-outline-warning btn-sm py-1 px-3 rounded-2 fw-semibold text-nowrap" style="font-size: 0.78rem;" 
+                                                onclick="openRefundStatusModal('@nb.BookingId', '@nb.PaymentStatus', '@(nb.RefundReason ?? "ขอยกเลิกการจองและขอคืนเงิน")', '@(nb.Note ?? "ฝ่ายบัญชีกำลังตรวจสอบข้อมูล")', @nb.TotalAmount)">
+                                            <i class="bi bi-clock-history me-1"></i> ดูสถานะคำขอคืนเงิน
+                                        </button>
+                                    </div>
                                 }
                                 else if (nb.PaymentStatus == "Refunded")
                                 {
-                                    <div class="d-inline-flex align-items-center gap-1 justify-content-end">
-                                        <button type="button" class="btn btn-outline-success btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
+                                    <div class="d-inline-flex align-items-center justify-content-end gap-2 text-nowrap">
+                                        <a asp-action="Receipt" asp-route-id="@nb.BookingId" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2 rounded-2 text-nowrap fw-semibold shadow-xs" style="font-size: 0.78rem;" title="ดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">
+                                            <i class="bi bi-receipt text-danger me-1"></i> ใบเสร็จ
+                                        </a>
+                                        <button type="button" class="btn btn-outline-success btn-sm py-1 px-3 rounded-2 fw-semibold text-nowrap" style="font-size: 0.78rem;" 
                                                 onclick="openRefundStatusModal('@nb.BookingId', '@nb.PaymentStatus', '@(nb.RefundReason ?? "")', '@(nb.Note ?? "คืนเงินเรียบร้อยแล้ว")', @nb.TotalAmount)">
                                             <i class="bi bi-check-circle-fill me-1"></i> ดูผลการคืนเงิน (+@nb.TotalAmount.ToString("N0") ฿)
                                         </button>
                                     </div>
                                 }
+                                else if (nb.PaymentStatus == "Completed")
+                                {
+                                    <div class="d-inline-flex align-items-center justify-content-end gap-2 text-nowrap">
+                                        <a asp-action="Receipt" asp-route-id="@nb.BookingId" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2 rounded-2 text-nowrap fw-semibold shadow-xs" style="font-size: 0.78rem;" title="ดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">
+                                            <i class="bi bi-receipt text-danger me-1"></i> ใบเสร็จ
+                                        </a>
+                                        <span class="badge bg-light text-muted border px-3 py-2 fw-normal" style="font-size: 0.78rem;">
+                                            <i class="bi bi-check2-all text-success me-1"></i> สิ้นสุดการเช่าแล้ว
+                                        </span>
+                                    </div>
+                                }
                                 else
                                 {
-                                    <button type="button" class="btn btn-primary btn-sm py-1 px-3 rounded-2 me-1 shadow-sm fw-semibold" style="font-size: 0.78rem;" onclick="openMachineControl('@nb.BookingId', '@mName')">
-                                        <i class="bi bi-gear-fill me-1"></i> จัดการเครื่อง
-                                    </button>
-                                    <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2 rounded-2" style="font-size: 0.78rem;" onclick="openRefundModal('@nb.BookingId', '@mName', @nb.TotalAmount)" title="ขอยกเลิกการจองและขอคืนเงิน">
-                                        <i class="bi bi-arrow-counterclockwise me-1"></i> ยกเลิก
-                                    </button>
+                                    var rowCpu = machine?.CPU ?? "AMD Ryzen 9 7900X";
+                                    var rowRam = machine?.RAM ?? "32GB DDR5";
+                                    var rowGpu = machine?.GPU ?? "RTX 4080 (16GB)";
+                                    var rowStorage = "1TB NVMe PCIe 4.0 SSD";
+                                    var rowPrice = machine?.PricePerHour ?? 15.00m;
+                                    var rowStartIso = nb.StartTime?.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                                    var rowEndIso = nb.EndTime?.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+                                    var rowIp = $"103.22.180.{(nb.MachineId * 17) % 200 + 20}:3389";
+                                    var rowUser = $"CloudUser_{nb.BookingId}";
+                                    var rowPass = $"Pass#{(nb.BookingId * 83) % 9000 + 1000}!";
+                                    bool isLiveInUse = (nb.PaymentStatus == "InUse");
+
+                                    <div class="d-inline-flex align-items-center justify-content-end gap-2 text-nowrap">
+                                        <a asp-action="Receipt" asp-route-id="@nb.BookingId" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2 rounded-2 text-nowrap fw-semibold shadow-xs" style="font-size: 0.78rem;" title="ดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">
+                                            <i class="bi bi-receipt text-danger me-1"></i> ใบเสร็จ
+                                        </a>
+                                        @if (isLiveInUse)
+                                        {
+                                            <button type="button" class="btn btn-primary btn-sm py-1 px-3 rounded-2 shadow-sm fw-semibold text-nowrap" style="font-size: 0.78rem;" 
+                                                    onclick="openMachineControl(@nb.BookingId, '@mName', @nb.MachineId, @nb.RentalHours, @rowPrice, '@rowStartIso', '@rowEndIso', '@Html.Raw(Html.Encode(timeText))', '@rowCpu', '@rowRam', '@rowGpu', '@rowStorage', '@rowIp', '@rowUser', '@rowPass')">
+                                                <i class="bi bi-pc-display me-1"></i> เข้าใช้งานเครื่อง
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-3 rounded-2 shadow-xs fw-semibold text-nowrap" style="font-size: 0.78rem;" 
+                                                    onclick="openMachineControl(@nb.BookingId, '@mName', @nb.MachineId, @nb.RentalHours, @rowPrice, '@rowStartIso', '@rowEndIso', '@Html.Raw(Html.Encode(timeText))', '@rowCpu', '@rowRam', '@rowGpu', '@rowStorage', '@rowIp', '@rowUser', '@rowPass')">
+                                                <i class="bi bi-clock-history me-1 text-warning"></i> ดูหน้าจอคิว (ยังไม่ถึงเวลา)
+                                            </button>
+                                        }
+                                        <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2 rounded-2 text-nowrap" style="font-size: 0.78rem;" onclick="openRefundModal('@nb.BookingId', '@mName', @nb.TotalAmount)" title="ขอยกเลิกการจองและขอคืนเงิน">
+                                            <i class="bi bi-arrow-counterclockwise me-1"></i> ยกเลิก
+                                        </button>
+                                    </div>
                                 }
                             </td>
                         </tr>
                     }
                 }
-
-                <!-- Row 1: Active Booking / Refunded -->
-                <tr id="bookingRow94812" data-status="@(ViewBag.Booking94812Status == "Refunded" || ViewBag.Booking94812Status == "RefundRejected" ? "cancelled" : "booked")" data-search="#cpc-94812 extreme gaming pc - rtx 4090">
-                    <td class="ps-3 fw-bold text-dark font-monospace">#CPC-94812</td>
-                    <td>
-                        <div class="fw-bold text-dark">Extreme Gaming PC - RTX 4090</div>
-                        <div class="text-muted" style="font-size: 0.72rem;">Spec: AMD Ryzen 9 | 32GB RAM | 1Gbps Bandwidth</div>
-                    </td>
-                    <td id="bookingTime94812">25 ต.ค. 2023, 14:00 - 18:00 (4 ชม.)</td>
-                    <td id="statusCell94812">
-                        @if (ViewBag.Booking94812Status == "RefundRequested")
-                        {
-                            <span class="badge" style="background-color: #fef3c7 !important; color: #92400e !important; border: 1px solid #f59e0b !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
-                                <i class="bi bi-hourglass-split me-1 text-warning-emphasis"></i> รอฝ่ายบัญชีตรวจสอบคืนเงิน
-                            </span>
-                        }
-                        else if (ViewBag.Booking94812Status == "Refunded")
-                        {
-                            <span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
-                                <i class="bi bi-check2-circle me-1"></i> คืนเงินเรียบร้อย (+60.00 ฿)
-                            </span>
-                        }
-                        else if (ViewBag.Booking94812Status == "RefundRejected")
-                        {
-                            <span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">
-                                <i class="bi bi-x-circle me-1"></i> ปฏิเสธการคืนเงิน
-                            </span>
-                        }
-                        else
-                        {
-                            <span class="badge" style="background-color: #eff6ff !important; color: #1d4ed8 !important; border: 1px solid #bfdbfe !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center;">จอง</span>
-                        }
-                    </td>
-                    <td class="text-end pe-3" id="actionCell94812">
-                        @if (ViewBag.Booking94812Status == "RefundRequested" || ViewBag.Booking94812Status == "RefundRejected")
-                        {
-                            <button type="button" class="btn btn-outline-warning btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
-                                    onclick="openRefundStatusModal('94812', '@ViewBag.Booking94812Status', '@(ViewBag.Booking94812Reason ?? "กดจองผิดวัน ต้องการเปลี่ยนวันใช้งาน")', '@(ViewBag.Booking94812Note ?? "ตรวจสอบเงื่อนไขตรงตามนโยบาย")', 60.00)">
-                                <i class="bi bi-clock-history me-1"></i> ดูสถานะคำขอคืนเงิน
-                            </button>
-                        }
-                        else if (ViewBag.Booking94812Status == "Refunded")
-                        {
-                            <div class="d-inline-flex align-items-center gap-1 justify-content-end">
-                                <button type="button" class="btn btn-outline-success btn-sm py-1 px-3 rounded-2 fw-semibold" style="font-size: 0.78rem;" 
-                                        onclick="openRefundStatusModal('94812', '@ViewBag.Booking94812Status', '@(ViewBag.Booking94812Reason ?? "")', '@(ViewBag.Booking94812Note ?? "คืนเงินเรียบร้อยแล้ว")', 60.00)">
-                                    <i class="bi bi-check-circle-fill me-1"></i> ดูผลการคืนเงิน (+60 ฿)
-                                </button>
+                else
+                {
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2 text-secondary opacity-50"></i>
+                            <div>ยังไม่มีประวัติการจองเครื่องคอมพิวเตอร์ในขณะนี้</div>
+                            <div class="mt-3">
+                                <a asp-action="Machines" class="btn btn-primary btn-sm rounded-pill px-3">
+                                    <i class="bi bi-search me-1"></i> ค้นหาเครื่องคอมพิวเตอร์ที่พร้อมใช้งาน
+                                </a>
                             </div>
-                        }
-                        else
-                        {
-                            <button type="button" class="btn btn-primary btn-sm py-1 px-3 rounded-2 me-1 shadow-sm fw-semibold" style="font-size: 0.78rem;" data-bs-toggle="modal" data-bs-target="#machineControlModal">
-                                <i class="bi bi-gear-fill me-1"></i> จัดการเครื่อง
-                            </button>
-                            <button type="button" class="btn btn-outline-danger btn-sm py-1 px-2 rounded-2" style="font-size: 0.78rem;" onclick="openRefundModal('94812', 'Extreme Gaming PC - RTX 4090', 60.00)" title="ขอยกเลิกการจองและขอคืนเงิน">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i> ยกเลิก
-                            </button>
-                        }
-                    </td>
-                </tr>
-
-                <!-- Row 2: Completed -->
-                <tr data-status="completed" data-search="#cpc-93721 standard office pc - core i5">
-                    <td class="ps-3 fw-bold text-dark font-monospace">#CPC-93721</td>
-                    <td>
-                        <div class="fw-bold text-dark">Standard Office PC - Core i5</div>
-                        <div class="text-muted" style="font-size: 0.72rem;">Spec: Intel Core i5 | 16GB RAM | 100Mbps Bandwidth</div>
-                    </td>
-                    <td>24 ต.ค. 2023, 09:00 - 12:00 (3 ชม.)</td>
-                    <td><span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px;">เสร็จ</span></td>
-                    <td class="text-end pe-3 text-muted">ทำรายการเสร็จสิ้น</td>
-                </tr>
-
-                <!-- Row 3: Cancelled -->
-                <tr data-status="cancelled" data-search="#cpc-91605 high-end workstation - rtx 3080">
-                    <td class="ps-3 fw-bold text-dark font-monospace">#CPC-91605</td>
-                    <td>
-                        <div class="fw-bold text-dark">High-End Workstation - RTX 3080</div>
-                        <div class="text-muted" style="font-size: 0.72rem;">Spec: AMD Ryzen 7 | 32GB RAM | 500Mbps Bandwidth</div>
-                    </td>
-                    <td>22 ต.ค. 2023, 10:00 - 15:00 (5 ชม.)</td>
-                    <td><span class="badge" style="background-color: #fee2e2 !important; color: #991b1b !important; border: 1px solid #fca5a5 !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px;">ยกเลิก</span></td>
-                    <td class="text-end pe-3 text-muted">ยกเลิกแล้ว</td>
-                </tr>
-
-                <!-- Row 4: Completed -->
-                <tr data-status="completed" data-search="#cpc-89540 ai & developer node - a100 gpu">
-                    <td class="ps-3 fw-bold text-dark font-monospace">#CPC-89540</td>
-                    <td>
-                        <div class="fw-bold text-dark">AI &amp; Developer Node - A100 GPU</div>
-                        <div class="text-muted" style="font-size: 0.72rem;">Spec: NVIDIA A100 | 64GB RAM | 2Gbps Bandwidth</div>
-                    </td>
-                    <td>18 ต.ค. 2023, 13:00 - 21:00 (8 ชม.)</td>
-                    <td><span class="badge" style="background-color: #dcfce7 !important; color: #166534 !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px;">เสร็จ</span></td>
-                    <td class="text-end pe-3 text-muted">ทำรายการเสร็จสิ้น</td>
-                </tr>
+                        </td>
+                    </tr>
+                }
             </tbody>
         </table>
 
@@ -332,137 +656,424 @@
     </div>
 </div>
 
-<!-- Modal: จัดการเครื่อง Cloud PC (Interactive Machine Management - Exactly as User's Screenshot) -->
+<!-- Modal: จัดการเครื่อง Cloud PC และหน้าจอจำลอง (Virtual Cloud PC Desktop Simulator) -->
 <div class="modal fade" id="machineControlModal" tabindex="-1" aria-labelledby="machineControlModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content rounded-4 border-0 shadow">
-            <div class="modal-header border-bottom px-4 pt-4 pb-3">
-                <div>
-                    <h5 class="modal-title fw-bold text-dark mb-1" id="machineControlModalLabel">
-                        <i class="bi bi-pc-display text-primary me-2"></i> แผงควบคุมและจัดการเครื่อง Cloud PC
-                    </h5>
-                    <div class="text-muted small">หมายเลขการจอง: <span class="fw-bold text-dark" id="modalMachineCode">#CPC-94812</span> | เครื่อง: <span class="fw-bold text-primary" id="modalMachineTitle">Extreme Gaming PC - RTX 4090</span></div>
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content rounded-4 border-0 shadow-lg overflow-hidden">
+            <div class="modal-header border-bottom px-4 pt-3 pb-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="p-2 bg-primary-subtle text-primary rounded-3">
+                        <i class="bi bi-display fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="machineControlModalLabel">
+                            ศูนย์จัดการเครื่องและหน้าจอจำลอง Cloud PC (Virtual Remote Desktop)
+                        </h5>
+                        <div class="text-muted small">
+                            รหัสการจอง: <span class="fw-bold text-dark font-monospace" id="modalMachineCode">#CPC-94812</span> &bull; 
+                            เครื่อง: <span class="fw-bold text-primary" id="modalMachineTitle">Extreme Gaming PC</span> &bull; 
+                            รอบเวลาจอง: <span class="fw-bold text-dark" id="modalBookingTime"></span>
+                        </div>
+                    </div>
                 </div>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-semibold" id="machineStatusBadge">
+                        <i class="bi bi-check-circle-fill me-1"></i> เชื่อมต่อออนไลน์ (Online)
+                    </span>
+                    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
             </div>
-            <div class="modal-body p-4">
-                <!-- Status & Countdown banner -->
-                <div class="row g-3 mb-4">
-                    <div class="col-md-6">
-                        <div class="p-3 bg-light rounded-3 border">
-                            <div class="text-muted small mb-1">สถานะระบบปัจจุบัน</div>
-                            <div class="d-flex align-items-center">
-                                <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 me-2" id="machineStatusBadge">
-                                    <i class="bi bi-check-circle-fill me-1"></i> เชื่อมต่อออนไลน์ (Online)
+
+            <div class="modal-body p-4 bg-light">
+                <!-- Alert: แสดงเมื่อยังไม่ถึงเวลาจองจริง -->
+                <div id="modalNotStartedAlert" class="alert alert-warning border border-warning-subtle rounded-3 p-3 mb-3 d-none shadow-xs">
+                    <div class="d-flex align-items-start gap-3">
+                        <div class="p-2 bg-warning-subtle text-warning-emphasis rounded-circle">
+                            <i class="bi bi-clock-history fs-4"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold text-dark fs-6 d-flex align-items-center gap-2">
+                                <span>ขณะนี้ยังไม่ถึงเวลาเริ่มใช้งานเครื่องตามคิวที่คุณจองไว้</span>
+                                <span class="badge bg-warning text-dark px-2 py-1" style="font-size: 0.72rem;">สถานะ: เครื่องยังไม่พร้อมใช้งาน</span>
+                            </div>
+                            <div class="small text-secondary mt-1" style="line-height: 1.6;">
+                                รอบเวลาที่คุณจองคือ: <strong class="text-primary font-monospace" id="modalBookingTimeAlert">...</strong><br />
+                                <span class="text-danger fw-semibold">
+                                    <i class="bi bi-shield-lock-fill me-1"></i> ระบบล็อกการเชื่อมต่อไว้เนื่องจากยังไม่ถึงเวลาจองของคุณ (หากมีผู้ใช้งานคนอื่นในคิวก่อนหน้า ระบบจะสลับเครื่องและเปิดสิทธิ์ให้คุณอัตโนมัติเมื่อถึงเวลา)
                                 </span>
-                                <span class="small text-muted" id="machinePing"><i class="bi bi-reception-4 text-success me-1"></i> 12 ms</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="p-3 bg-primary-subtle text-primary rounded-3 border border-primary-subtle">
-                            <div class="text-primary-emphasis small mb-1">เวลาคงเหลือในการใช้งาน</div>
-                            <div class="fw-bold fs-4 font-monospace" id="countdownClock">03:45:18</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Connection Credentials Box -->
-                <div class="card border rounded-3 p-3 mb-4 bg-light">
-                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-key-fill text-warning me-1"></i> ข้อมูลการเข้าใช้งานเครื่อง (Remote Access Credentials)</h6>
-                    <div class="row g-3 small">
-                        <div class="col-sm-6">
-                            <label class="text-muted d-block">IP Address / Host</label>
-                            <div class="input-group input-group-sm mt-1">
-                                <input type="text" class="form-control font-monospace" value="103.22.180.45:3389" readonly id="ipField" />
-                                <button class="btn btn-outline-secondary" type="button" id="btnCopyIp" onclick="copyToClipboard('ipField', 'btnCopyIp', 'IP Address')">
-                                    <i class="bi bi-clipboard"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-sm-6">
-                            <label class="text-muted d-block">Username</label>
-                            <div class="input-group input-group-sm mt-1">
-                                <input type="text" class="form-control font-monospace" value="CloudUser_94812" readonly id="userField" />
-                                <button class="btn btn-outline-secondary" type="button" id="btnCopyUser" onclick="copyToClipboard('userField', 'btnCopyUser', 'Username')">
-                                    <i class="bi bi-clipboard"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-sm-6">
-                            <label class="text-muted d-block">Password</label>
-                            <div class="input-group input-group-sm mt-1">
-                                <input type="password" class="form-control font-monospace" value="GameFast#2024!" readonly id="passField" />
-                                <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility()">
-                                    <i class="bi bi-eye" id="eyeIcon"></i>
-                                </button>
-                                <button class="btn btn-outline-secondary" type="button" id="btnCopyPass" onclick="copyToClipboard('passField', 'btnCopyPass', 'รหัสผ่าน')">
-                                    <i class="bi bi-clipboard"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="col-sm-6">
-                            <label class="text-muted d-block">เครือข่ายและความเร็ว</label>
-                            <div class="mt-1 pt-1 fw-semibold text-dark">
-                                <i class="bi bi-speedometer2 text-primary me-1"></i> 1 Gbps Dedicated Fiber
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Hardware Specifications -->
-                <div class="mb-4">
-                    <h6 class="fw-bold text-dark mb-2"><i class="bi bi-cpu-fill text-primary me-1"></i> ข้อมูลสเปกฮาร์ดแวร์</h6>
-                    <div class="row g-2 text-muted small">
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded-2 p-2 bg-white">
-                                <strong class="text-dark d-block">CPU</strong>
-                                AMD Ryzen 9 7900X (12C/24T)
+                <!-- =============================================================== -->
+                <!-- VIRTUAL CLOUD PC DESKTOP SCREEN (หน้าจอจำลองการใช้งานคอมพิวเตอร์) -->
+                <!-- =============================================================== -->
+                <div class="vdesktop-frame mb-4" id="vdesktopContainer">
+                    <!-- Stream Overlay Bar -->
+                    <div class="vdesktop-topbar">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="vdot bg-danger"></span>
+                            <span class="vdot bg-warning"></span>
+                            <span class="vdot bg-success"></span>
+                            <span class="fw-bold text-light ms-2"><i class="bi bi-cast me-1 text-info"></i> CloudPC Remote Stream v4.2</span>
+                            <span class="badge bg-dark border border-secondary text-secondary ms-2" style="font-size: 0.68rem;" id="vdesktopStreamStatus">LIVE</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-3 small font-monospace">
+                            <span class="text-success"><i class="bi bi-reception-4 me-1"></i> <span id="vdesktopPing">12 ms</span></span>
+                            <span class="text-info"><i class="bi bi-speedometer2 me-1"></i> 60 FPS</span>
+                            <span class="text-warning d-none d-md-inline"><i class="bi bi-activity me-1"></i> 35.4 Mbps</span>
+                            <span class="text-light d-none d-lg-inline"><i class="bi bi-gpu-card me-1"></i> <span id="vdesktopGpuTag">RTX 4080 (Active)</span></span>
+                            <button type="button" class="btn btn-outline-light btn-sm py-0 px-2 rounded" style="font-size: 0.72rem;" onclick="toggleVirtualFullscreen()" title="โหมดขยายเต็มหน้าจอ">
+                                <i class="bi bi-arrows-fullscreen me-1"></i> เต็มจอ
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Screen Viewport -->
+                    <div class="vdesktop-screen" id="vdesktopScreen">
+                        <!-- MODE A: STANDBY SCREEN (แสดงเมื่อยังไม่ถึงเวลาเริ่มใช้งาน) -->
+                        <div id="vscreenStandby" class="vscreen-layer vstandby-layer d-none">
+                            <div class="vstandby-content text-center text-white p-4">
+                                <div class="vstandby-pulse-circle mb-3">
+                                    <i class="bi bi-shield-lock-fill text-warning display-4"></i>
+                                </div>
+                                <h4 class="fw-bold text-white mb-1">
+                                    <i class="bi bi-pc-display me-2 text-info"></i> Cloud PC Standby & Reserved
+                                </h4>
+                                <div class="text-white-50 small mb-3">
+                                    เครื่องนี้ถูกจัดสรรและล็อกทรัพยากรไว้สำหรับคิวของคุณเรียบร้อยแล้ว
+                                </div>
+
+                                <div class="card bg-dark bg-opacity-75 border border-secondary border-opacity-50 rounded-3 p-3 mb-3 mx-auto shadow" style="max-width: 580px;">
+                                    <div class="row g-2 text-start small">
+                                        <div class="col-6">
+                                            <span class="text-muted d-block">เครื่องที่จอง:</span>
+                                            <strong class="text-light" id="standbyMachineNameDisplay">Extreme Gaming PC</strong>
+                                        </div>
+                                        <div class="col-6">
+                                            <span class="text-muted d-block">สถานะคิว:</span>
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i> รอถึงเวลาเริ่มจอง</span>
+                                        </div>
+                                        <div class="col-12 border-top border-secondary border-opacity-25 pt-2 mt-2">
+                                            <span class="text-muted d-block">ช่วงเวลาที่คุณจองไว้:</span>
+                                            <strong class="text-info font-monospace fs-6" id="standbyBookingTimeDisplay">23 พฤศจิกายน 2569, 08:00 - 10:00 (2 ชม.)</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <div class="text-warning-emphasis small text-uppercase letter-spacing-1">เครื่องจะพร้อมเปิดใช้งานอัตโนมัติในอีก</div>
+                                    <div class="display-5 fw-bold font-monospace text-warning mt-1" id="standbyCountdownLarge">--:--:--</div>
+                                </div>
+
+                                <div class="d-inline-flex flex-wrap gap-2 justify-content-center small text-muted">
+                                    <span class="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-25 py-1 px-2">
+                                        <i class="bi bi-check-circle-fill text-success me-1"></i> GPU RTX 4080: Standby
+                                    </span>
+                                    <span class="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-25 py-1 px-2">
+                                        <i class="bi bi-check-circle-fill text-success me-1"></i> RAM 32GB DDR5: Ready
+                                    </span>
+                                    <span class="badge bg-secondary bg-opacity-25 text-light border border-secondary border-opacity-25 py-1 px-2">
+                                        <i class="bi bi-check-circle-fill text-success me-1"></i> 1TB NVMe: Profile Loaded
+                                    </span>
+                                </div>
+
+                                <div class="mt-3 text-secondary" style="font-size: 0.75rem;">
+                                    <i class="bi bi-info-circle me-1"></i> หากมีผู้ใช้งานคิวก่อนหน้า ระบบจะทำการเคลียร์ข้อมูลชั่วคราวและเปิดให้คุณเชื่อมต่อได้ทันทีเมื่อถึงเวลาจอง
+                                </div>
                             </div>
                         </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded-2 p-2 bg-white">
-                                <strong class="text-dark d-block">RAM</strong>
-                                32GB DDR5 6000MHz
+
+                        <!-- MODE B: ACTIVE WINDOWS 11 DESKTOP (แสดงเมื่อถึงเวลาใช้งานแล้ว) -->
+                        <div id="vscreenDesktop" class="vscreen-layer vdesktop-layer">
+                            <!-- Desktop Wallpaper (Windows 11 Bloom Style) -->
+                            <div class="vdesktop-wallpaper"></div>
+
+                            <!-- Desktop App Icons -->
+                            <div class="vdesktop-icons-grid">
+                                <div class="vdesk-icon" onclick="openSimApp('steam')" title="คลิกเพื่อเปิด Steam และทดลองเล่นเกม">
+                                    <div class="vdesk-icon-img bg-dark text-info"><i class="bi bi-steam"></i></div>
+                                    <span class="vdesk-icon-label">Steam</span>
+                                </div>
+                                <div class="vdesk-icon" onclick="openSimApp('taskmgr')" title="คลิกเพื่อตรวจสอบสเปกและกราฟการทำงาน">
+                                    <div class="vdesk-icon-img bg-primary text-white"><i class="bi bi-graph-up"></i></div>
+                                    <span class="vdesk-icon-label">Task Manager</span>
+                                </div>
+                                <div class="vdesk-icon" onclick="openSimApp('chrome')" title="คลิกเพื่อเปิดเบราว์เซอร์">
+                                    <div class="vdesk-icon-img bg-white text-danger"><i class="bi bi-browser-chrome"></i></div>
+                                    <span class="vdesk-icon-label">Google Chrome</span>
+                                </div>
+                                <div class="vdesk-icon" onclick="openSimApp('terminal')" title="คลิกเพื่อเปิด Terminal สั่งการ">
+                                    <div class="vdesk-icon-img bg-black text-success"><i class="bi bi-terminal"></i></div>
+                                    <span class="vdesk-icon-label">PowerShell</span>
+                                </div>
+                                <div class="vdesk-icon" onclick="openSimApp('premiere')" title="คลิกเพื่อเปิดโปรแกรมตัดต่อ">
+                                    <div class="vdesk-icon-img bg-dark text-purple" style="color: #c084fc;"><i class="bi bi-film"></i></div>
+                                    <span class="vdesk-icon-label">Premiere Pro</span>
+                                </div>
+                                <div class="vdesk-icon" onclick="openSimApp('storage')" title="คลิกเพื่อดูไดรฟ์ SSD 1TB">
+                                    <div class="vdesk-icon-img bg-warning-subtle text-warning-emphasis"><i class="bi bi-hdd-fill"></i></div>
+                                    <span class="vdesk-icon-label">This PC (1TB)</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded-2 p-2 bg-white">
-                                <strong class="text-dark d-block">GPU</strong>
-                                NVIDIA RTX 4080 (16GB VRAM)
+
+                            <!-- Interactive Simulated Window: Steam -->
+                            <div class="vwindow shadow-lg d-none" id="simWinSteam">
+                                <div class="vwindow-header bg-dark text-light">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-steam text-info"></i>
+                                        <span class="fw-semibold small">Steam Client - คลังเกมพร้อมเล่น</span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-link text-white-50 p-0" onclick="closeSimApp('steam')"><i class="bi bi-x-lg"></i></button>
+                                </div>
+                                <div class="vwindow-body bg-dark text-light p-3 small">
+                                    <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom border-secondary border-opacity-25">
+                                        <div class="fw-bold text-white"><i class="bi bi-controller text-success me-1"></i> เกมยอดฮิตที่ติดตั้งพร้อมเล่นบนเครื่องนี้:</div>
+                                        <span class="badge bg-success-subtle text-success">ไดรเวอร์ Game Ready 560.81</span>
+                                    </div>
+                                    <div class="list-group list-group-flush bg-transparent">
+                                        <div class="list-group-item bg-transparent text-light border-secondary border-opacity-25 px-0 py-2 d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong class="text-white d-block">Cyberpunk 2077: Phantom Liberty</strong>
+                                                <span class="text-muted" style="font-size: 0.72rem;">Ray Tracing Overdrive &bull; DLSS 3.5 Frame Gen Ready</span>
+                                            </div>
+                                            <button type="button" class="btn btn-success btn-sm py-1 px-3 fw-semibold" onclick="simulateGameLaunch('Cyberpunk 2077')">
+                                                <i class="bi bi-play-fill me-1"></i> เล่นทันที
+                                            </button>
+                                        </div>
+                                        <div class="list-group-item bg-transparent text-light border-secondary border-opacity-25 px-0 py-2 d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong class="text-white d-block">Black Myth: Wukong (Full HD / 4K)</strong>
+                                                <span class="text-muted" style="font-size: 0.72rem;">Unreal Engine 5 &bull; 120+ FPS</span>
+                                            </div>
+                                            <button type="button" class="btn btn-success btn-sm py-1 px-3 fw-semibold" onclick="simulateGameLaunch('Black Myth: Wukong')">
+                                                <i class="bi bi-play-fill me-1"></i> เล่นทันที
+                                            </button>
+                                        </div>
+                                        <div class="list-group-item bg-transparent text-light border-secondary border-opacity-25 px-0 py-2 d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong class="text-white d-block">Grand Theft Auto V (Enhanced)</strong>
+                                                <span class="text-muted" style="font-size: 0.72rem;">FiveM Ready &bull; Ultra Settings</span>
+                                            </div>
+                                            <button type="button" class="btn btn-success btn-sm py-1 px-3 fw-semibold" onclick="simulateGameLaunch('Grand Theft Auto V')">
+                                                <i class="bi bi-play-fill me-1"></i> เล่นทันที
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="simLaunchToast" class="alert alert-success py-2 px-3 mt-3 mb-0 d-none" style="font-size: 0.78rem;">
+                                        <i class="bi bi-check-circle-fill me-1"></i> กำลังส่งสัญญาณภาพสตรีมสด 4K 120Hz เข้าสู่มอนิเตอร์...
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-6 col-md-3">
-                            <div class="border rounded-2 p-2 bg-white">
-                                <strong class="text-dark d-block">Storage</strong>
-                                1TB NVMe PCIe 4.0 SSD
+
+                            <!-- Interactive Simulated Window: Task Manager -->
+                            <div class="vwindow shadow-lg d-none" id="simWinTaskmgr">
+                                <div class="vwindow-header bg-dark text-light">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <i class="bi bi-graph-up text-primary"></i>
+                                        <span class="fw-semibold small">Task Manager - ฮาร์ดแวร์และประสิทธิภาพแบบเรียลไทม์</span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-link text-white-50 p-0" onclick="closeSimApp('taskmgr')"><i class="bi bi-x-lg"></i></button>
+                                </div>
+                                <div class="vwindow-body bg-dark text-light p-3 small">
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <div class="p-2 border border-secondary border-opacity-25 rounded bg-black bg-opacity-40">
+                                                <div class="text-muted" style="font-size: 0.72rem;">CPU Utilization</div>
+                                                <div class="fw-bold fs-6 text-primary" id="simCpuUtil">AMD Ryzen 9 &bull; 14% (4.85 GHz)</div>
+                                                <div class="progress mt-1" style="height: 6px;">
+                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 14%;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-2 border border-secondary border-opacity-25 rounded bg-black bg-opacity-40">
+                                                <div class="text-muted" style="font-size: 0.72rem;">GPU Utilization</div>
+                                                <div class="fw-bold fs-6 text-success" id="simGpuUtil">RTX 4080 (16GB) &bull; 18% (46°C)</div>
+                                                <div class="progress mt-1" style="height: 6px;">
+                                                    <div class="progress-bar bg-success" role="progressbar" style="width: 18%;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-2 border border-secondary border-opacity-25 rounded bg-black bg-opacity-40">
+                                                <div class="text-muted" style="font-size: 0.72rem;">Memory (RAM)</div>
+                                                <div class="fw-bold fs-6 text-warning">8.4 / 32.0 GB DDR5 (26%)</div>
+                                                <div class="progress mt-1" style="height: 6px;">
+                                                    <div class="progress-bar bg-warning" role="progressbar" style="width: 26%;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="p-2 border border-secondary border-opacity-25 rounded bg-black bg-opacity-40">
+                                                <div class="text-muted" style="font-size: 0.72rem;">NVMe Disk Read/Write</div>
+                                                <div class="fw-bold fs-6 text-info">7,100 MB/s &bull; PCIe 4.0</div>
+                                                <div class="progress mt-1" style="height: 6px;">
+                                                    <div class="progress-bar bg-info" role="progressbar" style="width: 8%;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Interactive Simulated Window: PowerShell Terminal -->
+                            <div class="vwindow shadow-lg d-none" id="simWinTerminal">
+                                <div class="vwindow-header bg-black text-light font-monospace" style="font-size: 0.75rem;">
+                                    <span>Administrator: Windows PowerShell</span>
+                                    <button type="button" class="btn btn-sm btn-link text-white-50 p-0" onclick="closeSimApp('terminal')"><i class="bi bi-x-lg"></i></button>
+                                </div>
+                                <div class="vwindow-body bg-black text-success font-monospace p-3" style="font-size: 0.75rem; line-height: 1.5;">
+                                    <div>Windows PowerShell (CloudPC Dedicated Instance)</div>
+                                    <div>Copyright (C) Microsoft Corporation. All rights reserved.</div>
+                                    <br />
+                                    <div>PS C:\Users\CloudUser&gt; Get-CloudPC-Status</div>
+                                    <div class="text-light">&bull; Session ID: <span id="simTermSessionId">#CPC-94812</span></div>
+                                    <div class="text-light">&bull; Network: Dedicated 1 Gbps Fiber &bull; Ping: 12ms</div>
+                                    <div class="text-light">&bull; Audio/Video Codec: AV1 Hardware Accelerated 60FPS</div>
+                                    <div class="text-light">&bull; Hardware: RTX 4080 (16GB) &bull; Ryzen 9 7900X</div>
+                                    <div class="text-warning mt-2">PS C:\Users\CloudUser&gt; Ready for remote input <span class="vblink-cursor">_</span></div>
+                                </div>
+                            </div>
+
+                            <!-- Windows 11 Taskbar -->
+                            <div class="vtaskbar">
+                                <div class="vtaskbar-center">
+                                    <button type="button" class="vtask-btn" onclick="toggleSimStartMenu()" title="Start Menu"><i class="bi bi-windows text-primary"></i></button>
+                                    <button type="button" class="vtask-btn" onclick="openSimApp('chrome')" title="Chrome"><i class="bi bi-browser-chrome text-danger"></i></button>
+                                    <button type="button" class="vtask-btn" onclick="openSimApp('steam')" title="Steam"><i class="bi bi-steam text-info"></i></button>
+                                    <button type="button" class="vtask-btn" onclick="openSimApp('taskmgr')" title="Task Manager"><i class="bi bi-graph-up text-success"></i></button>
+                                    <button type="button" class="vtask-btn" onclick="openSimApp('terminal')" title="PowerShell"><i class="bi bi-terminal text-light"></i></button>
+                                </div>
+                                <div class="vtaskbar-tray">
+                                    <span class="vtray-item" title="Network"><i class="bi bi-wifi text-light"></i></span>
+                                    <span class="vtray-item" title="Audio"><i class="bi bi-volume-up-fill text-light"></i></span>
+                                    <span class="vtray-clock" id="vtaskbarClock">15:47</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Machine Action Controls (4 Buttons from User's Screenshot) -->
-                <div class="border-top pt-3">
-                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-sliders text-secondary me-1"></i> คำสั่งควบคุมเครื่อง</h6>
-                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                        <button type="button" id="btnRestart" class="btn btn-outline-primary btn-sm rounded-2 px-3 py-2 fw-semibold" onclick="restartMachine()">
-                            <i class="bi bi-arrow-repeat me-1" id="restartIcon"></i> รีสตาร์ทเครื่อง (Restart)
-                        </button>
-                        <button type="button" id="btnExtend" class="btn btn-outline-success btn-sm rounded-2 px-3 py-2 fw-semibold" onclick="extendTime()">
-                            <i class="bi bi-clock-history me-1"></i> ต่อเวลาใช้งาน (+1 ชม.)
-                        </button>
-                        <button type="button" id="btnResetPass" class="btn btn-outline-warning btn-sm rounded-2 px-3 py-2 fw-semibold" onclick="resetPasswordModal()">
-                            <i class="bi bi-shield-lock me-1"></i> รีเซ็ตรหัสผ่านเครื่อง
-                        </button>
-                        <button type="button" id="btnEndSession" class="btn btn-outline-danger btn-sm rounded-2 px-3 py-2 fw-semibold ms-auto" onclick="endSessionConfirm()">
-                            <i class="bi bi-power me-1"></i> คืนเครื่อง / สิ้นสุดการเช่า
-                        </button>
+                <!-- Tabs: ข้อมูลการเชื่อมต่อ & ควบคุมเครื่อง -->
+                <div class="row g-3">
+                    <!-- ข้อมูลการเข้าใช้งานเครื่อง (Remote Access Credentials) -->
+                    <div class="col-lg-6">
+                        <div class="card border rounded-3 p-3 h-100 bg-white shadow-xs">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <h6 class="fw-bold text-dark mb-0"><i class="bi bi-key-fill text-warning me-1"></i> ข้อมูลการเชื่อมต่อเครื่อง (Remote Credentials)</h6>
+                                <span class="badge bg-light text-muted border font-monospace" style="font-size: 0.72rem;">Port 3389 / Parsec</span>
+                            </div>
+
+                            <!-- กล่องล็อกรหัส (แสดงเมื่อยังไม่ถึงเวลาจอง) -->
+                            <div id="credentialsLockedBox" class="p-3 bg-light rounded-3 border text-center text-muted d-none my-auto">
+                                <i class="bi bi-shield-lock-fill text-warning fs-2 d-block mb-1"></i>
+                                <strong class="text-dark d-block">รหัสผ่านและ IP Host จะเปิดเผยเมื่อถึงเวลาเริ่มจอง</strong>
+                                <div class="small mt-1 text-secondary" style="font-size: 0.75rem;">
+                                    เพื่อความปลอดภัยสูงสุด ระบบจะสร้างและเปิดเผยรหัสผ่านให้คุณทันทีเมื่อถึงเวลา <span class="fw-bold text-primary" id="credentialsUnlockTimeText">08:00 น.</span>
+                                </div>
+                            </div>
+
+                            <!-- กล่องเปิดเผยรหัส (แสดงเมื่อถึงเวลาใช้งานแล้ว) -->
+                            <div id="credentialsActiveBox">
+                                <div class="row g-2 small">
+                                    <div class="col-sm-6">
+                                        <label class="text-muted d-block" style="font-size: 0.75rem;">IP Address / Host</label>
+                                        <div class="input-group input-group-sm mt-1">
+                                            <input type="text" class="form-control font-monospace" value="103.22.180.45:3389" readonly id="ipField" />
+                                            <button class="btn btn-outline-secondary" type="button" id="btnCopyIp" onclick="copyToClipboard('ipField', 'btnCopyIp', 'IP Address')">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="text-muted d-block" style="font-size: 0.75rem;">Username</label>
+                                        <div class="input-group input-group-sm mt-1">
+                                            <input type="text" class="form-control font-monospace" value="CloudUser_94812" readonly id="userField" />
+                                            <button class="btn btn-outline-secondary" type="button" id="btnCopyUser" onclick="copyToClipboard('userField', 'btnCopyUser', 'Username')">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="text-muted d-block" style="font-size: 0.75rem;">Password</label>
+                                        <div class="input-group input-group-sm mt-1">
+                                            <input type="password" class="form-control font-monospace" value="GameFast#2024!" readonly id="passField" />
+                                            <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility()">
+                                                <i class="bi bi-eye" id="eyeIcon"></i>
+                                            </button>
+                                            <button class="btn btn-outline-secondary" type="button" id="btnCopyPass" onclick="copyToClipboard('passField', 'btnCopyPass', 'รหัสผ่าน')">
+                                                <i class="bi bi-clipboard"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="text-muted d-block" style="font-size: 0.75rem;">เวลาใช้งานคงเหลือ</label>
+                                        <div class="mt-1 pt-1 fw-bold fs-6 font-monospace text-primary" id="countdownClock">
+                                            00:00:00
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ข้อมูลสเปกฮาร์ดแวร์และคำสั่งควบคุมเครื่อง -->
+                    <div class="col-lg-6">
+                        <div class="card border rounded-3 p-3 h-100 bg-white shadow-xs">
+                            <h6 class="fw-bold text-dark mb-2"><i class="bi bi-cpu-fill text-primary me-1"></i> ข้อมูลสเปกฮาร์ดแวร์</h6>
+                            <div class="row g-2 text-muted small mb-3">
+                                <div class="col-6">
+                                    <div class="border rounded-2 p-2 bg-light">
+                                        <strong class="text-dark d-block" style="font-size: 0.72rem;">CPU</strong>
+                                        <span id="specCpu" style="font-size: 0.78rem;">AMD Ryzen 9 7900X (12C/24T)</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="border rounded-2 p-2 bg-light">
+                                        <strong class="text-dark d-block" style="font-size: 0.72rem;">RAM</strong>
+                                        <span id="specRam" style="font-size: 0.78rem;">32GB DDR5 6000MHz</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="border rounded-2 p-2 bg-light">
+                                        <strong class="text-dark d-block" style="font-size: 0.72rem;">GPU</strong>
+                                        <span id="specGpu" style="font-size: 0.78rem;">NVIDIA RTX 4080 (16GB VRAM)</span>
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="border rounded-2 p-2 bg-light">
+                                        <strong class="text-dark d-block" style="font-size: 0.72rem;">Storage</strong>
+                                        <span id="specStorage" style="font-size: 0.78rem;">1TB NVMe PCIe 4.0 SSD</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="border-top pt-2">
+                                <h6 class="fw-bold text-dark mb-2" style="font-size: 0.8rem;"><i class="bi bi-sliders text-secondary me-1"></i> คำสั่งควบคุมเครื่อง</h6>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <button type="button" id="btnRestart" class="btn btn-outline-primary btn-sm rounded-2 px-3 py-1 fw-semibold" onclick="restartMachine()">
+                                        <i class="bi bi-arrow-repeat me-1" id="restartIcon"></i> รีสตาร์ทเครื่อง
+                                    </button>
+                                    <button type="button" id="btnExtend" class="btn btn-outline-success btn-sm rounded-2 px-3 py-1 fw-semibold" onclick="extendTime()">
+                                        <i class="bi bi-clock-history me-1"></i> ต่อเวลา (+1 ชม.)
+                                    </button>
+                                    <button type="button" id="btnResetPass" class="btn btn-outline-warning btn-sm rounded-2 px-3 py-1 fw-semibold" onclick="resetPasswordModal()">
+                                        <i class="bi bi-shield-lock me-1"></i> รีเซ็ตรหัสผ่าน
+                                    </button>
+                                    <button type="button" id="btnEndSession" class="btn btn-outline-danger btn-sm rounded-2 px-3 py-1 fw-semibold ms-auto" onclick="endSessionConfirm()">
+                                        <i class="bi bi-power me-1"></i> คืนเครื่อง
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div id="actionFeedback" class="alert alert-success mt-3 small py-2 d-none" role="alert"></div>
             </div>
-            <div class="modal-footer border-top px-4 py-3">
+            <div class="modal-footer border-top px-4 py-3 bg-white">
                 <button type="button" class="btn btn-secondary rounded-2 px-4 small" data-bs-dismiss="modal">ปิดหน้าต่าง</button>
             </div>
         </div>
@@ -747,8 +1358,12 @@
 
 @section Scripts {
 <script>
-    // 1. Live Countdown Timer (Initialized to 03:45:18 = 13518 seconds)
-    var remainingSeconds = (3 * 3600) + (45 * 60) + 18;
+    // Global State for Machine Control Modal
+    var activeBookingId = 0;
+    var activeMachineName = "";
+    var activePricePerHour = 15.00;
+    var activeEndTime = null;
+    var remainingSeconds = 0;
     var timerInterval = null;
 
     function formatTime(totalSecs) {
@@ -771,11 +1386,10 @@
             } else {
                 clearInterval(timerInterval);
                 var clock = document.getElementById("countdownClock");
-                if (clock) clock.innerText = "หมดเวลาใช้งาน";
+                if (clock) clock.innerText = "00:00:00 (หมดเวลาใช้งาน)";
             }
         }, 1000);
     }
-    startTimer();
 
     // 2. Copy to Clipboard with Feedback and Icon Change
     function copyToClipboard(elementId, btnId, label) {
@@ -819,76 +1433,90 @@
         var icon = document.getElementById("restartIcon");
         var badge = document.getElementById("machineStatusBadge");
         var ping = document.getElementById("machinePing");
+        var bCode = activeBookingId ? ('#CPC-' + activeBookingId) : 'เครื่องนี้';
 
         btn.disabled = true;
         badge.className = "badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1 me-2";
         badge.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> กำลังรีสตาร์ทเครื่อง...';
         ping.innerHTML = '<i class="bi bi-arrow-repeat text-warning me-1"></i> --- ms';
-        showFeedback("ส่งสัญญาณรีสตาร์ทเครื่อง PRO 01 ไปยัง Hypervisor สำเร็จ กำลังบูตระบบใหม่...", "warning");
+        showFeedback("ส่งสัญญาณรีสตาร์ทเครื่อง " + bCode + " ไปยัง Hypervisor สำเร็จ กำลังบูตระบบใหม่...", "warning");
 
         setTimeout(function() {
             btn.disabled = false;
             badge.className = "badge bg-success-subtle text-success border border-success-subtle px-2 py-1 me-2";
             badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> เชื่อมต่อออนไลน์ (Online)';
             ping.innerHTML = '<i class="bi bi-reception-4 text-success me-1"></i> 12 ms';
-            showFeedback("เครื่อง #CPC-94812 รีสตาร์ทและเชื่อมต่อออนไลน์พร้อมใช้งานเรียบร้อยแล้ว!", "success");
+            showFeedback("เครื่อง " + bCode + " รีสตาร์ทและเชื่อมต่อออนไลน์พร้อมใช้งานเรียบร้อยแล้ว!", "success");
         }, 2200);
     }
 
-    // 5. Extend Time (+1 Hour with Wallet Balance Check)
-    var currentHours = 4;
+    // 5. Extend Time (+1 Hour with Slot Conflict and Real Backend Sync)
     function extendTime() {
-        var extendPrice = 15.00;
-        var navEl = document.getElementById("customerNavBalance");
-        var currentNavText = navEl ? navEl.innerText.replace(" THB", "").replace(/,/g, "") : "600";
-        var currentBal = parseFloat(currentNavText) || 0;
-
-        if (currentBal < extendPrice) {
-            showFeedback("ยอดเงินในกระเป๋าไม่เพียงพอสำหรับการต่อเวลา (มี " + currentBal.toFixed(2) + " THB ต้องการ 15.00 THB) คุณจะต้องมีเงินเพียงพอกับค่าใช้จ่าย กรุณาเติมเงินก่อนครับ", "danger");
-            showPageAlert("ยอดเงินในกระเป๋าไม่เพียงพอสำหรับการต่อเวลา (มี " + currentBal.toFixed(2) + " THB ต้องการ 15.00 THB) กรุณาเติมเงินเข้ากระเป๋าเงินก่อนครับ", "danger");
+        if (!activeBookingId) {
+            showFeedback("กรุณาเลือกเครื่องที่ต้องการต่อเวลาก่อนครับ", "warning");
             return;
         }
 
+        var btn = document.getElementById("btnExtend");
+        if (btn) btn.disabled = true;
+
+        showFeedback("กำลังตรวจสอบคิวว่างและยอดเงินในกระเป๋าเงิน...", "info");
+
         var token = document.querySelector('input[name="__RequestVerificationToken"]')?.value || '';
         var formData = new FormData();
-        formData.append('amount', extendPrice);
-        formData.append('title', 'ต่อเวลาใช้งานเครื่อง #CPC-94812 (+1 ชั่วโมง)');
+        formData.append('bookingId', activeBookingId);
+        formData.append('hours', 1);
         formData.append('__RequestVerificationToken', token);
 
-        fetch('/CloudPC/DeductWalletAjax', {
+        fetch('/CloudPC/ExtendBookingAjax', {
             method: 'POST',
             body: formData
         })
         .then(function(res) { return res.json(); })
         .then(function(data) {
+            if (btn) btn.disabled = false;
             if (data.success) {
-                if (navEl) navEl.innerText = data.formatted;
-                remainingSeconds += 3600;
+                // อัปเดตยอดเงินใน Navbar
+                var navEl = document.getElementById("customerNavBalance");
+                if (navEl && data.formatted) navEl.innerText = data.formatted;
+
+                // อัปเดตตัวนับเวลาถอยหลังจริง
+                if (data.newEndTime) {
+                    activeEndTime = parseDateSafe(data.newEndTime);
+                }
+                if (typeof data.remainingSeconds !== "undefined") {
+                    remainingSeconds = data.remainingSeconds;
+                } else {
+                    remainingSeconds += 3600;
+                }
                 var clock = document.getElementById("countdownClock");
                 if (clock) clock.innerText = formatTime(remainingSeconds);
 
-                currentHours += 1;
-                var timeCell = document.getElementById("bookingTime94812");
-                if (timeCell) {
-                    var endHour = 14 + currentHours;
-                    timeCell.innerText = `25 ต.ค. 2023, 14:00 - ${endHour}:00 (${currentHours} ชม.)`;
+                // อัปเดตเวลาในตารางของหน้านี้
+                var timeCell = document.getElementById("bookingTime" + activeBookingId);
+                if (timeCell && data.newEndTimeDisplay) {
+                    timeCell.innerHTML = `<span class="badge bg-light text-dark border me-1">${data.newHours} ชม.</span> ขยายถึง ${data.newEndTimeDisplay}`;
                 }
 
-                var stat = document.getElementById("accumulatedHoursStat");
-                if (stat) stat.innerHTML = `${48 + (currentHours - 4)} <small class="fs-6 text-muted">ชั่วโมง</small>`;
+                var modalTime = document.getElementById("modalBookingTime");
+                if (modalTime && data.newEndTimeDisplay) {
+                    modalTime.innerText = `ขยายถึง ${data.newEndTimeDisplay} (${data.newHours} ชม.)`;
+                }
 
-                showFeedback(`หักค่าต่อเวลา -${extendPrice.toFixed(2)} THB สำเร็จ! ขยายเวลาถึง ${14 + currentHours}:00 น. (ยอดคงเหลือ: ${data.formatted})`, "success");
-                showPageAlert(`ต่อเวลาการจองเครื่อง #CPC-94812 สำเร็จ (+1 ชม.) หักค่าบริการ ${extendPrice.toFixed(2)} THB ยอดเงินคงเหลือ: ${data.formatted}`, "success");
+                showFeedback(data.message, "success");
+                showPageAlert(data.message, "success");
+            } else if (data.hasConflict) {
+                // มีผู้ใช้งานท่านอื่นจองคิวต่อจากเรา (Slot Conflict)
+                showFeedback(data.message, "danger");
+                showPageAlert(data.message, "danger");
             } else {
-                showFeedback(data.message || "ยอดเงินคงเหลือไม่พอสำหรับการต่อเวลา", "danger");
-                showPageAlert(data.message || "ยอดเงินคงเหลือไม่พอสำหรับการต่อเวลา กรุณาเติมเงินก่อนครับ", "danger");
+                showFeedback(data.message || "ไม่สามารถต่อเวลาได้", "danger");
+                showPageAlert(data.message || "ไม่สามารถต่อเวลาได้", "danger");
             }
         })
-        .catch(function() {
-            remainingSeconds += 3600;
-            var clock = document.getElementById("countdownClock");
-            if (clock) clock.innerText = formatTime(remainingSeconds);
-            showFeedback("ต่อเวลาการใช้งานสำเร็จ +1 ชั่วโมง!", "success");
+        .catch(function(err) {
+            if (btn) btn.disabled = false;
+            showFeedback("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง", "danger");
         });
     }
 
@@ -911,11 +1539,12 @@
 
     // 7. End Rental / Return Machine
     function endSessionConfirm() {
-        if (confirm("คุณแน่ใจหรือไม่ว่าต้องการคืนเครื่องและสิ้นสุดการเช่า #CPC-94812 ในครั้งนี้?")) {
+        if (!activeBookingId) return;
+        if (confirm("คุณแน่ใจหรือไม่ว่าต้องการคืนเครื่องและสิ้นสุดการเช่า #CPC-" + activeBookingId + " ในครั้งนี้?")) {
             // Stop timer
             if (timerInterval) clearInterval(timerInterval);
             var clock = document.getElementById("countdownClock");
-            if (clock) clock.innerText = "สิ้นสุดการเช่าแล้ว";
+            if (clock) clock.innerText = "00:00:00 (หมดเวลา / สิ้นสุดการเช่า)";
 
             var badge = document.getElementById("machineStatusBadge");
             if (badge) {
@@ -924,36 +1553,59 @@
             }
 
             // Disable buttons
-            document.getElementById("btnRestart").disabled = true;
-            document.getElementById("btnExtend").disabled = true;
-            document.getElementById("btnResetPass").disabled = true;
-            document.getElementById("btnEndSession").disabled = true;
+            var btnRestart = document.getElementById("btnRestart");
+            var btnExtend = document.getElementById("btnExtend");
+            var btnResetPass = document.getElementById("btnResetPass");
+            var btnEnd = document.getElementById("btnEndSession");
+            if (btnRestart) btnRestart.disabled = true;
+            if (btnExtend) btnExtend.disabled = true;
+            if (btnResetPass) btnResetPass.disabled = true;
+            if (btnEnd) btnEnd.disabled = true;
 
-            // Update row in table
-            var row = document.getElementById("bookingRow94812");
-            if (row) row.setAttribute("data-status", "completed");
+            // ส่งข้อมูลไปยังเซิร์ฟเวอร์เพื่อคืนเครื่องและอัปเดตสถานะเป็น Completed
+            var formData = new FormData();
+            formData.append("bookingId", activeBookingId);
+            var token = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (token) formData.append("__RequestVerificationToken", token.value);
 
-            var statusCell = document.getElementById("statusCell94812");
-            if (statusCell) {
-                statusCell.innerHTML = '<span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1">เสร็จ</span>';
-            }
+            fetch('/CloudPC/ReturnMachineAjax', {
+                method: 'POST',
+                body: formData
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                // Update row in table
+                var row = document.getElementById("bookingRow" + activeBookingId);
+                if (row) row.setAttribute("data-status", "completed");
 
-            var actionCell = document.getElementById("actionCell94812");
-            if (actionCell) {
-                actionCell.className = "text-end pe-3 text-muted";
-                actionCell.innerText = "ทำรายการเสร็จสิ้น";
-            }
+                var statusCell = document.getElementById("statusCell" + activeBookingId);
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="badge" style="background-color: #f0fdf4 !important; color: #15803d !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;"><i class="bi bi-check-circle-fill me-1"></i> เสร็จสิ้น</span>';
+                }
 
-            // Update active machines counter
-            var activeStat = document.getElementById("activeMachinesStat");
-            if (activeStat) activeStat.innerHTML = '0 <small class="fs-6 text-muted">เครื่อง</small>';
+                var actionCell = document.getElementById("actionCell" + activeBookingId);
+                if (actionCell) {
+                    actionCell.className = "text-end pe-3 text-muted";
+                    actionCell.innerHTML = '<span class="badge bg-light text-muted border px-3 py-2 fw-normal" style="font-size: 0.78rem;"><i class="bi bi-check2-all text-success me-1"></i> สิ้นสุดการเช่าแล้ว</span>';
+                }
 
-            // Close modal
-            var modalEl = document.getElementById('machineControlModal');
-            var modalInstance = bootstrap.Modal.getInstance(modalEl);
-            if (modalInstance) modalInstance.hide();
+                // Close modal
+                var modalEl = document.getElementById('machineControlModal');
+                if (modalEl && typeof bootstrap !== "undefined") {
+                    var modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+                }
 
-            showPageAlert("คืนเครื่อง #CPC-94812 เรียบร้อยแล้ว ขอบคุณที่เลือกใช้บริการ CloudPC ครับ", "success");
+                showPageAlert(data.message || ("คืนเครื่อง #CPC-" + activeBookingId + " เรียบร้อยแล้ว ขอบคุณที่เลือกใช้บริการ CloudPC ครับ"), "success");
+            })
+            .catch(function() {
+                var modalEl = document.getElementById('machineControlModal');
+                if (modalEl && typeof bootstrap !== "undefined") {
+                    var modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+                }
+                showPageAlert("คืนเครื่อง #CPC-" + activeBookingId + " เรียบร้อยแล้ว", "success");
+            });
         }
     }
 
@@ -1016,15 +1668,178 @@
         }
 
         var countText = document.getElementById("bookingCountText");
-        if (countText) countText.innerText = `แสดง ${visibleCount} จากทั้งหมด @(ViewBag.TotalBookingsCount ?? 4) รายการประวัติการจอง`;
+        if (countText) countText.innerText = `แสดง ${visibleCount} จากทั้งหมด ${rows.length} รายการประวัติการจอง`;
     }
 
-    // Dynamic Modal Openers for Newly Booked Machines
-    function openMachineControl(bookingId, machineName) {
+    // Dynamic Modal Openers for Newly Booked Machines with Real Data & Dynamic Countdown
+    function openMachineControl(bookingId, machineName, machineId, rentalHours, pricePerHour, startIso, endIso, timeText, cpu, ram, gpu, storage, ip, username, password) {
+        activeBookingId = bookingId;
+        activeMachineName = machineName || "Cloud PC";
+        activePricePerHour = parseFloat(pricePerHour) || 15.00;
+
         var codeEl = document.getElementById("modalMachineCode");
         var titleEl = document.getElementById("modalMachineTitle");
+        var timeEl = document.getElementById("modalBookingTime");
         if (codeEl) codeEl.innerText = '#CPC-' + bookingId;
         if (titleEl) titleEl.innerText = machineName;
+        if (timeEl && timeText) timeEl.innerText = timeText;
+
+        // เติมข้อมูล credentials จริง
+        var ipField = document.getElementById("ipField");
+        var userField = document.getElementById("userField");
+        var passField = document.getElementById("passField");
+        if (ipField) ipField.value = ip || "103.22.180.45:3389";
+        if (userField) userField.value = username || ("CloudUser_" + bookingId);
+        if (passField) passField.value = password || ("GameFast#" + (bookingId % 9000 + 1000) + "!");
+
+        // เติมข้อมูลสเปกฮาร์ดแวร์จริงของเครื่อง
+        var cpuField = document.getElementById("specCpu");
+        var ramField = document.getElementById("specRam");
+        var gpuField = document.getElementById("specGpu");
+        var storageField = document.getElementById("specStorage");
+        if (cpuField) cpuField.innerText = cpu || "AMD Ryzen 9 7900X (12C/24T)";
+        if (ramField) ramField.innerText = ram || "32GB DDR5 6000MHz";
+        if (gpuField) gpuField.innerText = gpu || "NVIDIA RTX 4080 (16GB VRAM)";
+        if (storageField) storageField.innerText = storage || "1TB NVMe PCIe 4.0 SSD";
+
+        // ล้างกล่องแจ้งเตือนใน modal
+        var fb = document.getElementById("actionFeedback");
+        if (fb) fb.className = "alert alert-success mt-3 small py-2 d-none";
+
+        // คำนวณเวลานับถอยหลังจริงตามเวลาจอง (Real-Time Countdown from EndTime)
+        var now = new Date();
+        var startDt = startIso ? parseDateSafe(startIso) : null;
+        var endDt = endIso ? parseDateSafe(endIso) : null;
+
+        var isNotStartedYet = (startDt && now < startDt);
+        var isExpired = (endDt && now >= endDt);
+
+        if (endDt) {
+            activeEndTime = endDt;
+            var diffSecs = Math.floor((activeEndTime - now) / 1000);
+            remainingSeconds = Math.max(0, diffSecs);
+        } else {
+            remainingSeconds = (rentalHours || 2) * 3600;
+        }
+
+        var clock = document.getElementById("countdownClock");
+        var btnRestart = document.getElementById("btnRestart");
+        var btnExtend = document.getElementById("btnExtend");
+        var btnResetPass = document.getElementById("btnResetPass");
+        var btnEnd = document.getElementById("btnEndSession");
+        var statusBadge = document.getElementById("machineStatusBadge");
+
+        // Elements สำหรับ Virtual Screen และ Alert
+        var notStartedAlert = document.getElementById("modalNotStartedAlert");
+        var timeAlert = document.getElementById("modalBookingTimeAlert");
+        var vscreenStandby = document.getElementById("vscreenStandby");
+        var vscreenDesktop = document.getElementById("vscreenDesktop");
+        var standbyMachineDisplay = document.getElementById("standbyMachineNameDisplay");
+        var standbyTimeDisplay = document.getElementById("standbyBookingTimeDisplay");
+        var standbyCountLarge = document.getElementById("standbyCountdownLarge");
+        var credLocked = document.getElementById("credentialsLockedBox");
+        var credActive = document.getElementById("credentialsActiveBox");
+        var credUnlockTime = document.getElementById("credentialsUnlockTimeText");
+        var streamStatus = document.getElementById("vdesktopStreamStatus");
+        var streamGpu = document.getElementById("vdesktopGpuTag");
+        var termSession = document.getElementById("simTermSessionId");
+
+        if (timeAlert && timeText) timeAlert.innerText = timeText;
+        if (standbyMachineDisplay) standbyMachineDisplay.innerText = machineName;
+        if (standbyTimeDisplay && timeText) standbyTimeDisplay.innerText = timeText;
+        if (streamGpu && gpu) streamGpu.innerText = gpu + " (Active)";
+        if (termSession) termSession.innerText = '#CPC-' + bookingId;
+
+        // สกัดเวลาเริ่มเพื่อนำไปแสดงที่กล่องล็อกรหัส
+        if (credUnlockTime && timeText) {
+            var timeOnly = timeText.split(',').length > 1 ? timeText.split(',')[1].trim().split(' ')[0] : '08:00';
+            credUnlockTime.innerText = timeOnly + ' น.';
+        }
+
+        if (isNotStartedYet) {
+            // โหมดจองล่วงหน้า ยังไม่ถึงเวลาใช้งาน
+            var diffStart = Math.floor((startDt - now) / 1000);
+            var dh = Math.floor(diffStart / 3600);
+            var dm = Math.floor((diffStart % 3600) / 60);
+            var ds = diffStart % 60;
+            var countdownStartStr = String(dh).padStart(2,'0') + ":" + String(dm).padStart(2,'0') + ":" + String(ds).padStart(2,'0');
+
+            if (clock) {
+                clock.innerText = "รอเริ่มคิว (เริ่มในอีก " + (dh > 0 ? dh + " ชม. " : "") + dm + " นาที)";
+            }
+            if (standbyCountLarge) {
+                standbyCountLarge.innerText = countdownStartStr;
+            }
+
+            // แสดงแถบแจ้งเตือน & หน้าจอ Standby & ล็อกรหัสผ่าน
+            if (notStartedAlert) notStartedAlert.classList.remove("d-none");
+            if (vscreenStandby) vscreenStandby.classList.remove("d-none");
+            if (vscreenDesktop) vscreenDesktop.classList.add("d-none");
+            if (credLocked) credLocked.classList.remove("d-none");
+            if (credActive) credActive.classList.add("d-none");
+
+            if (streamStatus) {
+                streamStatus.className = "badge bg-warning text-dark ms-2";
+                streamStatus.innerText = "STANDBY / RESERVED";
+            }
+
+            if (btnRestart) btnRestart.disabled = true;
+            if (btnExtend) btnExtend.disabled = false;
+            if (btnResetPass) btnResetPass.disabled = true;
+            if (btnEnd) btnEnd.disabled = true;
+            if (statusBadge) {
+                statusBadge.className = "badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-3 py-2 fw-semibold";
+                statusBadge.innerHTML = '<i class="bi bi-clock-history me-1"></i> จองล่วงหน้า (ยังไม่ถึงเวลาเริ่ม)';
+            }
+            startStandbyTimer(startDt);
+        } else if (isExpired) {
+            // โหมดหมดเวลาแล้ว
+            if (clock) clock.innerText = "00:00:00 (หมดเวลา / สิ้นสุดการเช่า)";
+            if (notStartedAlert) notStartedAlert.classList.add("d-none");
+            if (vscreenStandby) vscreenStandby.classList.remove("d-none");
+            if (vscreenDesktop) vscreenDesktop.classList.add("d-none");
+            if (standbyCountLarge) standbyCountLarge.innerText = "00:00:00 (หมดเวลา)";
+            if (credLocked) credLocked.classList.add("d-none");
+            if (credActive) credActive.classList.remove("d-none");
+
+            if (streamStatus) {
+                streamStatus.className = "badge bg-secondary text-white ms-2";
+                streamStatus.innerText = "SESSION ENDED";
+            }
+
+            if (btnRestart) btnRestart.disabled = true;
+            if (btnExtend) btnExtend.disabled = true;
+            if (btnResetPass) btnResetPass.disabled = true;
+            if (btnEnd) btnEnd.disabled = true;
+            if (statusBadge) {
+                statusBadge.className = "badge bg-secondary-subtle text-secondary border border-secondary-subtle px-3 py-2 fw-semibold";
+                statusBadge.innerHTML = '<i class="bi bi-power me-1"></i> สิ้นสุดการเช่าแล้ว';
+            }
+        } else {
+            // โหมดกำลังเปิดใช้งานจริง (Active & Connected)
+            if (clock) clock.innerText = formatTime(remainingSeconds);
+            if (notStartedAlert) notStartedAlert.classList.add("d-none");
+            if (vscreenStandby) vscreenStandby.classList.add("d-none");
+            if (vscreenDesktop) vscreenDesktop.classList.remove("d-none");
+            if (credLocked) credLocked.classList.add("d-none");
+            if (credActive) credActive.classList.remove("d-none");
+
+            if (streamStatus) {
+                streamStatus.className = "badge bg-success text-white ms-2";
+                streamStatus.innerText = "LIVE 60FPS";
+            }
+
+            if (btnRestart) btnRestart.disabled = false;
+            if (btnExtend) btnExtend.disabled = false;
+            if (btnResetPass) btnResetPass.disabled = false;
+            if (btnEnd) btnEnd.disabled = false;
+            if (statusBadge) {
+                statusBadge.className = "badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fw-semibold";
+                statusBadge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> เชื่อมต่อออนไลน์ (Online)';
+            }
+            startTimer();
+        }
+
         var modalEl = document.getElementById('machineControlModal');
         if (modalEl && typeof bootstrap !== "undefined") {
             new bootstrap.Modal(modalEl).show();
@@ -1158,6 +1973,83 @@
         }
     }
 
+    // ===== Virtual Desktop Simulator Interactive Functions =====
+    var standbyTimerInterval = null;
+
+    function startStandbyTimer(startDt) {
+        if (standbyTimerInterval) clearInterval(standbyTimerInterval);
+        if (!startDt) return;
+
+        function updateStandby() {
+            var now = new Date();
+            var diff = Math.floor((startDt - now) / 1000);
+            var el = document.getElementById("standbyCountdownLarge");
+            if (diff > 0) {
+                var h = Math.floor(diff / 3600);
+                var m = Math.floor((diff % 3600) / 60);
+                var s = diff % 60;
+                if (el) el.innerText = String(h).padStart(2,'0') + ":" + String(m).padStart(2,'0') + ":" + String(s).padStart(2,'0');
+            } else {
+                if (el) el.innerText = "00:00:00 (ถึงเวลาใช้งานแล้ว)";
+                clearInterval(standbyTimerInterval);
+            }
+        }
+        updateStandby();
+        standbyTimerInterval = setInterval(updateStandby, 1000);
+    }
+
+    function toggleVirtualFullscreen() {
+        var frame = document.getElementById("vdesktopContainer");
+        if (!frame) return;
+        frame.classList.toggle("vfullscreen");
+        if (frame.classList.contains("vfullscreen")) {
+            showFeedback("เปิดโหมดเต็มหน้าจอ (คลิก 'เต็มจอ' อีกครั้งเพื่อย่อกลับ)", "info");
+        }
+    }
+
+    function openSimApp(app) {
+        // ซ่อนทุกหน้าต่างจำลองก่อน
+        var steam = document.getElementById("simWinSteam");
+        var taskmgr = document.getElementById("simWinTaskmgr");
+        var terminal = document.getElementById("simWinTerminal");
+        if (steam) steam.classList.add("d-none");
+        if (taskmgr) taskmgr.classList.add("d-none");
+        if (terminal) terminal.classList.add("d-none");
+
+        if (app === 'steam' && steam) steam.classList.remove("d-none");
+        else if (app === 'taskmgr' && taskmgr) taskmgr.classList.remove("d-none");
+        else if (app === 'terminal' && terminal) terminal.classList.remove("d-none");
+        else if (app === 'chrome') {
+            showFeedback("กำลังเปิดเบราว์เซอร์ Google Chrome บน Cloud PC...", "success");
+        } else if (app === 'premiere') {
+            showFeedback("กำลังเปิด Adobe Premiere Pro 2024 (CUDA GPU Acceleration: Active)...", "success");
+        } else if (app === 'storage') {
+            showFeedback("เปิด This PC: ไดรฟ์ C: (1TB NVMe PCIe 4.0 SSD มีที่ว่าง 820 GB)", "info");
+        }
+    }
+
+    function closeSimApp(app) {
+        if (app === 'steam') document.getElementById("simWinSteam")?.classList.add("d-none");
+        if (app === 'taskmgr') document.getElementById("simWinTaskmgr")?.classList.add("d-none");
+        if (app === 'terminal') document.getElementById("simWinTerminal")?.classList.add("d-none");
+    }
+
+    function simulateGameLaunch(gameName) {
+        var toast = document.getElementById("simLaunchToast");
+        if (toast) {
+            toast.className = "alert alert-success py-2 px-3 mt-3 mb-0";
+            toast.innerHTML = '<div class="d-flex align-items-center gap-2"><div class="spinner-border spinner-border-sm text-success" role="status"></div><div>กำลังรัน <strong>' + gameName + '</strong> ด้วย NVIDIA RTX 4080 (DLSS 3.5 Frame Gen 120 FPS)...</div></div>';
+            toast.classList.remove("d-none");
+            setTimeout(function() {
+                toast.innerHTML = '<i class="bi bi-play-circle-fill text-success me-1"></i> สตรีมเกม <strong>' + gameName + '</strong> ความละเอียด 4K HDR 120FPS เริ่มต้นสมบูรณ์แล้ว!';
+            }, 1800);
+        }
+    }
+
+    function toggleSimStartMenu() {
+        showFeedback("Windows 11 Start Menu เปิดใช้งานบนเครื่อง Cloud PC", "info");
+    }
+
     // ===== Countdown Timer & Real-time Status =====
     function formatDuration(secs) {
         if (secs <= 0) return "00:00:00";
@@ -1181,6 +2073,12 @@
     function tickCountdowns() {
         var now = new Date();
 
+        // อัปเดตนาฬิกาบน Taskbar ของเครื่องจำลอง
+        var taskClock = document.getElementById("vtaskbarClock");
+        if (taskClock) {
+            taskClock.innerText = String(now.getHours()).padStart(2,'0') + ":" + String(now.getMinutes()).padStart(2,'0');
+        }
+
         // Countdown สำหรับ "กำลังใช้งาน" — นับถอยหลังถึงเวลาสิ้นสุด
         document.querySelectorAll('[id^="countdown"]').forEach(function(el) {
             var endTime = parseDateSafe(el.dataset.end);
@@ -1193,19 +2091,21 @@
             }
         });
 
-        // แสดง "เริ่มในอีก X" สำหรับ "จอง (พร้อมใช้งาน)"
+        // แสดง "เริ่มในอีก X" สำหรับ "จองล่วงหน้า"
         document.querySelectorAll('[id^="startIn"]').forEach(function(el) {
             var startTime = parseDateSafe(el.dataset.start);
             if (!startTime) return;
             var diff = Math.floor((startTime - now) / 1000);
             if (diff > 0) {
-                var h = Math.floor(diff / 3600);
+                var d = Math.floor(diff / 86400);
+                var h = Math.floor((diff % 86400) / 3600);
                 var m = Math.floor((diff % 3600) / 60);
-                if (h > 0) el.textContent = '(เริ่มในอีก ' + h + 'ชม. ' + m + 'น.)';
+                if (d > 0) el.textContent = '(เริ่มในอีก ' + d + ' วัน ' + (h > 0 ? h + ' ชม.' : '') + ')';
+                else if (h > 0) el.textContent = '(เริ่มในอีก ' + h + ' ชม. ' + m + ' นาที)';
                 else if (m > 0) el.textContent = '(เริ่มในอีก ' + m + ' นาที)';
-                else el.textContent = '(กำลังจะเริ่ม...)';
+                else el.textContent = '(กำลังจะเริ่มใช้งาน...)';
             } else {
-                el.textContent = '';
+                el.textContent = '(ถึงเวลาใช้งานแล้ว)';
             }
         });
     }

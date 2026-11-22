@@ -5,13 +5,14 @@
     var status = ViewBag.Status as string ?? "All";
     var minPrice = ViewBag.MinPrice;
     var maxPrice = ViewBag.MaxPrice;
-    var countAvailable = ViewBag.CountAvailable ?? 12;
-    var countRented = ViewBag.CountRented ?? 8;
-    var countMaintenance = ViewBag.CountMaintenance ?? 2;
-    int totalCount = ViewBag.TotalCount ?? 22;
+    var countAvailable = ViewBag.CountAvailable ?? 0;
+    var countRented = ViewBag.CountRented ?? 0;
+    var countMaintenance = ViewBag.CountMaintenance ?? 0;
+    int totalCount = ViewBag.TotalCount ?? 0;
     int currentPage = ViewBag.CurrentPage ?? 1;
-    int totalPages = ViewBag.TotalPages ?? 3;
+    int totalPages = ViewBag.TotalPages ?? 1;
     var sort = ViewBag.Sort as string ?? "available_first";
+    var selectedCategories = (ViewBag.Categories as List<string>) ?? new List<string>();
 }
 
 <div class="row g-4 py-3">
@@ -20,7 +21,7 @@
         <div class="card-cloudpc p-4 bg-white">
             <h5 class="fw-bold mb-4">ค้นหาและคัดกรองเครื่อง</h5>
 
-            <form method="get" asp-action="Machines">
+            <form method="get" asp-action="Machines" id="filterMachinesForm">
                 <!-- ค้นหาคำ -->
                 <div class="mb-4">
                     <label class="form-label small fw-semibold text-secondary">ค้นหาชื่อหรือฮาร์ดแวร์</label>
@@ -32,21 +33,27 @@
 
                 <!-- ประเภทเครื่อง -->
                 <div class="mb-4">
-                    <label class="form-label small fw-semibold text-secondary d-block mb-2">ประเภทเครื่อง</label>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <label class="form-label small fw-semibold text-secondary mb-0">ประเภทเครื่อง</label>
+                        @if (selectedCategories.Any())
+                        {
+                            <a href="@Url.Action("Machines", new { search, status, minPrice, maxPrice, sort })" class="text-primary text-decoration-none" style="font-size: 0.72rem;">ล้างค่า</a>
+                        }
+                    </div>
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="cat-gaming" checked />
+                        <input class="form-check-input" type="checkbox" name="categories" value="gaming" id="cat-gaming" @(selectedCategories.Contains("gaming") ? "checked" : "") onchange="this.form.submit()" />
                         <label class="form-check-label small" for="cat-gaming">สเปกสำหรับเล่นเกม (Gaming)</label>
                     </div>
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="cat-graphic" />
+                        <input class="form-check-input" type="checkbox" name="categories" value="graphic" id="cat-graphic" @(selectedCategories.Contains("graphic") ? "checked" : "") onchange="this.form.submit()" />
                         <label class="form-check-label small" for="cat-graphic">สเปกสำหรับทำงานกราฟิก (Graphic Work)</label>
                     </div>
                     <div class="form-check mb-2">
-                        <input class="form-check-input" type="checkbox" id="cat-ai" />
+                        <input class="form-check-input" type="checkbox" name="categories" value="ai" id="cat-ai" @(selectedCategories.Contains("ai") ? "checked" : "") onchange="this.form.submit()" />
                         <label class="form-check-label small" for="cat-ai">สเปกสำหรับประมวลผลสูง (AI/AI Processing)</label>
                     </div>
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="cat-office" />
+                        <input class="form-check-input" type="checkbox" name="categories" value="office" id="cat-office" @(selectedCategories.Contains("office") ? "checked" : "") onchange="this.form.submit()" />
                         <label class="form-check-label small" for="cat-office">สเปกทำงานทั่วไป (General Office)</label>
                     </div>
                 </div>
@@ -70,7 +77,7 @@
                     <div class="form-check d-flex justify-content-between mb-2">
                         <div>
                             <input class="form-check-input" type="radio" name="status" id="st-rent" value="Rented" @(status == "Rented" ? "checked" : "") onchange="this.form.submit()" />
-                            <label class="form-check-label small text-danger fw-semibold" for="st-rent">กำลังใช้งาน</label>
+                            <label class="form-check-label small text-danger fw-semibold" for="st-rent">มีคิวบางช่วง</label>
                         </div>
                         <span class="text-muted small">@countRented เครื่อง</span>
                     </div>
@@ -101,6 +108,8 @@
                     </div>
                 </div>
 
+                <input type="hidden" name="sort" value="@sort" />
+
                 <button type="submit" class="btn btn-primary w-100 rounded-2 fw-semibold">
                     กรองข้อมูล
                 </button>
@@ -116,7 +125,7 @@
             </h5>
             <div class="d-flex align-items-center">
                 <span class="text-muted small me-2 text-nowrap">เรียงตาม:</span>
-                <select class="form-select form-select-sm" style="width: auto;" onchange="location.href='?sort=' + this.value + '&status=@status&search=@search&minPrice=@minPrice&maxPrice=@maxPrice'">
+                <select class="form-select form-select-sm" style="width: auto;" onchange="applySorting(this.value)">
                     <option value="available_first" selected="@(sort == "available_first")">เครื่องว่างอันดับแรก</option>
                     <option value="price_asc" selected="@(sort == "price_asc")">ราคา: ต่ำไปสูง</option>
                     <option value="price_desc" selected="@(sort == "price_desc")">ราคา: สูงไปต่ำ</option>
@@ -143,8 +152,15 @@
                             </div>
 
                             <div class="d-flex justify-content-between align-items-start mb-2">
-                                <h6 class="fw-bold mb-0 text-dark text-truncate" title="@machine.MachineName" style="max-width: 170px;">
-                                    @machine.MachineName
+                                @{
+                                    var displayMachineName = (CloudPCRental.Models.MockDataStore.StandardMachineNames.TryGetValue(machine.MachineId, out var sName))
+                                        ? sName
+                                        : (machine.MachineName != null && (machine.MachineName.Contains("à") || machine.MachineName.Contains("¹") || machine.MachineName.Contains("¸"))
+                                            ? $"เครื่องคอมพิวเตอร์ PC-{machine.MachineId:D3}"
+                                            : machine.MachineName);
+                                }
+                                <h6 class="fw-bold mb-0 text-dark text-truncate" title="@displayMachineName" style="max-width: 170px;">
+                                    @displayMachineName
                                 </h6>
                                 @if (machine.Status == "PendingRepair" || (!string.IsNullOrEmpty(machine.RepairNote) && string.IsNullOrEmpty(machine.ApprovedBy)))
                                 {
@@ -154,17 +170,13 @@
                                 {
                                     <span class="badge-status-maintenance text-nowrap"><i class="bi bi-tools me-1"></i> ซ่อมบำรุง</span>
                                 }
-                                else if (machine.Status == "Available")
-                                {
-                                    <span class="badge-status-available text-nowrap">ว่าง</span>
-                                }
                                 else if (machine.Status == "Rented")
                                 {
                                     <span class="badge text-nowrap" style="background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 0.72rem;"><i class="bi bi-clock-history me-1"></i> มีคิวบางช่วง</span>
                                 }
                                 else
                                 {
-                                    <span class="badge-status-maintenance text-nowrap">ซ่อมบำรุง</span>
+                                    <span class="badge-status-available text-nowrap">ว่าง</span>
                                 }
                             </div>
 
@@ -193,23 +205,17 @@
                                             <i class="bi bi-wrench-adjustable me-1"></i> ซ่อมบำรุง
                                         </button>
                                     }
-                                    else if (machine.Status == "Available")
-                                    {
-                                        <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-primary btn-sm px-3 rounded-2 fw-semibold shadow-xs">
-                                            จองเลย
-                                        </a>
-                                    }
                                     else if (machine.Status == "Rented")
                                     {
-                                        <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-outline-primary btn-sm px-2 rounded-2 fw-semibold shadow-xs" title="เครื่องนี้มีผู้จองบางช่วงเวลา แต่ยังมีเวลาอื่นว่างอยู่ คลิกเพื่อเลือกช่วงเวลาที่ต้องการได้">
-                                            <i class="bi bi-calendar-check me-1"></i> จองเวลาว่าง
+                                        <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-primary btn-sm px-3 rounded-2 fw-semibold shadow-xs" title="เครื่องนี้มีคิวการจองบางช่วงเวลา สามารถกดเพื่อจองช่วงเวลาว่างล่วงหน้าได้">
+                                            <i class="bi bi-calendar-plus me-1"></i> จองล่วงหน้า
                                         </a>
                                     }
                                     else
                                     {
-                                        <button class="btn btn-light text-muted btn-sm px-2 rounded-2 border fw-semibold" disabled>
-                                            ไม่พร้อมใช้งาน
-                                        </button>
+                                        <a asp-action="Booking" asp-route-machineId="@machine.MachineId" class="btn btn-primary btn-sm px-3 rounded-2 fw-semibold shadow-xs" title="เครื่องว่างพร้อมใช้งานทันที">
+                                            <i class="bi bi-play-circle me-1"></i> จองเลย
+                                        </a>
                                     }
                                 </div>
                             </div>
@@ -222,11 +228,28 @@
                 <div class="col-12 py-5 text-center text-muted">
                     <i class="bi bi-search fs-1 d-block mb-2 text-secondary opacity-50"></i>
                     <h6 class="fw-bold text-dark">ไม่พบคอมพิวเตอร์ที่ตรงกับเงื่อนไขที่เลือก</h6>
-                    <p class="small">กรุณาลองเปลี่ยนตัวเลือกสถานะ หรือปรับช่วงราคาใหม่อีกครั้ง</p>
+                    <p class="small">กรุณาลองเปลี่ยนตัวเลือกสถานะ หมวดหมู่ หรือปรับช่วงราคาใหม่อีกครั้ง</p>
                     <a asp-action="Machines" class="btn btn-outline-primary btn-sm rounded-pill px-3">ล้างตัวกรองทั้งหมด</a>
                 </div>
             }
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    function applySorting(sortVal) {
+        var form = document.getElementById('filterMachinesForm');
+        if (form) {
+            var sortInput = form.querySelector('input[name="sort"]');
+            if (sortInput) sortInput.value = sortVal;
+            form.submit();
+        } else {
+            var url = new URL(window.location.href);
+            url.searchParams.set('sort', sortVal);
+            window.location.href = url.toString();
+        }
+    }
+</script>
+}
 
