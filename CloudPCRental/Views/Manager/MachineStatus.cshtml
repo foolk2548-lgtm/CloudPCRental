@@ -1,77 +1,368 @@
 @{
     Layout = "_AdminLayout";
-    ViewData["Title"] = "สถานะเครื่อง";
-    var machines     = ViewBag.Machines      as List<CloudPCRental.Models.Machine> ?? new();
-    var activeRentals= ViewBag.ActiveRentals as List<CloudPCRental.Models.Booking> ?? new();
+    ViewData["Title"] = "สถานะเครื่องคอมพิวเตอร์";
+    var machines      = ViewBag.Machines     as List<CloudPCRental.Models.Machine> ?? new();
+    var activeRentals = ViewBag.ActiveRentals as List<CloudPCRental.Models.Booking> ?? new();
+    int totalCount    = ViewBag.Total       ?? machines.Count;
+    int availCount    = ViewBag.Available   ?? machines.Count(m => m.Status == "Available" || m.Status == "ว่าง");
+    int rentedCount   = ViewBag.Rented      ?? machines.Count(m => m.Status == "Rented" || m.Status == "ไม่ว่าง");
+    int maintCount    = ViewBag.Maintenance ?? machines.Count(m => m.Status == "Maintenance" || m.Status == "PendingRepair");
+    int utilRate      = ViewBag.UtilizationRate ?? (totalCount > 0 ? (int)Math.Round((double)rentedCount * 100 / totalCount) : 0);
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<style>
+    .machine-card-pro {
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 100%;
+    }
+    .machine-card-pro:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+        border-color: #cbd5e1;
+    }
+    .machine-card-pro.status-rented {
+        border-top: 4px solid #f59e0b;
+    }
+    .machine-card-pro.status-available {
+        border-top: 4px solid #10b981;
+    }
+    .machine-card-pro.status-maintenance {
+        border-top: 4px solid #ef4444;
+    }
+    .spec-chip {
+        font-size: 0.73rem;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        padding: 4px 8px;
+        color: #334155;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .filter-btn-pill.active {
+        background-color: #2563eb !important;
+        color: #ffffff !important;
+        border-color: #2563eb !important;
+    }
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #10b981;
+        border-radius: 50%;
+        display: inline-block;
+        box-shadow: 0 0 0 rgba(16, 185, 129, 0.7);
+        animation: pulse 2s infinite;
+    }
+    @@keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+        70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+</style>
+
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
-        <div class="text-muted small">ตรวจสอบสถานะเครื่องแบบ real-time</div>
-        <h3 class="fw-bold text-dark mb-0">สถานะเครื่อง</h3>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <span class="pulse-dot"></span>
+            <span class="text-muted small fw-semibold">ศูนย์มอนิเตอร์และควบคุมเครื่อง Cloud PC (Live Fleet Monitoring)</span>
+        </div>
+        <h3 class="fw-bold text-dark mb-0">สถานะเครื่องคอมพิวเตอร์</h3>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-white text-muted border px-3 py-2 fw-normal shadow-xs">
+            <i class="bi bi-clock me-1 text-primary"></i> อัปเดตล่าสุด: <span id="monitorTime"></span>
+        </span>
     </div>
 </div>
 
-<!-- Status Summary -->
+<!-- 4 Executive Summary Metrics -->
 <div class="row g-3 mb-4">
-    <div class="col-4">
-        <div class="card-cloudpc bg-white p-3 text-center border-start border-4 border-success">
-            <div class="fs-2 fw-bold text-success">@ViewBag.Available</div>
-            <div class="small text-muted">ว่าง</div>
+    <div class="col-6 col-lg-3">
+        <div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-semibold">เครื่องทั้งหมด</span>
+                <span class="p-2 bg-primary-subtle text-primary rounded-2"><i class="bi bi-pc-display-horizontal fs-5"></i></span>
+            </div>
+            <div class="fs-2 fw-bold text-dark">@totalCount <small class="fs-6 text-muted fw-normal">เครื่อง</small></div>
+            <div class="small text-muted mt-1">
+                อัตราการใช้งานรวม <strong class="text-primary">@utilRate%</strong>
+            </div>
         </div>
     </div>
-    <div class="col-4">
-        <div class="card-cloudpc bg-white p-3 text-center border-start border-4 border-warning">
-            <div class="fs-2 fw-bold text-warning">@ViewBag.Rented</div>
-            <div class="small text-muted">กำลังเช่า</div>
+    <div class="col-6 col-lg-3">
+        <div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-semibold">พร้อมให้บริการ (ว่าง)</span>
+                <span class="p-2 bg-success-subtle text-success rounded-2"><i class="bi bi-check-circle-fill fs-5"></i></span>
+            </div>
+            <div class="fs-2 fw-bold text-success">@availCount <small class="fs-6 text-muted fw-normal">เครื่อง</small></div>
+            <div class="small text-success mt-1 fw-semibold">
+                พร้อมรองรับการจองทันที
+            </div>
         </div>
     </div>
-    <div class="col-4">
-        <div class="card-cloudpc bg-white p-3 text-center border-start border-4 border-danger">
-            <div class="fs-2 fw-bold text-danger">@ViewBag.Maintenance</div>
-            <div class="small text-muted">แจ้งซ่อม</div>
+    <div class="col-6 col-lg-3">
+        <div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-semibold">กำลังเปิดใช้งาน / เช่า</span>
+                <span class="p-2 bg-warning-subtle text-warning rounded-2"><i class="bi bi-lightning-charge-fill fs-5"></i></span>
+            </div>
+            <div class="fs-2 fw-bold text-warning-emphasis">@rentedCount <small class="fs-6 text-muted fw-normal">เครื่อง</small></div>
+            <div class="small text-muted mt-1">
+                มีผู้ใช้งานเชื่อมต่อขณะนี้
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs h-100">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="text-muted small fw-semibold">แจ้งซ่อม / บำรุงรักษา</span>
+                <span class="p-2 @(maintCount > 0 ? "bg-danger-subtle text-danger" : "bg-light text-muted") rounded-2">
+                    <i class="bi bi-tools fs-5"></i>
+                </span>
+            </div>
+            <div class="fs-2 fw-bold @(maintCount > 0 ? "text-danger" : "text-dark")">@maintCount <small class="fs-6 text-muted fw-normal">เครื่อง</small></div>
+            <div class="small @(maintCount > 0 ? "text-danger fw-semibold" : "text-muted") mt-1">
+                @(maintCount > 0 ? "ปิดระบบชั่วคราวรอตรวจเช็ค" : "ไม่มีเครื่องขัดข้อง")
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Machine Cards -->
-<div class="row g-3">
+<!-- Controls & Filter Toolbar -->
+<div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <!-- Status Filter Pills -->
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold filter-btn-pill active" onclick="filterByStatus('all', this)">
+                ทั้งหมด <span class="badge bg-light text-dark ms-1">@totalCount</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold filter-btn-pill" onclick="filterByStatus('available', this)">
+                <i class="bi bi-check-circle-fill text-success me-1"></i> ว่าง <span class="badge bg-success-subtle text-success ms-1">@availCount</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold filter-btn-pill" onclick="filterByStatus('rented', this)">
+                <i class="bi bi-lightning-charge-fill text-warning me-1"></i> กำลังเช่า <span class="badge bg-warning-subtle text-warning-emphasis ms-1">@rentedCount</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 fw-semibold filter-btn-pill" onclick="filterByStatus('maintenance', this)">
+                <i class="bi bi-tools text-danger me-1"></i> แจ้งซ่อม <span class="badge bg-danger-subtle text-danger ms-1">@maintCount</span>
+            </button>
+        </div>
+
+        <!-- Search Input -->
+        <div class="input-group input-group-sm" style="max-width: 320px;">
+            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+            <input type="text" id="machineSearchInput" class="form-control border-start-0 ps-0" placeholder="ค้นหาชื่อเครื่อง, สเปก, หรือผู้เช่า..." oninput="filterMachines()" />
+        </div>
+    </div>
+</div>
+
+<!-- Professional Machine Cards Grid -->
+<div class="row g-3" id="machineGrid">
     @foreach (var m in machines)
     {
         var activeBooking = activeRentals.FirstOrDefault(b => b.MachineId == m.MachineId);
-        var (borderCls, badgeCls, statusIcon, statusTh) = m.Status switch
+        string statusKey = (m.Status == "Rented" || m.Status == "ไม่ว่าง") ? "rented" 
+                         : (m.Status == "Maintenance" || m.Status == "PendingRepair") ? "maintenance" 
+                         : "available";
+
+        var (borderCls, badgeCls, statusIcon, statusTh) = statusKey switch
         {
-            "Rented"  or "ไม่ว่าง"  => ("border-warning", "bg-warning-subtle text-warning border-warning-subtle", "bi-lightning-charge-fill", "กำลังเช่า"),
-            "Maintenance"           => ("border-danger",  "bg-danger-subtle text-danger border-danger-subtle",   "bi-tools",                "แจ้งซ่อม"),
-            _                       => ("border-success", "bg-success-subtle text-success border-success-subtle","bi-check-circle-fill",    "ว่าง")
+            "rented"      => ("status-rented", "bg-warning-subtle text-warning-emphasis border-warning-subtle", "bi-lightning-charge-fill text-warning", "กำลังเช่า"),
+            "maintenance" => ("status-maintenance", "bg-danger-subtle text-danger border-danger-subtle", "bi-tools text-danger", "ปิดซ่อมบำรุง"),
+            _             => ("status-available", "bg-success-subtle text-success border-success-subtle", "bi-check-circle-fill text-success", "ว่าง (พร้อมใช้)")
         };
-        <div class="col-md-6 col-lg-4">
-            <div class="card-cloudpc bg-white p-3 border-start border-4 @borderCls">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                    <div>
-                        <div class="fw-bold text-dark" style="font-size:0.9rem;">@m.MachineName</div>
-                        <div class="text-muted" style="font-size:0.72rem;">@m.CPU | @m.RAM | @m.GPU</div>
+
+        var renterName = activeBooking?.User?.Username ?? "ลูกค้า";
+        var renterSearchText = activeBooking != null ? $"{renterName} #cpc-{activeBooking.BookingId}" : "";
+
+        <div class="col-md-6 col-lg-4 machine-col" data-status="@statusKey" data-search="@m.MachineName.ToLower() @m.CPU.ToLower() @m.RAM.ToLower() @m.GPU.ToLower() @renterSearchText.ToLower()">
+            <div class="machine-card-pro p-3.5 p-3 @borderCls shadow-xs">
+                <!-- Card Header -->
+                <div>
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="p-2 bg-light rounded-2 text-primary border shadow-2xs">
+                                <i class="bi bi-display fs-5"></i>
+                            </span>
+                            <div>
+                                <h6 class="fw-bold text-dark mb-0 font-monospace" style="font-size:0.92rem;">@m.MachineName</h6>
+                                <span class="badge bg-light text-muted border font-monospace" style="font-size:0.68rem;">PC-@m.MachineId.ToString("D3")</span>
+                            </div>
+                        </div>
+                        <span class="badge border @badgeCls px-2.5 py-1.5 fw-semibold" style="font-size:0.75rem;">
+                            <i class="bi @statusIcon me-1"></i>@statusTh
+                        </span>
                     </div>
-                    <span class="badge border @badgeCls ms-2" style="font-size:0.72rem; white-space:nowrap;">
-                        <i class="bi @statusIcon me-1"></i>@statusTh
-                    </span>
+
+                    <!-- Hardware Specs Grid -->
+                    <div class="row g-1.5 g-1 my-2">
+                        <div class="col-6">
+                            <div class="spec-chip" title="CPU: @m.CPU">
+                                <i class="bi bi-cpu text-primary me-1"></i>@m.CPU
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="spec-chip" title="RAM: @m.RAM">
+                                <i class="bi bi-memory text-info me-1"></i>@m.RAM
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="spec-chip" title="GPU: @m.GPU">
+                                <i class="bi bi-gpu-card text-danger me-1"></i>@m.GPU
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="spec-chip" title="Storage: 1TB NVMe High-Speed SSD">
+                                <i class="bi bi-hdd-network text-secondary me-1"></i>1TB NVMe SSD
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                @if (activeBooking != null)
-                {
-                    <div class="mt-2 p-2 rounded-2 bg-warning-subtle">
-                        <div class="small fw-semibold text-warning-emphasis">
-                            <i class="bi bi-person-fill me-1"></i>
-                            @(activeBooking.User?.Username ?? $"User #{activeBooking.UserId}")
+
+                <!-- Mid: Status Details / Renter Info -->
+                <div class="my-2.5 my-2">
+                    @if (statusKey == "rented" && activeBooking != null)
+                    {
+                        <div class="p-2.5 p-2 rounded-2 bg-warning-subtle border border-warning-subtle">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="small fw-bold text-warning-emphasis d-flex align-items-center gap-1">
+                                    <i class="bi bi-person-fill text-warning"></i> @renterName
+                                </span>
+                                <span class="badge bg-white text-dark border font-monospace" style="font-size:0.7rem;">
+                                    #CPC-@activeBooking.BookingId
+                                </span>
+                            </div>
+                            <div class="text-muted small d-flex justify-content-between" style="font-size:0.72rem;">
+                                <span><i class="bi bi-hourglass-split me-1"></i>ระยะเวลาเช่า @activeBooking.RentalHours ชม.</span>
+                                <span>฿@activeBooking.TotalAmount.ToString("N0")</span>
+                            </div>
                         </div>
-                        <div class="text-muted" style="font-size:0.72rem;">
-                            #CPC-@activeBooking.BookingId · ฿@activeBooking.TotalAmount.ToString("N2")
+                    }
+                    else if (statusKey == "maintenance")
+                    {
+                        <div class="p-2.5 p-2 rounded-2 bg-danger-subtle border border-danger-subtle">
+                            <div class="small fw-bold text-danger mb-1 d-flex align-items-center gap-1">
+                                <i class="bi bi-exclamation-triangle-fill"></i> แจ้งซ่อมบำรุง
+                            </div>
+                            <div class="text-danger-emphasis small" style="font-size:0.72rem;">
+                                @(!string.IsNullOrEmpty(m.RepairNote) ? m.RepairNote : "เครื่องขัดข้อง ช่างเทคนิคกำลังเข้าตรวจสอบระบบ")
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="p-2.5 p-2 rounded-2 bg-success-subtle border border-success-subtle d-flex align-items-center justify-content-between">
+                            <span class="small text-success fw-semibold">
+                                <i class="bi bi-check2-circle me-1"></i> สแตนด์บายพร้อมเชื่อมต่อ
+                            </span>
+                            <span class="badge bg-white text-success border border-success-subtle" style="font-size:0.68rem;">100% Ready</span>
+                        </div>
+                    }
+                </div>
+
+                <!-- Card Footer: Clean Price & Action -->
+                <div class="pt-2 border-top d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="text-muted small" style="font-size:0.72rem;">อัตราค่าเช่า</span>
+                        <div class="fw-bold text-dark" style="font-size:0.95rem;">
+                            @m.PricePerHour.ToString("N0") <small class="text-muted fw-normal" style="font-size:0.75rem;">บาท/ชม.</small>
                         </div>
                     </div>
-                }
-                <div class="mt-2 text-muted" style="font-size:0.72rem;">
-                    ราคา: <strong>@m.PricePerHour ฿/ชม.</strong>
+                    <div>
+                        @if (statusKey == "rented")
+                        {
+                            <span class="badge bg-light text-muted border px-2.5 py-1.5" style="font-size:0.72rem;">
+                                <i class="bi bi-activity text-warning me-1"></i>กำลังทำงาน
+                            </span>
+                        }
+                        else if (statusKey == "maintenance")
+                        {
+                            <span class="badge bg-light text-danger border px-2.5 py-1.5" style="font-size:0.72rem;">
+                                <i class="bi bi-cone-striped me-1"></i>ปิดบริการ
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1.5" style="font-size:0.72rem;">
+                                <i class="bi bi-shield-check me-1"></i>เปิดบริการ
+                            </span>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
     }
 </div>
+
+<!-- Empty Search Result Alert -->
+<div id="noMachinesFound" class="card-cloudpc bg-white p-5 text-center text-muted rounded-3 border d-none mt-3">
+    <i class="bi bi-search fs-1 d-block mb-2 text-secondary opacity-50"></i>
+    <h6 class="fw-bold text-dark">ไม่พบเครื่องคอมพิวเตอร์ที่ตรงกับเงื่อนไข</h6>
+    <div class="small">ลองค้นหาด้วยชื่อเครื่องอื่น เช่น "PRO 01", "RTX 4090" หรือกดล้างการค้นหา</div>
+    <div class="mt-3">
+        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="resetFilters()">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> ล้างการค้นหา
+        </button>
+    </div>
+</div>
+
+<script>
+    var currentFilter = 'all';
+
+    function updateTime() {
+        var now = new Date();
+        document.getElementById('monitorTime').textContent =
+            now.toLocaleTimeString('th-TH') + ' น.';
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    function filterByStatus(status, btn) {
+        currentFilter = status;
+        document.querySelectorAll('.filter-btn-pill').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        filterMachines();
+    }
+
+    function filterMachines() {
+        var q = (document.getElementById('machineSearchInput').value || '').toLowerCase().trim();
+        var cards = document.querySelectorAll('.machine-col');
+        var visibleCount = 0;
+
+        cards.forEach(function(col) {
+            var status = col.dataset.status;
+            var searchTxt = col.dataset.search || '';
+
+            var matchStatus = (currentFilter === 'all' || status === currentFilter);
+            var matchSearch = (!q || searchTxt.includes(q));
+
+            if (matchStatus && matchSearch) {
+                col.style.display = '';
+                visibleCount++;
+            } else {
+                col.style.display = 'none';
+            }
+        });
+
+        var noRes = document.getElementById('noMachinesFound');
+        if (noRes) {
+            if (visibleCount === 0) noRes.classList.remove('d-none');
+            else noRes.classList.add('d-none');
+        }
+    }
+
+    function resetFilters() {
+        document.getElementById('machineSearchInput').value = '';
+        currentFilter = 'all';
+        var firstBtn = document.querySelector('.filter-btn-pill');
+        if (firstBtn) filterByStatus('all', firstBtn);
+    }
+</script>

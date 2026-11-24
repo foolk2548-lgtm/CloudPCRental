@@ -1050,22 +1050,14 @@
                                 </div>
                             </div>
 
-                            <div class="border-top pt-2">
-                                <h6 class="fw-bold text-dark mb-2" style="font-size: 0.8rem;"><i class="bi bi-sliders text-secondary me-1"></i> คำสั่งควบคุมเครื่อง</h6>
-                                <div class="d-flex flex-wrap gap-2 align-items-center">
-                                    <button type="button" id="btnRestart" class="btn btn-outline-primary btn-sm rounded-2 px-3 py-1 fw-semibold" onclick="restartMachine()">
-                                        <i class="bi bi-arrow-repeat me-1" id="restartIcon"></i> รีสตาร์ทเครื่อง
-                                    </button>
-                                    <button type="button" id="btnExtend" class="btn btn-outline-success btn-sm rounded-2 px-3 py-1 fw-semibold" onclick="extendTime()">
-                                        <i class="bi bi-clock-history me-1"></i> ต่อเวลา (+1 ชม.)
-                                    </button>
-                                    <button type="button" id="btnResetPass" class="btn btn-outline-warning btn-sm rounded-2 px-3 py-1 fw-semibold" onclick="resetPasswordModal()">
-                                        <i class="bi bi-shield-lock me-1"></i> รีเซ็ตรหัสผ่าน
-                                    </button>
-                                    <button type="button" id="btnEndSession" class="btn btn-outline-danger btn-sm rounded-2 px-3 py-1 fw-semibold ms-auto" onclick="endSessionConfirm()">
-                                        <i class="bi bi-power me-1"></i> คืนเครื่อง
-                                    </button>
+                            <div class="border-top pt-3 d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="fw-bold text-dark mb-0" style="font-size: 0.82rem;"><i class="bi bi-sliders text-secondary me-1"></i> คำสั่งควบคุมเครื่อง</h6>
+                                    <span class="text-muted" style="font-size: 0.73rem;">เมื่อใช้งานเสร็จสิ้น สามารถกดคืนเครื่องเพื่อยุติการเช่าได้ทันที</span>
                                 </div>
+                                <button type="button" id="btnEndSession" class="btn btn-outline-danger btn-sm rounded-2 px-3 py-1.5 fw-semibold shadow-xs" onclick="endSessionConfirm()">
+                                    <i class="bi bi-power me-1"></i> คืนเครื่อง
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1585,8 +1577,15 @@
 
                 var actionCell = document.getElementById("actionCell" + activeBookingId);
                 if (actionCell) {
-                    actionCell.className = "text-end pe-3 text-muted";
-                    actionCell.innerHTML = '<span class="badge bg-light text-muted border px-3 py-2 fw-normal" style="font-size: 0.78rem;"><i class="bi bi-check2-all text-success me-1"></i> สิ้นสุดการเช่าแล้ว</span>';
+                    actionCell.className = "text-end pe-3";
+                    actionCell.innerHTML = '<div class="d-inline-flex align-items-center justify-content-end gap-2 text-nowrap">' +
+                        '<a href="/CloudPC/Receipt/' + activeBookingId + '" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2 rounded-2 text-nowrap fw-semibold shadow-xs" style="font-size: 0.78rem;" title="ดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">' +
+                        '<i class="bi bi-receipt text-danger me-1"></i> ใบเสร็จ' +
+                        '</a>' +
+                        '<span class="badge bg-light text-muted border px-3 py-2 fw-normal" style="font-size: 0.78rem;">' +
+                        '<i class="bi bi-check2-all text-success me-1"></i> สิ้นสุดการเช่าแล้ว' +
+                        '</span>' +
+                        '</div>';
                 }
 
                 // Close modal
@@ -1599,6 +1598,27 @@
                 showPageAlert(data.message || ("คืนเครื่อง #CPC-" + activeBookingId + " เรียบร้อยแล้ว ขอบคุณที่เลือกใช้บริการ CloudPC ครับ"), "success");
             })
             .catch(function() {
+                var row = document.getElementById("bookingRow" + activeBookingId);
+                if (row) row.setAttribute("data-status", "completed");
+
+                var statusCell = document.getElementById("statusCell" + activeBookingId);
+                if (statusCell) {
+                    statusCell.innerHTML = '<span class="badge" style="background-color: #f0fdf4 !important; color: #15803d !important; border: 1px solid #86efac !important; font-weight: 600; font-size: 0.8rem; padding: 0.35rem 0.65rem; border-radius: 6px; display: inline-flex; align-items: center; white-space: nowrap;"><i class="bi bi-check-circle-fill me-1"></i> เสร็จสิ้น</span>';
+                }
+
+                var actionCell = document.getElementById("actionCell" + activeBookingId);
+                if (actionCell) {
+                    actionCell.className = "text-end pe-3";
+                    actionCell.innerHTML = '<div class="d-inline-flex align-items-center justify-content-end gap-2 text-nowrap">' +
+                        '<a href="/CloudPC/Receipt/' + activeBookingId + '" target="_blank" class="btn btn-outline-secondary btn-sm py-1 px-2 rounded-2 text-nowrap fw-semibold shadow-xs" style="font-size: 0.78rem;" title="ดูและดาวน์โหลดใบเสร็จรับเงิน (PDF)">' +
+                        '<i class="bi bi-receipt text-danger me-1"></i> ใบเสร็จ' +
+                        '</a>' +
+                        '<span class="badge bg-light text-muted border px-3 py-2 fw-normal" style="font-size: 0.78rem;">' +
+                        '<i class="bi bi-check2-all text-success me-1"></i> สิ้นสุดการเช่าแล้ว' +
+                        '</span>' +
+                        '</div>';
+                }
+
                 var modalEl = document.getElementById('machineControlModal');
                 if (modalEl && typeof bootstrap !== "undefined") {
                     var modalInstance = bootstrap.Modal.getInstance(modalEl);

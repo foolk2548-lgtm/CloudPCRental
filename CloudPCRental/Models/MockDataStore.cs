@@ -252,11 +252,12 @@ namespace CloudPCRental.Models
                                 var pStart = ParseBookingStartTime(datePart, timePart);
                                 var pEnd = ParseBookingEndTime(datePart, timePart);
                                 if (pStart.HasValue) b.StartTime = pStart.Value;
-                                if (pEnd.HasValue) b.EndTime = pEnd.Value;
+                                if (pEnd.HasValue && b.PaymentStatus != "Completed") b.EndTime = pEnd.Value;
                             }
 
                             // ตรวจสอบและอัปเดตสถานะตามเวลาจริงอย่างเคร่งครัด
-                            if (b.MachineId > 0 && b.PaymentStatus != "Pending" && b.PaymentStatus != "Rejected" &&
+                            if (b.MachineId > 0 && b.PaymentStatus != "Completed" &&
+                                b.PaymentStatus != "Pending" && b.PaymentStatus != "Rejected" &&
                                 b.PaymentStatus != "RefundRequested" && b.PaymentStatus != "RefundRejected" &&
                                 b.PaymentStatus != "Refunded")
                             {
@@ -1385,34 +1386,19 @@ namespace CloudPCRental.Models
 
         public static TimeSpan? ExtractStartHourFromRange(string? timeRange)
         {
-            // "08:00 - 10:00" หรือ "08:00 - 10:00|..."
-            var clean = (timeRange ?? "").Split('|')[0].Split(';')[0].Trim();
-            var dash = clean.IndexOf(" - ");
-            if (dash < 0) dash = clean.IndexOf("-");
-            if (dash < 0) return null;
-            var startStr = clean.Substring(0, dash).Trim();
-            if (startStr.Contains("น.")) startStr = startStr.Replace("น.", "").Trim();
-            if (TimeSpan.TryParse(startStr, out var ts)) return ts;
+            if (string.IsNullOrWhiteSpace(timeRange)) return null;
+            var matches = System.Text.RegularExpressions.Regex.Matches(timeRange, @"\b(\d{1,2}):(\d{2})\b");
+            if (matches.Count > 0 && TimeSpan.TryParse(matches[0].Value, out var ts))
+                return ts;
             return null;
         }
 
         public static TimeSpan? ExtractEndHourFromRange(string? timeRange)
         {
-            // ดึง slot สุดท้ายแล้วอ่าน end time
-            var slots = (timeRange ?? "").Split(new[]{'|',';'}, StringSplitOptions.RemoveEmptyEntries);
-            var lastSlot = slots.Length > 0 ? slots[slots.Length - 1].Trim() : (timeRange ?? "").Trim();
-            var dash = lastSlot.IndexOf(" - ");
-            int offset = 3;
-            if (dash < 0)
-            {
-                dash = lastSlot.IndexOf("-");
-                offset = 1;
-            }
-            if (dash < 0) return null;
-            var endStr = lastSlot.Substring(dash + offset).Trim();
-            if (endStr.Contains("(")) endStr = endStr.Substring(0, endStr.IndexOf("(")).Trim();
-            if (endStr.Contains("น.")) endStr = endStr.Replace("น.", "").Trim();
-            if (TimeSpan.TryParse(endStr, out var ts)) return ts;
+            if (string.IsNullOrWhiteSpace(timeRange)) return null;
+            var matches = System.Text.RegularExpressions.Regex.Matches(timeRange, @"\b(\d{1,2}):(\d{2})\b");
+            if (matches.Count > 1 && TimeSpan.TryParse(matches[matches.Count - 1].Value, out var ts))
+                return ts;
             return null;
         }
 
@@ -1437,26 +1423,13 @@ namespace CloudPCRental.Models
                 if (result.Any()) return result;
             }
 
-            // 2. ล้างข้อมูลส่วนเกิน เช่น วงเล็บ (14 ชม.) หรือ วันที่ที่คั่นด้วย comma
-            string clean = timeRange;
-            if (clean.Contains("(")) clean = clean.Substring(0, clean.IndexOf("(")).Trim();
-            if (clean.Contains(","))
+            // 2. ดึงเวลาเริ่มและสิ้นสุดด้วย Regex เพื่อความแม่นยำ 100%
+            var matches = System.Text.RegularExpressions.Regex.Matches(timeRange, @"\b(\d{1,2}):(\d{2})\b");
+            if (matches.Count >= 2)
             {
-                var commaParts = clean.Split(',');
-                clean = commaParts[commaParts.Length - 1].Trim();
-            }
-
-            // 3. แยกช่วงเวลาเริ่มและสิ้นสุด เช่น "08:00 - 00:00" หรือ "08:00 - 12:00"
-            var parts = clean.Split(new[] { '-', '–' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length == 2)
-            {
-                var s1 = parts[0].Trim().Replace("น.", "");
-                var s2 = parts[1].Trim().Replace("น.", "");
-
-                if (TimeSpan.TryParse(s1, out var t1) && TimeSpan.TryParse(s2, out var t2))
+                if (TimeSpan.TryParse(matches[0].Value, out var t1) && TimeSpan.TryParse(matches[matches.Count - 1].Value, out var t2))
                 {
-                    // กรณีสิ้นสุดที่เที่ยงคืน 00:00 หรือ 24:00 หรือเวลาสิ้นสุด <= เวลาเริ่มต้น (สิ้นสุดวัน 24 ชั่วโมง)
-                    if (s2 == "00:00" || s2 == "24:00" || t2 <= t1)
+                    if (matches[matches.Count - 1].Value == "00:00" || t2 <= t1)
                     {
                         t2 = TimeSpan.FromHours(24);
                     }

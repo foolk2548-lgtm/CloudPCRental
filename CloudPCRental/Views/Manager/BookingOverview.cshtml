@@ -2,62 +2,74 @@
     Layout = "_AdminLayout";
     ViewData["Title"] = "ภาพรวมการจอง";
     var allBookings  = ViewBag.AllBookings  as List<CloudPCRental.Models.Booking> ?? new();
-    var pending      = ViewBag.PendingBookings as List<CloudPCRental.Models.Booking> ?? new();
     var approved     = ViewBag.ApprovedBookings as List<CloudPCRental.Models.Booking> ?? new();
-    var refunds      = ViewBag.RefundRequests as List<CloudPCRental.Models.Booking> ?? new();
+    int todayCount   = ViewBag.TodayBookings ?? 0;
+    int totalHours   = ViewBag.TotalRentalHours ?? 0;
 }
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
-        <div class="text-muted small">ติดตามและตรวจสอบสถานะการจองทั้งระบบ</div>
-        <h3 class="fw-bold text-dark mb-0">ภาพรวมการจอง</h3>
+        <div class="text-muted small">ติดตามคิวและประวัติการใช้บริการเครื่อง Cloud PC ของลูกค้า</div>
+        <h3 class="fw-bold text-dark mb-0">ภาพรวมการจองเครื่อง</h3>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a asp-action="MachineStatus" class="btn btn-outline-primary btn-sm rounded-2 fw-semibold px-3">
+            <i class="bi bi-pc-display me-1"></i> ดูสถานะเครื่องสด
+        </a>
     </div>
 </div>
 
-<!-- Summary Cards -->
+<!-- Operations Summary Cards -->
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
-        <div class="card-cloudpc bg-white p-3 text-center">
+        <div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs text-center h-100">
             <div class="fs-2 fw-bold text-primary">@allBookings.Count</div>
-            <div class="small text-muted">จองทั้งหมด</div>
+            <div class="small text-muted fw-semibold">รายการจองทั้งหมด</div>
+            <div class="text-muted small mt-1" style="font-size:0.75rem;">ตั้งแต่เริ่มเปิดระบบ</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card-cloudpc bg-white p-3 text-center">
+        <div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs text-center h-100">
             <div class="fs-2 fw-bold text-success">@approved.Count</div>
-            <div class="small text-muted">อนุมัติแล้ว</div>
+            <div class="small text-muted fw-semibold">เข้าใช้งานแล้ว / อนุมัติ</div>
+            <div class="text-success small mt-1" style="font-size:0.75rem;"><i class="bi bi-check-circle-fill me-1"></i>พร้อมใช้งานสมบูรณ์</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card-cloudpc bg-white p-3 text-center">
-            <div class="fs-2 fw-bold text-warning">@pending.Count</div>
-            <div class="small text-muted">รอตรวจสอบ</div>
+        <div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs text-center h-100">
+            <div class="fs-2 fw-bold text-info">@todayCount</div>
+            <div class="small text-muted fw-semibold">การจองในวันนี้</div>
+            <div class="text-muted small mt-1" style="font-size:0.75rem;">รอบการใช้งานรอบปัจจุบัน</div>
         </div>
     </div>
     <div class="col-6 col-md-3">
-        <div class="card-cloudpc bg-white p-3 text-center">
-            <div class="fs-2 fw-bold text-info">@refunds.Count</div>
-            <div class="small text-muted">ขอคืนเงิน</div>
+        <div class="card-cloudpc bg-white p-3 rounded-3 border shadow-xs text-center h-100">
+            <div class="fs-2 fw-bold text-warning">@totalHours</div>
+            <div class="small text-muted fw-semibold">ชั่วโมงเช่าสะสมรวม</div>
+            <div class="text-muted small mt-1" style="font-size:0.75rem;">ชั่วโมงบริการทั้งหมด</div>
         </div>
     </div>
 </div>
 
 <!-- Booking Table -->
-<div class="card-cloudpc bg-white p-4">
+<div class="card-cloudpc bg-white p-4 rounded-3 border shadow-xs">
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-task text-primary me-1"></i>รายการจองทั้งหมด @allBookings.Count รายการ</h6>
-        <input type="text" class="form-control form-control-sm rounded-2" style="width:220px;" placeholder="ค้นหาเลขที่จอง, ชื่อ..." oninput="filterTable(this.value)" />
+        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-list-task text-primary me-2"></i>ประวัติการจองทั้งหมด (@allBookings.Count รายการ)</h6>
+        <div class="input-group input-group-sm" style="max-width: 260px;">
+            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+            <input type="text" class="form-control border-start-0 ps-0" placeholder="ค้นหาเลขที่จอง, ผู้เช่า, เครื่อง..." oninput="filterTable(this.value)" />
+        </div>
     </div>
     <div class="table-responsive">
-        <table class="table table-sm align-middle" id="bookingTable">
+        <table class="table table-hover table-sm align-middle" id="bookingTable">
             <thead class="table-light">
                 <tr>
-                    <th class="ps-2">เลขที่จอง</th>
-                    <th>ลูกค้า</th>
-                    <th>เครื่อง</th>
-                    <th>วันที่จอง</th>
-                    <th>ยอด (฿)</th>
-                    <th>สถานะ</th>
+                    <th class="ps-3 py-2 text-muted fw-semibold" style="font-size:0.78rem;">เลขที่จอง</th>
+                    <th class="py-2 text-muted fw-semibold" style="font-size:0.78rem;">ผู้เช่า / บัญชีลูกค้า</th>
+                    <th class="py-2 text-muted fw-semibold" style="font-size:0.78rem;">เครื่องคอมพิวเตอร์</th>
+                    <th class="py-2 text-muted fw-semibold" style="font-size:0.78rem;">วันเวลาที่ทำรายการ</th>
+                    <th class="py-2 text-muted fw-semibold text-center" style="font-size:0.78rem;">ระยะเวลาเช่า</th>
+                    <th class="text-end pe-3 py-2 text-muted fw-semibold" style="font-size:0.78rem;">สถานะการจอง</th>
                 </tr>
             </thead>
             <tbody>
@@ -65,9 +77,12 @@
                 {
                     var (cls, label) = b.PaymentStatus switch
                     {
+                        "InUse"              => ("bg-success-subtle text-success border-success-subtle", "⚡ กำลังใช้งาน"),
                         "Approved"           => ("bg-success-subtle text-success border-success-subtle", "อนุมัติแล้ว"),
                         "จอง (พร้อมใช้งาน)" => ("bg-success-subtle text-success border-success-subtle", "จองแล้ว"),
-                        "Pending"            => ("bg-warning-subtle text-warning border-warning-subtle", "รอตรวจสอบ"),
+                        "Booked"             => ("bg-primary-subtle text-primary border-primary-subtle", "🗓️ จองล่วงหน้า"),
+                        "Completed"          => ("bg-light text-muted border", "เสร็จสิ้น"),
+                        "Pending"            => ("bg-warning-subtle text-warning border-warning-subtle", "รอตรวจสอบสลิป"),
                         "Rejected"           => ("bg-danger-subtle text-danger border-danger-subtle", "ปฏิเสธ"),
                         "RefundRequested"    => ("bg-warning-subtle text-warning border-warning-subtle", "ขอคืนเงิน"),
                         "Refunded"           => ("bg-info-subtle text-info border-info-subtle", "คืนเงินแล้ว"),
@@ -75,12 +90,23 @@
                         _                    => ("bg-secondary-subtle text-secondary border-secondary-subtle", b.PaymentStatus)
                     };
                     <tr class="booking-row">
-                        <td class="ps-2 fw-semibold text-primary" style="font-size:0.82rem;">#CPC-@b.BookingId</td>
-                        <td style="font-size:0.82rem;">@(b.User?.Username ?? $"User #{b.UserId}")</td>
-                        <td style="font-size:0.82rem;">@(b.Machine?.MachineName ?? $"Machine #{b.MachineId}")</td>
-                        <td style="font-size:0.8rem;" class="text-muted">@b.PaymentDate.ToString("dd/MM/yy HH:mm")</td>
-                        <td style="font-size:0.82rem;" class="fw-semibold">@b.TotalAmount.ToString("N2")</td>
-                        <td><span class="badge border @cls" style="font-size:0.72rem;">@label</span></td>
+                        <td class="ps-3 fw-bold text-primary font-monospace" style="font-size:0.82rem;">#CPC-@b.BookingId</td>
+                        <td style="font-size:0.82rem;">
+                            <div class="fw-semibold text-dark">@(b.User?.Username ?? $"User #{b.UserId}")</div>
+                            <div class="text-muted" style="font-size:0.7rem;">@(b.User?.Email ?? "")</div>
+                        </td>
+                        <td style="font-size:0.82rem;">
+                            <span class="fw-semibold text-dark">@(b.Machine?.MachineName ?? $"เครื่อง PC-{b.MachineId:D3}")</span>
+                        </td>
+                        <td style="font-size:0.78rem;" class="text-muted">
+                            @b.PaymentDate.ToString("dd/MM/yyyy HH:mm")
+                        </td>
+                        <td class="text-center" style="font-size:0.82rem;">
+                            <span class="badge bg-light text-dark border">@b.RentalHours ชม.</span>
+                        </td>
+                        <td class="text-end pe-3">
+                            <span class="badge border @cls px-2 py-1" style="font-size:0.72rem;">@label</span>
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -90,7 +116,7 @@
 
 <script>
     function filterTable(q) {
-        q = q.toLowerCase();
+        q = q.toLowerCase().trim();
         document.querySelectorAll('.booking-row').forEach(function(row) {
             row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
         });

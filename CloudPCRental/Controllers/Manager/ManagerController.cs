@@ -87,32 +87,28 @@ namespace CloudPCRental.Controllers
             var users     = await GetAllUsersAsync();
             var now       = DateTime.Now;
 
-            // สถิติหลัก
-            ViewBag.TotalMachines      = machines.Count;
-            ViewBag.AvailableMachines  = machines.Count(m => m.Status == "Available" || m.Status == "ว่าง");
-            ViewBag.RentedMachines     = machines.Count(m => m.Status == "Rented"    || m.Status == "ไม่ว่าง");
-            ViewBag.MaintenanceMachines= machines.Count(m => m.Status == "Maintenance");
-            ViewBag.TotalUsers         = users.Count(u => u.Role == "User");
-            ViewBag.TotalBookings      = bookings.Count;
+            // สถิติการดำเนินงานหลัก (Operations Metrics)
+            int totalM = machines.Count;
+            int availableM = machines.Count(m => m.Status == "Available" || m.Status == "ว่าง");
+            int rentedM = machines.Count(m => m.Status == "Rented" || m.Status == "ไม่ว่าง");
+            int maintM = machines.Count(m => m.Status == "Maintenance" || m.Status == "PendingRepair");
 
-            // การจองวันนี้
-            ViewBag.TodayBookings = bookings.Count(b => b.PaymentDate.Date == now.Date);
+            ViewBag.TotalMachines       = totalM;
+            ViewBag.AvailableMachines   = availableM;
+            ViewBag.RentedMachines      = rentedM;
+            ViewBag.MaintenanceMachines = maintM;
+            ViewBag.UtilizationRate     = totalM > 0 ? (int)Math.Round((double)rentedM * 100.0 / totalM) : 0;
 
-            // รายรับรวม (Approved เท่านั้น)
-            var approvedBookings = bookings.Where(b => b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)").ToList();
-            ViewBag.TotalRevenue = approvedBookings.Sum(b => b.TotalAmount);
+            ViewBag.TotalUsers          = users.Count(u => u.Role == "User");
+            ViewBag.TotalBookings       = bookings.Count;
+            ViewBag.TodayBookings       = bookings.Count(b => b.PaymentDate.Date == now.Date);
+            ViewBag.TotalRentalHours    = bookings.Where(b => b.PaymentStatus != "Refunded" && b.PaymentStatus != "Rejected").Sum(b => b.RentalHours);
 
             // 5 การจองล่าสุด
-            ViewBag.RecentBookings = bookings.Take(5).ToList();
+            ViewBag.RecentBookings      = bookings.Take(5).ToList();
 
-            // สถานะเครื่องสรุป
-            ViewBag.Machines = machines.OrderBy(m => m.MachineId).ToList();
-
-            // การจองที่รอตรวจสอบ (Pending)
-            ViewBag.PendingCount = bookings.Count(b => b.PaymentStatus == "Pending");
-
-            // แจ้งซ่อมที่ค้าง
-            ViewBag.MaintenanceCount = machines.Count(m => m.Status == "Maintenance");
+            // รายการเครื่อง
+            ViewBag.Machines            = machines.OrderBy(m => m.MachineId).ToList();
 
             var managerName = HttpContext.Session.GetString("FullName") ?? HttpContext.Session.GetString("Username") ?? "ผู้จัดการ";
             ViewBag.ManagerName = managerName;
@@ -131,13 +127,11 @@ namespace CloudPCRental.Controllers
             var bookings = await GetAllBookingsAsync();
             var now = DateTime.Now;
 
-            // กลุ่มสถานะ
+            // กลุ่มสถานะการจอง
             ViewBag.AllBookings        = bookings.OrderByDescending(b => b.BookingId).ToList();
-            ViewBag.PendingBookings    = bookings.Where(b => b.PaymentStatus == "Pending").ToList();
-            ViewBag.ApprovedBookings   = bookings.Where(b => b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)").ToList();
-            ViewBag.RefundRequests     = bookings.Where(b => b.PaymentStatus == "RefundRequested").ToList();
-            ViewBag.TotalRevenue       = bookings.Where(b => b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)").Sum(b => b.TotalAmount);
+            ViewBag.ApprovedBookings   = bookings.Where(b => b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)" || b.PaymentStatus == "InUse").ToList();
             ViewBag.TodayBookings      = bookings.Count(b => b.PaymentDate.Date == now.Date);
+            ViewBag.TotalRentalHours   = bookings.Where(b => b.PaymentStatus != "Refunded" && b.PaymentStatus != "Rejected").Sum(b => b.RentalHours);
 
             return View();
         }
@@ -153,53 +147,30 @@ namespace CloudPCRental.Controllers
             var machines = await GetAllMachinesAsync();
             var bookings = await GetAllBookingsAsync();
 
-            ViewBag.Machines     = machines.OrderBy(m => m.MachineId).ToList();
-            ViewBag.ActiveRentals = bookings.Where(b => b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)").ToList();
-            ViewBag.Available    = machines.Count(m => m.Status == "Available" || m.Status == "ว่าง");
-            ViewBag.Rented       = machines.Count(m => m.Status == "Rented"    || m.Status == "ไม่ว่าง");
-            ViewBag.Maintenance  = machines.Count(m => m.Status == "Maintenance");
+            int totalM = machines.Count;
+            int availableM = machines.Count(m => m.Status == "Available" || m.Status == "ว่าง");
+            int rentedM = machines.Count(m => m.Status == "Rented" || m.Status == "ไม่ว่าง");
+            int maintM = machines.Count(m => m.Status == "Maintenance" || m.Status == "PendingRepair");
+
+            ViewBag.Machines        = machines.OrderBy(m => m.MachineId).ToList();
+            ViewBag.ActiveRentals   = bookings.Where(b => b.PaymentStatus == "InUse" || b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)").ToList();
+            ViewBag.Total           = totalM;
+            ViewBag.Available       = availableM;
+            ViewBag.Rented          = rentedM;
+            ViewBag.Maintenance     = maintM;
+            ViewBag.UtilizationRate = totalM > 0 ? (int)Math.Round((double)rentedM * 100.0 / totalM) : 0;
 
             return View();
         }
 
         // ========================================
-        // รายงานรายรับ (Revenue Report)
+        // รายงานรายรับ: การเงินถูกย้ายไปให้ฝ่ายบัญชี (Accountant) ดูแลโดยตรง
         // ========================================
         [HttpGet]
-        public async Task<IActionResult> RevenueReport()
+        public IActionResult RevenueReport()
         {
-            if (!IsManager()) return RequireManager();
-
-            var bookings = await GetAllBookingsAsync();
-            var approved = bookings.Where(b => b.PaymentStatus == "Approved" || b.PaymentStatus == "จอง (พร้อมใช้งาน)").ToList();
-
-            ViewBag.TotalRevenue      = approved.Sum(b => b.TotalAmount);
-            ViewBag.TotalTransactions = approved.Count;
-            ViewBag.AvgPerBooking     = approved.Any() ? approved.Average(b => b.TotalAmount) : 0;
-
-            // รายรับรายวัน 7 วันล่าสุด
-            var last7 = Enumerable.Range(0, 7)
-                .Select(i => DateTime.Today.AddDays(-i))
-                .Select(d => new {
-                    Date    = d.ToString("dd/MM"),
-                    Revenue = approved.Where(b => b.PaymentDate.Date == d).Sum(b => b.TotalAmount)
-                })
-                .Reverse()
-                .ToList();
-            ViewBag.DailyRevenue = last7;
-
-            // Top 5 เครื่องที่ทำรายได้สูงสุด
-            var topMachines = approved
-                .GroupBy(b => b.Machine?.MachineName ?? $"Machine #{b.MachineId}")
-                .Select(g => new { Name = g.Key, Revenue = g.Sum(b => b.TotalAmount), Count = g.Count() })
-                .OrderByDescending(x => x.Revenue)
-                .Take(5)
-                .ToList();
-            ViewBag.TopMachines = topMachines;
-
-            ViewBag.RecentApproved = approved.OrderByDescending(b => b.BookingId).Take(10).ToList();
-
-            return View();
+            // หน้าที่ด้านการเงินและรายงานรายรับอยู่ในความรับผิดชอบของฝ่ายบัญชี
+            return RedirectToAction("Dashboard");
         }
     }
 }

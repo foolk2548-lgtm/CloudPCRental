@@ -524,7 +524,7 @@ namespace CloudPCRental.Controllers
                     var parsedStart = MockDataStore.ParseBookingStartTime(datePart, timePart);
                     var parsedEnd = MockDataStore.ParseBookingEndTime(datePart, timePart);
                     if (parsedStart.HasValue) b.StartTime = parsedStart.Value;
-                    if (parsedEnd.HasValue) b.EndTime = parsedEnd.Value;
+                    if (parsedEnd.HasValue && b.PaymentStatus != "Completed") b.EndTime = parsedEnd.Value;
                 }
                 else if (b.StartTime.HasValue && !b.EndTime.HasValue)
                 {
@@ -535,6 +535,10 @@ namespace CloudPCRental.Controllers
                 if (b.MachineId == 0 || (b.Note != null && (b.Note.Contains("Wallet") || b.Note.Contains("เติมเงิน"))))
                 {
                     b.PaymentStatus = "Completed";
+                }
+                else if (b.PaymentStatus == "Completed")
+                {
+                    // หากผู้ใช้กดคืนเครื่องแล้ว หรือการเช่าเสร็จสิ้นแล้ว ให้คงสถานะ Completed ไว้เสมอ ไม่เปลี่ยนกลับเป็น InUse
                 }
                 else if (b.PaymentStatus != "Pending" && b.PaymentStatus != "Rejected" && 
                          b.PaymentStatus != "RefundRequested" && b.PaymentStatus != "RefundRejected" && 
